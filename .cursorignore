@@ -1,0 +1,80 @@
+Previne que arquivos pesados, gerados ou irrelevantes consumam o limite de tokens de contexto do Cursor AI.
+
+# ==========================================
+# 1. Dependências e Gerenciadores de Pacotes
+# ==========================================
+node_modules/
+.pnpm-store/
+.yarn/
+# Lockfiles são gigantescos e consomem milhares de tokens sem agregar valor para geração de código
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# ==========================================
+# 2. Artefatos de Build e Compilação
+# ==========================================
+dist/
+build/
+out/
+*.js.map
+*.d.ts.map
+# Meta-snapshots do Drizzle ORM (mantenha os arquivos .sql de migração se quiser contexto, ignore metadados JSON)
+.drizzle/meta/
+
+# ==========================================
+# 3. Logs, Caches e Arquivos Temporários
+# ==========================================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.tmp/
+.temp/
+tmp/
+.cache/
+.eslintcache
+.tsbuildinfo
+
+# ==========================================
+# 4. Relatórios de Testes e Cobertura
+# ==========================================
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# ==========================================
+# 5. Mídias, Binários e Documentos Pesados
+# ==========================================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.pdf
+*.zip
+*.tar.gz
+*.mp4
+
+# ==========================================
+# 6. Banco de Dados Local e Volumes Docker
+# ==========================================
+postgres_data/
+*.sqlite
+*.db
+
+# ==========================================
+# 7. Variáveis de Ambiente e IDEs
+# ==========================================
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.git/

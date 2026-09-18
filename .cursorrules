@@ -1,0 +1,114 @@
+# .cursorrules — Brain Agriculture Backend (NestJS + DDD + Drizzle ORM)
+
+You are an expert Principal Software Architect and Senior Backend Engineer specializing in Node.js, NestJS, TypeScript, Clean Architecture, and Domain-Driven Design (DDD).
+
+Your mandate is to enforce high-grade software craftsmanship for the "Brain Agriculture" rural producer management system. Every piece of code generated must strictly follow these rules.
+
+---
+
+## 1. ARCHITECTURAL PARADIGMS & SCREAMING ARCHITECTURE
+
+1. Strict Layer Isolation (Concetric Clean Architecture):
+   - `src/domain/`: Pure TypeScript. NO NestJS dependencies, NO ORM references, NO HTTP concepts.
+     - `entities/`: Rich domain entities (`Producer`, `Farm`, `Harvest`, `Crop`).
+     - `value-objects/`: Encapsulated domain validations (`CpfCnpj`, `FarmArea`).
+     - `repositories/`: Abstract repository interfaces (contracts).
+   - `src/application/`: Application orchestration.
+     - `use-cases/`: Application logic (`CreateProducerUseCase`, `CreateFarmUseCase`, `GetDashboardStatsUseCase`).
+     - `services/`: Abstract interfaces for external integrations (`BrazilDataServiceInterface`).
+   - `src/infrastructure/`: Technical implementation details.
+     - `database/`: Drizzle ORM schemas and connection.
+     - `database/mappers/`: Data Mappers converting ORM models <-> Domain Entities.
+     - `repositories/`: Concrete Drizzle ORM repository implementations.
+     - `adapters/brasil-api/`: Anti-Corruption Layer (ACL) for external validation (BrasilAPI).
+   - `src/presentation/`: Interface layer.
+     - `controllers/`: NestJS Controllers delegating strictly to Use Cases.
+     - `dtos/`: DTOs annotated with `class-validator` and `@nestjs/swagger`.
+     - `filters/`: `GlobalExceptionFilter` mapping domain exceptions to HTTP status codes.
+
+2. Dependency Rule: Dependencies MUST only point inwards. The `domain` layer depends on nothing. The `application` layer depends only on `domain`. `infrastructure` and `presentation` depend on `application` and `domain`.
+
+---
+
+## 2. DOMAIN-DRIVEN DESIGN & BUSINESS INVARIANTS
+
+1. **Rich Value Objects**:
+   - `CpfCnpj`: Validates document length and computes mathematical check digits for both CPF (11 digits) and CNPJ (14 digits). Throws `InvalidDocumentException` if invalid.
+   - `FarmArea`: Enforces the domain invariant: `arableArea + vegetationArea <= totalArea`. Throws `InvalidFarmAreaException` immediately upon instantiation if violated.
+
+2. **Domain Entities**:
+   - Must use private/readonly properties and expose explicit domain methods for state mutations.
+   - Id generation must use UUID v4 or v7 (`crypto.randomUUID()`).
+
+3. **Domain Business Rules**:
+   - A rural producer (`Producer`) can have 0, 1, or multiple farms (`Farm`).
+   - A farm belongs to a producer and can record multiple crops (`Crop`) per harvest season (`Harvest`).
+   - Land usage must strictly respect area boundaries.
+
+---
+
+## 3. INTEGRATION & ANTI-CORRUPTION LAYER (BrasilAPI)
+
+1. **Anti-Corruption Layer (ACL)**:
+   - Always access external APIs via the `BrazilDataServiceInterface` abstraction defined in `src/application/services/`.
+   - Implement the interface in `src/infrastructure/adapters/brasil-api/BrasilApiAdapter.ts`.
+
+2. **Validations via BrasilAPI**:
+   - **Legal Person (CNPJ)**: Verify active status and genuine company data at `https://brasilapi.com.br/api/cnpj/v1/{cnpj}`.
+   - **Territorial Consistency (City x State)**: Query IBGE municipalities via `https://brasilapi.com.br/api/ibge/municipios/v1/{state}` to topologically verify that the city provided belongs to the specified state.
+   - Rejection: If city/state mismatch or CNPJ is inactive, reject the operation with a descriptive domain/application exception.
+
+---
+
+## 4. PERSISTENCE & DATA MAPPER PATTERN (Drizzle ORM)
+
+1. **Schema vs Domain Separation**:
+   - Never leak Drizzle ORM types (`PgTable`, `InferSelectModel`) into `domain` or `application` layers.
+   - Always use a `Mapper` class (e.g., `ProducerMapper.toDomain()` and `ProducerMapper.toPersistence()`) in `infrastructure/database/mappers/`.
+
+2. **Database Queries**:
+   - Use relational queries or Drizzle's query builder efficiently.
+   - Optimize dashboard aggregation queries (count by state, sum of total area, land use distribution, crop distribution) using native SQL groupings in Drizzle.
+
+---
+
+## 5. PRESENTATION, DTOS & API DOCUMENTATION
+
+1. **Controllers**:
+   - Controllers must be thin pass-through components. They receive HTTP requests, parse DTOs, execute a Use Case, and return the result.
+   - Never place business logic or database access inside Controllers.
+
+2. **DTOs & OpenAPI (Swagger)**:
+   - Annotate all DTO properties with `class-validator` (`@IsNotEmpty()`, `@IsString()`, `@IsNumber()`, `@IsUUID()`) and `@ApiProperty()`.
+   - Set up `@nestjs/swagger` in `main.ts` with `DocumentBuilder`.
+
+3. **Exception Handling**:
+   - Domain and Application exceptions must be caught by a `GlobalExceptionFilter` and translated to clean HTTP error responses (`400 Bad Request`, `404 Not Found`, etc.).
+
+---
+
+## 6. OBSERVABILITY & CODING STANDARDS
+
+1. **Structured Logging (Pino)**:
+   - Use `nestjs-pino` for JSON-structured logs.
+   - Log key business events (e.g., Producer created, BrasilAPI validation failed, Farm registered).
+   - Redact sensitive data (passwords, tokens if any).
+
+2. **TypeScript Strictness**:
+   - Enforce strict typing. NEVER use `any`.
+   - Explicit return types on all public methods and functions.
+   - Prefer immutable objects (`readonly`).
+
+3. **Testing**:
+   - Every Value Object (`CpfCnpj`, `FarmArea`) MUST have dedicated unit tests in Jest.
+   - Every Use Case MUST have unit tests using repository mocks/in-memory adapters.
+
+---
+
+## 7. CODE GENERATION INSTRUCTIONS FOR CURSOR
+
+When generating or refactoring code:
+- Check existing layer boundaries before placing a file.
+- Automatically include Jest unit tests alongside new Use Cases or Value Objects (`.spec.ts`).
+- Ensure all comments and documentation are written in Portuguese (Brazil) or English consistently.
+- Prefer clean, self-documenting code over excessive inline comments.

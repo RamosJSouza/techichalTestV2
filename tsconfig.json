@@ -16,6 +16,9 @@
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
     "strictPropertyInitialization": false,
     "types": ["jest", "node"]
   }

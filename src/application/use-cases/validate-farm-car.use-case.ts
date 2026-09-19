@@ -31,7 +31,7 @@ export class ValidateFarmCarUseCase {
       vegetationArea: farm.area.vegetationArea,
     });
     farm.applyCarValidation(result.status);
-    await this.farmRepository.update(farm);
+    await this.farmRepository.update(farm, { harvestsChanged: false });
 
     return {
       farmId: farm.id,

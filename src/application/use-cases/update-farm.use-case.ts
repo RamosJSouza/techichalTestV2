@@ -15,6 +15,7 @@ export interface UpdateFarmInput {
   arableArea?: number;
   vegetationArea?: number;
   carNumber?: string | null;
+  harvests?: Array<{ year: string; crops: string[] }>;
 }
 
 export class UpdateFarmUseCase {
@@ -45,6 +46,10 @@ export class UpdateFarmUseCase {
 
     farm.updateDetails(input);
 
+    if (input.harvests !== undefined) {
+      farm.replaceHarvests(input.harvests);
+    }
+
     if (farm.carNumber) {
       const result = await this.carValidation.validateCar({
         carNumber: farm.carNumber.value,
@@ -62,7 +67,9 @@ export class UpdateFarmUseCase {
     });
     farm.setClimateRiskScore(score);
 
-    const updated = await this.farmRepository.update(farm);
+    const updated = await this.farmRepository.update(farm, {
+      harvestsChanged: input.harvests !== undefined,
+    });
     this.logger.log(`Farm updated: ${id}`);
     return updated;
   }

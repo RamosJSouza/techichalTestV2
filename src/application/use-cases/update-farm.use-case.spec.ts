@@ -49,6 +49,20 @@ describe('UpdateFarmUseCase', () => {
     expect(updated.area.totalArea).toBe(800);
   });
 
+  it('substitui safras e culturas', async () => {
+    const { farmId, farmRepo } = await seedFarm();
+    const updated = await buildUpdateFarm(farmRepo).execute(farmId, {
+      harvests: [{ year: '2026/2027', crops: ['Milho', 'Café'] }],
+    });
+
+    expect(updated.harvests).toHaveLength(1);
+    expect(updated.harvests[0]?.year).toBe('2026/2027');
+    expect(updated.harvests[0]?.crops.map((c) => c.name)).toEqual([
+      'Milho',
+      'Café',
+    ]);
+  });
+
   it('rejeita fazenda inexistente', async () => {
     const farmRepo = new InMemoryFarmRepository();
     await expect(

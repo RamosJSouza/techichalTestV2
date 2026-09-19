@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.git
+.cursor
+.vscode
+*.md
+.env
+.env.*
+!.env_example
+docs
+test
+**/*.spec.ts
+tsconfig.spec.json
+tsconfig.e2e.json

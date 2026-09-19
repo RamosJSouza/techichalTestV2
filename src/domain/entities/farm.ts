@@ -228,6 +228,17 @@ export class Farm {
     this.touch();
   }
 
+  public replaceHarvests(
+    items: Array<{ year: string; crops: string[] }>,
+  ): void {
+    this._harvests.splice(
+      0,
+      this._harvests.length,
+      ...items.map((item) => Harvest.create(item.year, item.crops)),
+    );
+    this.touch();
+  }
+
   public applyCarValidation(status: CarStatus): void {
     this._carStatus = status;
     this.touch();

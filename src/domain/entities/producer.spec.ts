@@ -59,4 +59,23 @@ describe('Producer and Farm entities', () => {
     expect(producer.isDeleted).toBe(true);
     expect(farm.isDeleted).toBe(true);
   });
+
+  it('replaceHarvests substitui safras da fazenda', () => {
+    const farm = Farm.create({
+      producerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: ['Soja'] }],
+    });
+
+    farm.replaceHarvests([{ year: '2026/2027', crops: ['Milho'] }]);
+
+    expect(farm.harvests).toHaveLength(1);
+    expect(farm.harvests[0]?.year).toBe('2026/2027');
+    expect(farm.harvests[0]?.crops.map((c) => c.name)).toEqual(['Milho']);
+  });
 });

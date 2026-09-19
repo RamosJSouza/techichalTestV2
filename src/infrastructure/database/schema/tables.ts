@@ -1,10 +1,10 @@
 import {
+  numeric,
   pgTable,
+  text,
+  timestamp,
   uuid,
   varchar,
-  timestamp,
-  text,
-  numeric,
 } from 'drizzle-orm/pg-core';
 
 export const producers = pgTable('producers', {
@@ -12,6 +12,8 @@ export const producers = pgTable('producers', {
   name: varchar('name', { length: 255 }).notNull(),
   document: text('document').notNull(),
   documentHash: varchar('document_hash', { length: 64 }).notNull().unique(),
+  esgStatus: varchar('esg_status', { length: 20 }).default('APPROVED').notNull(),
+  esgCheckedAt: timestamp('esg_checked_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -27,9 +29,22 @@ export const farms = pgTable('farms', {
   state: varchar('state', { length: 2 }).notNull(),
   totalArea: numeric('total_area', { precision: 12, scale: 2 }).notNull(),
   arableArea: numeric('arable_area', { precision: 12, scale: 2 }).notNull(),
-  vegetationArea: numeric('vegetation_area', { precision: 12, scale: 2 }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  vegetationArea: numeric('vegetation_area', {
+    precision: 12,
+    scale: 2,
+  }).notNull(),
+  carNumber: varchar('car_number', { length: 100 }),
+  carStatus: varchar('car_status', { length: 20 }),
+  climateRiskScore: numeric('climate_risk_score', {
+    precision: 5,
+    scale: 2,
+  }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 });
 
@@ -39,7 +54,10 @@ export const harvests = pgTable('harvests', {
     .notNull()
     .references(() => farms.id, { onDelete: 'cascade' }),
   year: varchar('year', { length: 10 }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  status: varchar('status', { length: 20 }).default('ACTIVE').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export const farmCrops = pgTable('farm_crops', {

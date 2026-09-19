@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { EsgStatus } from '../policies/socio-environmental.policy.js';
 import { CpfCnpj } from '../value-objects/cpf-cnpj.js';
 import { Farm } from './farm.js';
 
@@ -8,6 +9,8 @@ export class Producer {
     private _name: string,
     private _document: CpfCnpj,
     private readonly _farms: Farm[],
+    private _esgStatus: EsgStatus,
+    private _esgCheckedAt: Date | null,
     private _deletedAt: Date | null,
     public readonly createdAt: Date,
     private _updatedAt: Date,
@@ -25,6 +28,8 @@ export class Producer {
       props.name.trim(),
       document,
       props.farms ?? [],
+      'APPROVED',
+      null,
       null,
       now,
       now,
@@ -36,6 +41,8 @@ export class Producer {
     name: string;
     document: string;
     farms: Farm[];
+    esgStatus: EsgStatus;
+    esgCheckedAt: Date | null;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -45,6 +52,8 @@ export class Producer {
       props.name,
       CpfCnpj.create(props.document),
       [...props.farms],
+      props.esgStatus,
+      props.esgCheckedAt,
       props.deletedAt,
       props.createdAt,
       props.updatedAt,
@@ -61,6 +70,14 @@ export class Producer {
 
   public get farms(): readonly Farm[] {
     return this._farms;
+  }
+
+  public get esgStatus(): EsgStatus {
+    return this._esgStatus;
+  }
+
+  public get esgCheckedAt(): Date | null {
+    return this._esgCheckedAt;
   }
 
   public get deletedAt(): Date | null {
@@ -82,6 +99,12 @@ export class Producer {
 
   public updateDocument(document: string): void {
     this._document = CpfCnpj.create(document);
+    this.touch();
+  }
+
+  public applyEsgStatus(status: EsgStatus, checkedAt: Date = new Date()): void {
+    this._esgStatus = status;
+    this._esgCheckedAt = checkedAt;
     this.touch();
   }
 

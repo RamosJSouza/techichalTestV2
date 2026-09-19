@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-export const envSchema = z.object({
+const booleanFromEnv = z.preprocess((value: unknown): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return false;
+}, z.boolean());
+
+const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
     .default('development'),
@@ -14,6 +24,10 @@ export const envSchema = z.object({
     .string()
     .url()
     .default('https://brasilapi.com.br/api'),
+  ENABLE_CAR_VALIDATION: booleanFromEnv.default(false),
+  ENABLE_ESG_COMPLIANCE: booleanFromEnv.default(false),
+  ESG_STRICT_MODE: booleanFromEnv.default(false),
+  ENABLE_PROAGRO_RISK: booleanFromEnv.default(false),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { Crop, Farm, Harvest } from '../../domain/entities/farm.js';
+import { Farm } from '../../domain/entities/farm.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
 import type { DrizzleDb } from '../database/database.module.js';
 import { DRIZZLE } from '../database/database.tokens.js';
@@ -26,6 +26,7 @@ export class DrizzleFarmRepository implements IFarmRepository {
           id: harvest.id,
           farmId: farm.id,
           year: harvest.year,
+          status: harvest.status,
           createdAt: farm.createdAt,
         })),
       );
@@ -45,6 +46,27 @@ export class DrizzleFarmRepository implements IFarmRepository {
     return farm;
   }
 
+  public async update(farm: Farm): Promise<Farm> {
+    const persistence = FarmMapper.toPersistence(farm);
+    await this.db
+      .update(farms)
+      .set({
+        name: persistence.name,
+        city: persistence.city,
+        state: persistence.state,
+        totalArea: persistence.totalArea,
+        arableArea: persistence.arableArea,
+        vegetationArea: persistence.vegetationArea,
+        carNumber: persistence.carNumber,
+        carStatus: persistence.carStatus,
+        climateRiskScore: persistence.climateRiskScore,
+        updatedAt: persistence.updatedAt,
+        deletedAt: persistence.deletedAt,
+      })
+      .where(eq(farms.id, farm.id));
+    return farm;
+  }
+
   public async findById(id: string): Promise<Farm | null> {
     const [row] = await this.db
       .select()
@@ -60,29 +82,11 @@ export class DrizzleFarmRepository implements IFarmRepository {
     return farm ?? null;
   }
 
-  public async findByProducerId(producerId: string): Promise<Farm[]> {
-    const rows = await this.db
-      .select()
-      .from(farms)
-      .where(and(eq(farms.producerId, producerId), isNull(farms.deletedAt)));
-    return this.hydrateMany(rows);
-  }
-
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
     await this.db
       .update(farms)
       .set({ deletedAt, updatedAt: deletedAt })
       .where(eq(farms.id, id));
-  }
-
-  public async softDeleteByProducerId(
-    producerId: string,
-    deletedAt: Date,
-  ): Promise<void> {
-    await this.db
-      .update(farms)
-      .set({ deletedAt, updatedAt: deletedAt })
-      .where(and(eq(farms.producerId, producerId), isNull(farms.deletedAt)));
   }
 
   private async hydrateMany(rows: FarmRow[]): Promise<Farm[]> {
@@ -105,33 +109,8 @@ export class DrizzleFarmRepository implements IFarmRepository {
             .from(farmCrops)
             .where(inArray(farmCrops.harvestId, harvestIds));
 
-    return rows.map((row) => {
-      const farmHarvests = harvestRows
-        .filter((harvest) => harvest.farmId === row.id)
-        .map((harvest) =>
-          Harvest.reconstitute(
-            harvest.id,
-            harvest.year,
-            cropRows
-              .filter((crop) => crop.harvestId === harvest.id)
-              .map((crop) => Crop.reconstitute(crop.id, crop.cropName)),
-          ),
-        );
-
-      return Farm.reconstitute({
-        id: row.id,
-        producerId: row.producerId,
-        name: row.name,
-        city: row.city,
-        state: row.state,
-        totalArea: Number(row.totalArea),
-        arableArea: Number(row.arableArea),
-        vegetationArea: Number(row.vegetationArea),
-        harvests: farmHarvests,
-        deletedAt: row.deletedAt,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      });
-    });
+    return rows.map((row) =>
+      FarmMapper.toDomain(row, harvestRows, cropRows),
+    );
   }
 }

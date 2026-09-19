@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { trace } from '@opentelemetry/api';
 import { LoggerModule } from 'nestjs-pino';
 import { parseEnv } from './config/env.schema.js';
 import { GlobalExceptionFilter } from './presentation/filters/global-exception.filter.js';
@@ -20,12 +21,26 @@ import { PresentationModule } from './presentation/presentation.module.js';
           process.env.NODE_ENV !== 'production'
             ? { target: 'pino-pretty', options: { singleLine: true } }
             : undefined,
+        mixin: () => {
+          const span = trace.getActiveSpan();
+          if (!span) {
+            return {};
+          }
+          const context = span.spanContext();
+          return {
+            trace_id: context.traceId,
+            span_id: context.spanId,
+          };
+        },
         redact: {
           paths: [
             'req.headers.authorization',
+            'req.headers.cookie',
             'req.body.document',
             'req.body.password',
+            'req.query.document',
             'res.body.document',
+            '*.document',
           ],
           remove: true,
         },

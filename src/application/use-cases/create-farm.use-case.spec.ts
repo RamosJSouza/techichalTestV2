@@ -1,72 +1,32 @@
-import { Farm } from '../../domain/entities/farm.js';
-import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
-import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
+import { InMemoryFarmRepository } from '../../testing/in-memory-farm.repository.js';
 import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
-import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
-import { CreateFarmUseCase } from './create-farm.use-case.js';
-import { CreateProducerUseCase } from './create-producer.use-case.js';
-
-class InMemoryFarmRepository implements IFarmRepository {
-  public readonly items: Farm[] = [];
-
-  public async save(farm: Farm): Promise<Farm> {
-    this.items.push(farm);
-    return farm;
-  }
-
-  public async findById(id: string): Promise<Farm | null> {
-    return this.items.find((farm) => farm.id === id && !farm.isDeleted) ?? null;
-  }
-
-  public async findByProducerId(producerId: string): Promise<Farm[]> {
-    return this.items.filter(
-      (farm) => farm.producerId === producerId && !farm.isDeleted,
-    );
-  }
-
-  public async softDelete(id: string, deletedAt: Date): Promise<void> {
-    this.items.find((farm) => farm.id === id)?.softDelete(deletedAt);
-  }
-
-  public async softDeleteByProducerId(
-    producerId: string,
-    deletedAt: Date,
-  ): Promise<void> {
-    for (const farm of this.items) {
-      if (farm.producerId === producerId && !farm.isDeleted) {
-        farm.softDelete(deletedAt);
-      }
-    }
-  }
-}
+import { testCrypto } from '../../testing/test-helpers.js';
+import {
+  buildCreateFarm,
+  buildCreateProducer,
+  defaultBrazil,
+} from '../../testing/use-case-factories.js';
 
 describe('CreateFarmUseCase', () => {
-  const crypto = new CryptoService(
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    'change-me-pepper-secret-min-16',
-  );
+  const crypto = testCrypto();
 
   it('cria fazenda com validação territorial ok', async () => {
     const producerRepo = new InMemoryProducerRepository(crypto);
     const farmRepo = new InMemoryFarmRepository();
-    const brazilData: BrazilDataServiceInterface = {
-      getCnpjData: async () => null,
-      isCityInState: async () => true,
-    };
 
-    const producer = await new CreateProducerUseCase(
+    const producer = await buildCreateProducer(
       producerRepo,
-      brazilData,
+      defaultBrazil,
       crypto,
     ).execute({
       name: 'João',
       document: '529.982.247-25',
     });
 
-    const farm = await new CreateFarmUseCase(
+    const farm = await buildCreateFarm(
       farmRepo,
       producerRepo,
-      brazilData,
+      defaultBrazil,
     ).execute({
       producerId: producer.id,
       name: 'Santa Maria',
@@ -76,19 +36,22 @@ describe('CreateFarmUseCase', () => {
       arableArea: 600,
       vegetationArea: 350,
       harvests: [{ year: '2025/2026', crops: ['Soja', 'Milho'] }],
+      carNumber: 'SP-3550308-E9D8C7B6A5F4E3D2C1B0A9F8E7D6C5B4',
     });
 
     expect(farm.state).toBe('SP');
     expect(farm.harvests).toHaveLength(1);
+    expect(farm.carStatus).toBe('ACTIVE');
+    expect(farm.climateRiskScore).not.toBeNull();
   });
 
   it('rejeita cidade fora do estado', async () => {
     const producerRepo = new InMemoryProducerRepository(crypto);
     const farmRepo = new InMemoryFarmRepository();
 
-    const producer = await new CreateProducerUseCase(
+    const producer = await buildCreateProducer(
       producerRepo,
-      { getCnpjData: async () => null, isCityInState: async () => true },
+      defaultBrazil,
       crypto,
     ).execute({
       name: 'João',
@@ -96,7 +59,7 @@ describe('CreateFarmUseCase', () => {
     });
 
     await expect(
-      new CreateFarmUseCase(farmRepo, producerRepo, {
+      buildCreateFarm(farmRepo, producerRepo, {
         getCnpjData: async () => null,
         isCityInState: async () => false,
       }).execute({

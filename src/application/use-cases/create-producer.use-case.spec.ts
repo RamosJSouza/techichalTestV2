@@ -1,32 +1,23 @@
-import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
-import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
-import { CreateProducerUseCase } from './create-producer.use-case.js';
+import { testCrypto, testLogger } from '../../testing/test-helpers.js';
+import {
+  buildCreateProducer,
+  defaultBrazil,
+} from '../../testing/use-case-factories.js';
+import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import { DeleteProducerUseCase } from './delete-producer.use-case.js';
 
 describe('Producer use cases', () => {
-  const crypto = new CryptoService(
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-    'change-me-pepper-secret-min-16',
-  );
-
-  const brazilData: BrazilDataServiceInterface = {
-    getCnpjData: async () => null,
-    isCityInState: async () => true,
-  };
+  const crypto = testCrypto();
 
   let repository: InMemoryProducerRepository;
-  let createProducer: CreateProducerUseCase;
+  let createProducer: ReturnType<typeof buildCreateProducer>;
   let deleteProducer: DeleteProducerUseCase;
 
   beforeEach(() => {
     repository = new InMemoryProducerRepository(crypto);
-    createProducer = new CreateProducerUseCase(
-      repository,
-      brazilData,
-      crypto,
-    );
-    deleteProducer = new DeleteProducerUseCase(repository);
+    createProducer = buildCreateProducer(repository, defaultBrazil, crypto);
+    deleteProducer = new DeleteProducerUseCase(repository, testLogger());
   });
 
   it('cria produtor com CPF válido', async () => {
@@ -37,6 +28,7 @@ describe('Producer use cases', () => {
 
     expect(producer.name).toBe('João Silva');
     expect(producer.document.value).toBe('52998224725');
+    expect(producer.esgStatus).toBe('APPROVED');
   });
 
   it('soft delete remove da listagem', async () => {
@@ -61,10 +53,18 @@ describe('Producer use cases', () => {
     };
 
     await expect(
-      new CreateProducerUseCase(repository, inactiveBrazil, crypto).execute({
+      buildCreateProducer(repository, inactiveBrazil, crypto).execute({
         name: 'Empresa X',
         document: '11.222.333/0001-81',
       }),
     ).rejects.toThrow(/ATIVA/);
+  });
+
+  it('marca WARNING ESG para documento terminado em 0', async () => {
+    const producer = await createProducer.execute({
+      name: 'Risco',
+      document: '100.000.002-80',
+    });
+    expect(producer.esgStatus).toBe('WARNING');
   });
 });

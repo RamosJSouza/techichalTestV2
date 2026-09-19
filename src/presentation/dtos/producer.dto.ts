@@ -3,6 +3,7 @@ import {
   createFarmSchema,
   createProducerSchema,
   searchProducerQuerySchema,
+  updateFarmSchema,
   updateProducerSchema,
   uuidParamSchema,
 } from '../schemas/producer.schemas.js';
@@ -14,3 +15,4 @@ export class SearchProducerQueryDto extends createZodDto(
 ) {}
 export class UuidParamDto extends createZodDto(uuidParamSchema) {}
 export class CreateFarmDto extends createZodDto(createFarmSchema) {}
+export class UpdateFarmDto extends createZodDto(updateFarmSchema) {}

@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { CarNumber } from '../value-objects/car-number.js';
 import { FarmArea } from '../value-objects/farm-area.js';
+
+type CarStatus = 'ACTIVE' | 'PENDING' | 'CANCELLED';
+export type HarvestStatus = 'ACTIVE' | 'ARCHIVED';
 
 export class Crop {
   private constructor(
@@ -20,28 +24,34 @@ export class Harvest {
   private constructor(
     public readonly id: string,
     public readonly year: string,
+    private _status: HarvestStatus,
     private readonly _crops: Crop[],
   ) {}
 
   public static create(year: string, cropNames: string[] = []): Harvest {
     const crops = cropNames.map((name) => Crop.create(name));
-    return new Harvest(randomUUID(), year, crops);
+    return new Harvest(randomUUID(), year, 'ACTIVE', crops);
   }
 
   public static reconstitute(
     id: string,
     year: string,
     crops: Crop[],
+    status: HarvestStatus = 'ACTIVE',
   ): Harvest {
-    return new Harvest(id, year, crops);
+    return new Harvest(id, year, status, crops);
+  }
+
+  public get status(): HarvestStatus {
+    return this._status;
   }
 
   public get crops(): readonly Crop[] {
     return this._crops;
   }
 
-  public addCrop(name: string): void {
-    this._crops.push(Crop.create(name));
+  public archive(): void {
+    this._status = 'ARCHIVED';
   }
 }
 
@@ -54,6 +64,9 @@ export class Farm {
     private _state: string,
     private _area: FarmArea,
     private readonly _harvests: Harvest[],
+    private _carNumber: CarNumber | null,
+    private _climateRiskScore: number | null,
+    private _carStatus: CarStatus | null,
     private _deletedAt: Date | null,
     public readonly createdAt: Date,
     private _updatedAt: Date,
@@ -68,6 +81,7 @@ export class Farm {
     arableArea: number;
     vegetationArea: number;
     harvests?: Array<{ year: string; crops: string[] }>;
+    carNumber?: string;
   }): Farm {
     const area = FarmArea.create(
       props.totalArea,
@@ -78,6 +92,8 @@ export class Farm {
     const harvests = (props.harvests ?? []).map((h) =>
       Harvest.create(h.year, h.crops),
     );
+    const carNumber =
+      props.carNumber !== undefined ? CarNumber.create(props.carNumber) : null;
 
     return new Farm(
       randomUUID(),
@@ -87,6 +103,9 @@ export class Farm {
       props.state.trim().toUpperCase(),
       area,
       harvests,
+      carNumber,
+      null,
+      null,
       null,
       now,
       now,
@@ -103,6 +122,9 @@ export class Farm {
     arableArea: number;
     vegetationArea: number;
     harvests: Harvest[];
+    carNumber: string | null;
+    carStatus: CarStatus | null;
+    climateRiskScore: number | null;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -120,6 +142,9 @@ export class Farm {
       props.state,
       area,
       [...props.harvests],
+      props.carNumber ? CarNumber.create(props.carNumber) : null,
+      props.climateRiskScore,
+      props.carStatus,
       props.deletedAt,
       props.createdAt,
       props.updatedAt,
@@ -146,6 +171,18 @@ export class Farm {
     return this._harvests;
   }
 
+  public get carNumber(): CarNumber | null {
+    return this._carNumber;
+  }
+
+  public get climateRiskScore(): number | null {
+    return this._climateRiskScore;
+  }
+
+  public get carStatus(): CarStatus | null {
+    return this._carStatus;
+  }
+
   public get deletedAt(): Date | null {
     return this._deletedAt;
   }
@@ -165,6 +202,7 @@ export class Farm {
     totalArea?: number;
     arableArea?: number;
     vegetationArea?: number;
+    carNumber?: string | null;
   }): void {
     if (props.name !== undefined) {
       this._name = props.name.trim();
@@ -175,6 +213,13 @@ export class Farm {
     if (props.state !== undefined) {
       this._state = props.state.trim().toUpperCase();
     }
+    if (props.carNumber !== undefined) {
+      this._carNumber =
+        props.carNumber === null ? null : CarNumber.create(props.carNumber);
+      if (props.carNumber === null) {
+        this._carStatus = null;
+      }
+    }
 
     const total = props.totalArea ?? this._area.totalArea;
     const arable = props.arableArea ?? this._area.arableArea;
@@ -183,11 +228,14 @@ export class Farm {
     this.touch();
   }
 
-  public addHarvest(year: string, crops: string[]): Harvest {
-    const harvest = Harvest.create(year, crops);
-    this._harvests.push(harvest);
+  public applyCarValidation(status: CarStatus): void {
+    this._carStatus = status;
     this.touch();
-    return harvest;
+  }
+
+  public setClimateRiskScore(score: number): void {
+    this._climateRiskScore = Number(score.toFixed(2));
+    this.touch();
   }
 
   public softDelete(at: Date = new Date()): void {

@@ -1,4 +1,4 @@
-import { Farm } from './farm.js';
+import { Farm, Harvest } from './farm.js';
 import { InvalidFarmAreaException } from '../exceptions/invalid-farm-area.exception.js';
 import { Producer } from './producer.js';
 
@@ -28,6 +28,13 @@ describe('Producer and Farm entities', () => {
     ).toThrow(InvalidFarmAreaException);
   });
 
+  it('Harvest.create inicia como ACTIVE e archive() muda para ARCHIVED', () => {
+    const harvest = Harvest.create('2025/2026', ['Soja']);
+    expect(harvest.status).toBe('ACTIVE');
+    harvest.archive();
+    expect(harvest.status).toBe('ARCHIVED');
+  });
+
   it('soft delete do produtor soft-deleta fazendas', () => {
     const producer = Producer.create({
       name: 'Maria',
@@ -44,6 +51,8 @@ describe('Producer and Farm entities', () => {
       harvests: [{ year: '2025/2026', crops: ['Soja'] }],
     });
     producer.addFarm(farm);
+
+    expect(farm.harvests[0]?.status).toBe('ACTIVE');
 
     producer.softDelete();
 

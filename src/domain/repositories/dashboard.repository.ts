@@ -26,6 +26,10 @@ export interface DashboardStats {
   byState: StateDistributionItem[];
   byCrop: CropDistributionItem[];
   byLandUse: LandUseDistribution;
+  regionalClimateRisk: {
+    averageScore: number | null;
+    farmsWithScore: number;
+  };
 }
 
 export interface IDashboardRepository {

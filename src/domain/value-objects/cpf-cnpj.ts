@@ -1,6 +1,6 @@
 import { InvalidDocumentException } from '../exceptions/invalid-document.exception.js';
 
-export type DocumentType = 'CPF' | 'CNPJ';
+type DocumentType = 'CPF' | 'CNPJ';
 
 export class CpfCnpj {
   private constructor(

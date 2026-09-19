@@ -1,5 +1,8 @@
 import { Farm } from '../domain/entities/farm.js';
-import type { IFarmRepository } from '../domain/repositories/farm.repository.js';
+import type {
+  FarmUpdateOptions,
+  IFarmRepository,
+} from '../domain/repositories/farm.repository.js';
 
 export class InMemoryFarmRepository implements IFarmRepository {
   public readonly items: Farm[] = [];
@@ -9,7 +12,10 @@ export class InMemoryFarmRepository implements IFarmRepository {
     return farm;
   }
 
-  public async update(farm: Farm): Promise<Farm> {
+  public async update(
+    farm: Farm,
+    _opts?: FarmUpdateOptions,
+  ): Promise<Farm> {
     const index = this.items.findIndex((item) => item.id === farm.id);
     if (index >= 0) {
       this.items[index] = farm;

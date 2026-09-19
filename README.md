@@ -1,10 +1,10 @@
-# Brain Agriculture — Backend API
+# Brain Agriculture — API + Frontend (monorepo)
 
-API REST para gestão de produtores rurais, propriedades, safras e dashboard analítico.
+API REST NestJS e SPA React servida no mesmo processo em produção (`/`).
 
-**Stack:** NestJS 12 · TypeScript · Drizzle ORM · PostgreSQL 16 · Zod · Pino · OpenTelemetry
+**Stack:** NestJS 12 · React 18 · Vite · RTK Query · Styled Components · Drizzle · PostgreSQL 16 · Zod
 
-**Arquitetura:** Clean Architecture / DDD (`domain` → `application` → `infrastructure` / `presentation`)
+**Arquitetura:** Clean Architecture / DDD no backend; Atomic Design + MFE-ready no `client/`.
 
 ## Pré-requisitos
 
@@ -16,28 +16,39 @@ API REST para gestão de produtores rurais, propriedades, safras e dashboard ana
 
 ```bash
 cp .env_example .env
-pnpm docker:up          # build + Postgres + API + migrations
+pnpm docker:up          # build client+API + Postgres + migrations
 ```
 
+- SPA: http://localhost:3000/
 - API: http://localhost:3000/api/v1
 - Swagger: http://localhost:3000/api/docs
 - Health: `GET /api/v1/health`
-- Postgres no host: `localhost:5433` (evita conflito com Postgres local na 5432)
+- Postgres no host: `localhost:5433`
 
-```bash
-pnpm docker:logs        # logs da API
-pnpm docker:down        # para os containers
-```
-
-## Executar localmente (Node + Postgres no Docker)
+## Desenvolvimento local (API + Vite)
 
 ```bash
 cp .env_example .env
-docker compose up -d postgres
+docker compose up -d postgres   # só o banco — NÃO suba o serviço `api`
 pnpm install
 pnpm db:migrate
-pnpm start:dev
+pnpm dev                        # Nest :3000 + Vite :5173 (proxy /api)
 ```
+
+### Troubleshooting: `EADDRINUSE :::3000`
+
+A porta **3000** no host é usada pelo container Docker `brain_ag_api` (`pnpm docker:up` / Compose). Se ela já estiver ocupada, o Nest do `pnpm dev` falha ao dar `listen`.
+
+```bash
+docker stop brain_ag_api
+# ou
+pnpm docker:down
+pnpm dev
+```
+
+Mantenha `docker compose up -d postgres` para o banco local; evite `docker compose up` completo em paralelo com `pnpm dev`.
+
+Detalhes do frontend: [`client/README.md`](client/README.md).
 
 Variáveis importantes no `.env`:
 

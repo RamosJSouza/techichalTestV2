@@ -44,6 +44,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
           id: harvest.id,
           farmId: farm.id,
           year: harvest.year,
+          status: harvest.status,
           createdAt: farm.createdAt,
         })),
       );
@@ -76,6 +77,8 @@ export class DrizzleProducerRepository implements IProducerRepository {
         name: persistence.name,
         document: persistence.document,
         documentHash: persistence.documentHash,
+        esgStatus: persistence.esgStatus,
+        esgCheckedAt: persistence.esgCheckedAt,
         updatedAt: persistence.updatedAt,
         deletedAt: persistence.deletedAt,
       })

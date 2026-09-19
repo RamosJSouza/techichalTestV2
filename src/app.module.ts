@@ -4,6 +4,7 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { trace } from '@opentelemetry/api';
 import { LoggerModule } from 'nestjs-pino';
 import { parseEnv } from './config/env.schema.js';
+import { StaticFrontendModule } from './infrastructure/static/static-frontend.module.js';
 import { GlobalExceptionFilter } from './presentation/filters/global-exception.filter.js';
 import { ZodValidationPipe } from './presentation/pipes/zod-validation.pipe.js';
 import { PresentationModule } from './presentation/presentation.module.js';
@@ -47,6 +48,7 @@ import { PresentationModule } from './presentation/presentation.module.js';
       },
     }),
     PresentationModule,
+    StaticFrontendModule,
   ],
   providers: [
     {

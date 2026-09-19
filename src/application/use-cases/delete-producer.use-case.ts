@@ -1,15 +1,11 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
-import { PRODUCER_REPOSITORY } from '../../domain/repositories/producer.repository.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
+import type { LoggerPort } from '../services/logger.port.js';
 
-@Injectable()
 export class DeleteProducerUseCase {
-  private readonly logger = new Logger(DeleteProducerUseCase.name);
-
   public constructor(
-    @Inject(PRODUCER_REPOSITORY)
     private readonly producerRepository: IProducerRepository,
+    private readonly logger: LoggerPort,
   ) {}
 
   public async execute(id: string): Promise<void> {
@@ -18,8 +14,7 @@ export class DeleteProducerUseCase {
       throw new NotFoundException(`Produtor ${id} não encontrado.`);
     }
 
-    const deletedAt = new Date();
-    await this.producerRepository.softDelete(id, deletedAt);
+    await this.producerRepository.softDelete(id, new Date());
     this.logger.log(`Producer soft-deleted: ${id}`);
   }
 }

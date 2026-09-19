@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
-export const harvestSchema = z
+const harvestSchema = z
   .object({
     year: z.string().min(1).max(10),
     crops: z.array(z.string().min(1)).min(1),
   })
   .strict();
 
-export const farmBodySchema = z
+const farmBodySchema = z
   .object({
     name: z.string().min(1).max(255),
     city: z.string().min(1).max(100),
@@ -16,6 +16,7 @@ export const farmBodySchema = z
     arableArea: z.number().nonnegative(),
     vegetationArea: z.number().nonnegative(),
     harvests: z.array(harvestSchema).optional(),
+    carNumber: z.string().min(1).max(100).optional(),
   })
   .strict();
 
@@ -50,6 +51,14 @@ export const createFarmSchema = farmBodySchema.extend({
   producerId: z.string().uuid(),
 });
 
-export type CreateProducerSchema = z.infer<typeof createProducerSchema>;
-export type UpdateProducerSchema = z.infer<typeof updateProducerSchema>;
-export type CreateFarmSchema = z.infer<typeof createFarmSchema>;
+export const updateFarmSchema = z
+  .object({
+    name: z.string().min(1).max(255).optional(),
+    city: z.string().min(1).max(100).optional(),
+    state: z.string().length(2).optional(),
+    totalArea: z.number().positive().optional(),
+    arableArea: z.number().nonnegative().optional(),
+    vegetationArea: z.number().nonnegative().optional(),
+    carNumber: z.string().min(1).max(100).nullable().optional(),
+  })
+  .strict();

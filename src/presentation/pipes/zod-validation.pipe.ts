@@ -21,8 +21,18 @@ function isZodDto(metatype: unknown): metatype is ZodDto {
 @Injectable()
 export class ZodValidationPipe implements PipeTransform {
   public transform(value: unknown, metadata: ArgumentMetadata): unknown {
-    const { metatype } = metadata;
+    const { metatype, type } = metadata;
+
     if (!isZodDto(metatype)) {
+      // Mass assignment: body/query sem schema Zod não passam sem filtragem
+      if (type === 'body' || type === 'query') {
+        throw new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Payload deve ser validado por schema Zod (.strict).',
+          code: 'VALIDATION_SCHEMA_REQUIRED',
+        });
+      }
       return value;
     }
 

@@ -7,9 +7,10 @@ import {
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { ZodError } from 'zod';
+import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
 import { DomainException } from '../../domain/exceptions/domain.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
-import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
+import { SocioEnvironmentalBlockException } from '../../domain/exceptions/socio-environmental-block.exception.js';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -83,6 +84,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
     if (exception instanceof ConflictException) {
       return HttpStatus.CONFLICT;
+    }
+    if (exception instanceof SocioEnvironmentalBlockException) {
+      return HttpStatus.FORBIDDEN;
     }
     return HttpStatus.BAD_REQUEST;
   }

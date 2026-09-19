@@ -13,45 +13,50 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
   public constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
   public async getStats(): Promise<DashboardStats> {
-    const [totals] = await this.db
-      .select({
-        totalFarms: count(farms.id),
-        totalHectares: sum(farms.totalArea),
-        arableHectares: sum(farms.arableArea),
-        vegetationHectares: sum(farms.vegetationArea),
-      })
-      .from(farms)
-      .where(isNull(farms.deletedAt));
+    const [totalsRows, climateRows, byStateRows, byCropRows] =
+      await Promise.all([
+        this.db
+          .select({
+            totalFarms: count(farms.id),
+            totalHectares: sum(farms.totalArea),
+            arableHectares: sum(farms.arableArea),
+            vegetationHectares: sum(farms.vegetationArea),
+          })
+          .from(farms)
+          .where(isNull(farms.deletedAt)),
+        this.db
+          .select({
+            averageScore: avg(farms.climateRiskScore),
+            farmsWithScore: count(farms.id),
+          })
+          .from(farms)
+          .where(
+            and(isNull(farms.deletedAt), isNotNull(farms.climateRiskScore)),
+          ),
+        this.db
+          .select({
+            state: farms.state,
+            count: count(farms.id),
+            hectares: sum(farms.totalArea),
+          })
+          .from(farms)
+          .where(isNull(farms.deletedAt))
+          .groupBy(farms.state),
+        this.db
+          .select({
+            crop: farmCrops.cropName,
+            count: count(farmCrops.id),
+          })
+          .from(farmCrops)
+          .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+          .innerJoin(farms, eq(harvests.farmId, farms.id))
+          // RF-02.4: só safras ACTIVE e fazendas não soft-deleted
+          .where(and(isNull(farms.deletedAt), eq(harvests.status, 'ACTIVE')))
+          .groupBy(farmCrops.cropName),
+      ]);
 
-    const [climate] = await this.db
-      .select({
-        averageScore: avg(farms.climateRiskScore),
-        farmsWithScore: count(farms.id),
-      })
-      .from(farms)
-      .where(and(isNull(farms.deletedAt), isNotNull(farms.climateRiskScore)));
-
-    const byStateRows = await this.db
-      .select({
-        state: farms.state,
-        count: count(farms.id),
-        hectares: sum(farms.totalArea),
-      })
-      .from(farms)
-      .where(isNull(farms.deletedAt))
-      .groupBy(farms.state);
-
-    const byCropRows = await this.db
-      .select({
-        crop: farmCrops.cropName,
-        count: count(farmCrops.id),
-      })
-      .from(farmCrops)
-      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
-      .innerJoin(farms, eq(harvests.farmId, farms.id))
-      // RF-02.4: só safras ACTIVE e fazendas não soft-deleted
-      .where(and(isNull(farms.deletedAt), eq(harvests.status, 'ACTIVE')))
-      .groupBy(farmCrops.cropName);
+    const totals = totalsRows[0];
+    const climate = climateRows[0];
 
     const totalFarms = Number(totals?.totalFarms ?? 0);
     const totalHectares = Number(totals?.totalHectares ?? 0);

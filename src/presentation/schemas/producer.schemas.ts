@@ -60,5 +60,6 @@ export const updateFarmSchema = z
     arableArea: z.number().nonnegative().optional(),
     vegetationArea: z.number().nonnegative().optional(),
     carNumber: z.string().min(1).max(100).nullable().optional(),
+    harvests: z.array(harvestSchema).optional(),
   })
   .strict();

@@ -7,17 +7,6 @@ import {
 import { Observable, map } from 'rxjs';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 
-function maskDocument(value: unknown): unknown {
-  if (typeof value !== 'string') {
-    return value;
-  }
-  try {
-    return CpfCnpj.create(value).masked();
-  } catch {
-    return value;
-  }
-}
-
 function maskObject(payload: unknown): unknown {
   if (Array.isArray(payload)) {
     return payload.map((item) => maskObject(item));
@@ -26,8 +15,8 @@ function maskObject(payload: unknown): unknown {
   if (payload !== null && typeof payload === 'object') {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(payload)) {
-      if (key === 'document') {
-        result[key] = maskDocument(value);
+      if (key === 'document' && typeof value === 'string') {
+        result[key] = CpfCnpj.maskDigits(value.replace(/\D/g, ''));
       } else {
         result[key] = maskObject(value);
       }

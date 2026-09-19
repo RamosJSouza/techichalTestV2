@@ -46,18 +46,9 @@ export const uuidParamSchema = z
   })
   .strict();
 
-export const createFarmSchema = z
-  .object({
-    producerId: z.string().uuid(),
-    name: z.string().min(1).max(255),
-    city: z.string().min(1).max(100),
-    state: z.string().length(2),
-    totalArea: z.number().positive(),
-    arableArea: z.number().nonnegative(),
-    vegetationArea: z.number().nonnegative(),
-    harvests: z.array(harvestSchema).optional(),
-  })
-  .strict();
+export const createFarmSchema = farmBodySchema.extend({
+  producerId: z.string().uuid(),
+});
 
 export type CreateProducerSchema = z.infer<typeof createProducerSchema>;
 export type UpdateProducerSchema = z.infer<typeof updateProducerSchema>;

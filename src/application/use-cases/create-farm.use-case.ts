@@ -1,11 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Farm } from '../../domain/entities/farm.js';
-import { CityStateMismatchException } from '../../domain/exceptions/city-state-mismatch.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import { FARM_REPOSITORY } from '../../domain/repositories/farm.repository.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
 import { PRODUCER_REPOSITORY } from '../../domain/repositories/producer.repository.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
+import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import { BRAZIL_DATA_SERVICE } from '../services/brazil-data.service.interface.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 
@@ -41,19 +41,12 @@ export class CreateFarmUseCase {
       );
     }
 
-    const matches = await this.brazilData.isCityInState(
+    await assertCityBelongsToState(
+      this.brazilData,
       input.city,
       input.state,
+      this.logger,
     );
-    if (matches === null) {
-      this.logger.warn(
-        `Territorial validation skipped for ${input.city}/${input.state} (BrasilAPI degraded)`,
-      );
-    } else if (!matches) {
-      throw new CityStateMismatchException(
-        `A cidade '${input.city}' não pertence ao estado '${input.state}'.`,
-      );
-    }
 
     const farm = Farm.create(input);
     await this.farmRepository.save(farm);

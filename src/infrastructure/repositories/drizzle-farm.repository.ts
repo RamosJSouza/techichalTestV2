@@ -1,11 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Crop, Farm, Harvest } from '../../domain/entities/farm.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
 import type { DrizzleDb } from '../database/database.module.js';
 import { DRIZZLE } from '../database/database.tokens.js';
 import { FarmMapper } from '../database/mappers/producer.mapper.js';
 import { farmCrops, farms, harvests } from '../database/schema/index.js';
+
+type FarmRow = typeof farms.$inferSelect;
 
 @Injectable()
 export class DrizzleFarmRepository implements IFarmRepository {
@@ -15,21 +17,28 @@ export class DrizzleFarmRepository implements IFarmRepository {
     await this.db.transaction(async (tx) => {
       await tx.insert(farms).values(FarmMapper.toPersistence(farm));
 
-      for (const harvest of farm.harvests) {
-        await tx.insert(harvests).values({
+      if (farm.harvests.length === 0) {
+        return;
+      }
+
+      await tx.insert(harvests).values(
+        farm.harvests.map((harvest) => ({
           id: harvest.id,
           farmId: farm.id,
           year: harvest.year,
           createdAt: farm.createdAt,
-        });
+        })),
+      );
 
-        for (const crop of harvest.crops) {
-          await tx.insert(farmCrops).values({
-            id: crop.id,
-            harvestId: harvest.id,
-            cropName: crop.name,
-          });
-        }
+      const cropValues = farm.harvests.flatMap((harvest) =>
+        harvest.crops.map((crop) => ({
+          id: crop.id,
+          harvestId: harvest.id,
+          cropName: crop.name,
+        })),
+      );
+      if (cropValues.length > 0) {
+        await tx.insert(farmCrops).values(cropValues);
       }
     });
 
@@ -47,7 +56,8 @@ export class DrizzleFarmRepository implements IFarmRepository {
       return null;
     }
 
-    return this.hydrate(row);
+    const [farm] = await this.hydrateMany([row]);
+    return farm ?? null;
   }
 
   public async findByProducerId(producerId: string): Promise<Farm[]> {
@@ -55,12 +65,7 @@ export class DrizzleFarmRepository implements IFarmRepository {
       .select()
       .from(farms)
       .where(and(eq(farms.producerId, producerId), isNull(farms.deletedAt)));
-
-    const result: Farm[] = [];
-    for (const row of rows) {
-      result.push(await this.hydrate(row));
-    }
-    return result;
+    return this.hydrateMany(rows);
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
@@ -80,40 +85,53 @@ export class DrizzleFarmRepository implements IFarmRepository {
       .where(and(eq(farms.producerId, producerId), isNull(farms.deletedAt)));
   }
 
-  private async hydrate(row: typeof farms.$inferSelect): Promise<Farm> {
+  private async hydrateMany(rows: FarmRow[]): Promise<Farm[]> {
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const farmIds = rows.map((row) => row.id);
     const harvestRows = await this.db
       .select()
       .from(harvests)
-      .where(eq(harvests.farmId, row.id));
+      .where(inArray(harvests.farmId, farmIds));
 
-    const domainHarvests: Harvest[] = [];
-    for (const harvest of harvestRows) {
-      const cropRows = await this.db
-        .select()
-        .from(farmCrops)
-        .where(eq(farmCrops.harvestId, harvest.id));
-      domainHarvests.push(
-        Harvest.reconstitute(
-          harvest.id,
-          harvest.year,
-          cropRows.map((c) => Crop.reconstitute(c.id, c.cropName)),
-        ),
-      );
-    }
+    const harvestIds = harvestRows.map((harvest) => harvest.id);
+    const cropRows =
+      harvestIds.length === 0
+        ? []
+        : await this.db
+            .select()
+            .from(farmCrops)
+            .where(inArray(farmCrops.harvestId, harvestIds));
 
-    return Farm.reconstitute({
-      id: row.id,
-      producerId: row.producerId,
-      name: row.name,
-      city: row.city,
-      state: row.state,
-      totalArea: Number(row.totalArea),
-      arableArea: Number(row.arableArea),
-      vegetationArea: Number(row.vegetationArea),
-      harvests: domainHarvests,
-      deletedAt: row.deletedAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
+    return rows.map((row) => {
+      const farmHarvests = harvestRows
+        .filter((harvest) => harvest.farmId === row.id)
+        .map((harvest) =>
+          Harvest.reconstitute(
+            harvest.id,
+            harvest.year,
+            cropRows
+              .filter((crop) => crop.harvestId === harvest.id)
+              .map((crop) => Crop.reconstitute(crop.id, crop.cropName)),
+          ),
+        );
+
+      return Farm.reconstitute({
+        id: row.id,
+        producerId: row.producerId,
+        name: row.name,
+        city: row.city,
+        state: row.state,
+        totalArea: Number(row.totalArea),
+        arableArea: Number(row.arableArea),
+        vegetationArea: Number(row.vegetationArea),
+        harvests: farmHarvests,
+        deletedAt: row.deletedAt,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      });
     });
   }
 }

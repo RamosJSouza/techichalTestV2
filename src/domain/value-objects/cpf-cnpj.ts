@@ -39,10 +39,18 @@ export class CpfCnpj {
   }
 
   public masked(): string {
-    if (this.type === 'CPF') {
-      return `***.${this.value.slice(3, 6)}.${this.value.slice(6, 9)}-**`;
+    return CpfCnpj.maskDigits(this.value);
+  }
+
+  /** Máscara sem revalidar dígitos — uso em respostas já validadas. */
+  public static maskDigits(digits: string): string {
+    if (digits.length === 11) {
+      return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`;
     }
-    return `**.${this.value.slice(2, 5)}.${this.value.slice(5, 8)}/${this.value.slice(8, 12)}-**`;
+    if (digits.length === 14) {
+      return `**.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-**`;
+    }
+    return digits;
   }
 
   private static isValidCpf(cpf: string): boolean {

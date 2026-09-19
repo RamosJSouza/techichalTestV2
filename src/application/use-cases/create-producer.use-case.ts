@@ -1,16 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Farm } from '../../domain/entities/farm.js';
 import { Producer } from '../../domain/entities/producer.js';
-import { CityStateMismatchException } from '../../domain/exceptions/city-state-mismatch.exception.js';
 import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
 import { InactiveCnpjException } from '../../domain/exceptions/inactive-cnpj.exception.js';
 import { PRODUCER_REPOSITORY } from '../../domain/repositories/producer.repository.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
-import { CRYPTO_SERVICE_PORT } from '../services/crypto.service.interface.js';
-import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
+import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import { BRAZIL_DATA_SERVICE } from '../services/brazil-data.service.interface.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
+import { CRYPTO_SERVICE_PORT } from '../services/crypto.service.interface.js';
+import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
 
 export interface CreateProducerFarmInput {
   name: string;
@@ -72,31 +72,22 @@ export class CreateProducerUseCase {
     });
 
     for (const farmInput of input.farms ?? []) {
-      await this.validateTerritory(farmInput.city, farmInput.state);
-      const farm = Farm.create({
-        producerId: producer.id,
-        ...farmInput,
-      });
-      producer.addFarm(farm);
+      await assertCityBelongsToState(
+        this.brazilData,
+        farmInput.city,
+        farmInput.state,
+        this.logger,
+      );
+      producer.addFarm(
+        Farm.create({
+          producerId: producer.id,
+          ...farmInput,
+        }),
+      );
     }
 
     await this.producerRepository.save(producer);
     this.logger.log(`Producer created: ${producer.id}`);
     return producer;
-  }
-
-  private async validateTerritory(city: string, state: string): Promise<void> {
-    const matches = await this.brazilData.isCityInState(city, state);
-    if (matches === null) {
-      this.logger.warn(
-        `Territorial validation skipped for ${city}/${state} (BrasilAPI degraded)`,
-      );
-      return;
-    }
-    if (!matches) {
-      throw new CityStateMismatchException(
-        `A cidade '${city}' não pertence ao estado '${state}'.`,
-      );
-    }
   }
 }

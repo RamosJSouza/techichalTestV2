@@ -6,7 +6,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
-import { ZodValidationException } from 'nestjs-zod';
 import { ZodError } from 'zod';
 import { DomainException } from '../../domain/exceptions/domain.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
@@ -18,25 +17,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-
-    if (exception instanceof ZodValidationException) {
-      const zodError = this.extractZodError(exception);
-      response.status(HttpStatus.BAD_REQUEST).json({
-        statusCode: HttpStatus.BAD_REQUEST,
-        error: 'Bad Request',
-        message: 'Erro de validação',
-        code: 'VALIDATION_ERROR',
-        issues: zodError
-          ? zodError.issues.map((issue) => ({
-              path: issue.path.join('.'),
-              message: issue.message,
-            }))
-          : [],
-        timestamp: new Date().toISOString(),
-        path: request.url,
-      });
-      return;
-    }
 
     if (exception instanceof ZodError) {
       response.status(HttpStatus.BAD_REQUEST).json({
@@ -69,11 +49,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      const body =
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? exceptionResponse
+          : { message: exception.message };
+
       response.status(status).json({
+        ...body,
         statusCode: status,
-        error: HttpStatus[status] ?? 'Error',
-        message: exception.message,
-        code: 'HTTP_EXCEPTION',
         timestamp: new Date().toISOString(),
         path: request.url,
       });
@@ -91,17 +75,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
     });
-  }
-
-  private extractZodError(exception: ZodValidationException): ZodError | null {
-    const maybe = exception as ZodValidationException & {
-      getZodError?: () => unknown;
-    };
-    if (typeof maybe.getZodError === 'function') {
-      const error = maybe.getZodError();
-      return error instanceof ZodError ? error : null;
-    }
-    return null;
   }
 
   private mapDomainStatus(exception: DomainException): number {

@@ -19,7 +19,6 @@ export class DeleteProducerUseCase {
     }
 
     const deletedAt = new Date();
-    producer.softDelete(deletedAt);
     await this.producerRepository.softDelete(id, deletedAt);
     this.logger.log(`Producer soft-deleted: ${id}`);
   }

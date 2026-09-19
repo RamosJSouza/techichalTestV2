@@ -1,13 +1,11 @@
-import { Body, Controller, Post, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { CreateFarmUseCase } from '../../application/use-cases/create-farm.use-case.js';
 import { CreateFarmDto } from '../dtos/producer.dto.js';
-import { MaskPiiInterceptor } from '../interceptors/mask-pii.interceptor.js';
 import { toFarmResponse } from '../mappers/producer-response.mapper.js';
 
 @ApiTags('farms')
 @Controller('farms')
-@UseInterceptors(MaskPiiInterceptor)
 export class FarmController {
   public constructor(private readonly createFarm: CreateFarmUseCase) {}
 

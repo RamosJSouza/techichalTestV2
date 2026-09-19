@@ -1,57 +1,10 @@
 import { Farm } from '../../domain/entities/farm.js';
-import { Producer } from '../../domain/entities/producer.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
-import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
+import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import { CreateFarmUseCase } from './create-farm.use-case.js';
 import { CreateProducerUseCase } from './create-producer.use-case.js';
-
-class InMemoryProducerRepository implements IProducerRepository {
-  private readonly items = new Map<string, Producer>();
-
-  public constructor(private readonly crypto: CryptoService) {}
-
-  public async save(producer: Producer): Promise<Producer> {
-    this.items.set(producer.id, producer);
-    return producer;
-  }
-
-  public async update(producer: Producer): Promise<Producer> {
-    this.items.set(producer.id, producer);
-    return producer;
-  }
-
-  public async findById(id: string): Promise<Producer | null> {
-    const producer = this.items.get(id);
-    if (!producer || producer.isDeleted) {
-      return null;
-    }
-    return producer;
-  }
-
-  public async findByDocumentHash(
-    documentHash: string,
-  ): Promise<Producer | null> {
-    for (const producer of this.items.values()) {
-      if (
-        !producer.isDeleted &&
-        this.crypto.blindIndex(producer.document.value) === documentHash
-      ) {
-        return producer;
-      }
-    }
-    return null;
-  }
-
-  public async findAll(): Promise<Producer[]> {
-    return [...this.items.values()].filter((p) => !p.isDeleted);
-  }
-
-  public async softDelete(id: string, deletedAt: Date): Promise<void> {
-    this.items.get(id)?.softDelete(deletedAt);
-  }
-}
 
 class InMemoryFarmRepository implements IFarmRepository {
   public readonly items: Farm[] = [];
@@ -62,17 +15,17 @@ class InMemoryFarmRepository implements IFarmRepository {
   }
 
   public async findById(id: string): Promise<Farm | null> {
-    return this.items.find((f) => f.id === id && !f.isDeleted) ?? null;
+    return this.items.find((farm) => farm.id === id && !farm.isDeleted) ?? null;
   }
 
   public async findByProducerId(producerId: string): Promise<Farm[]> {
     return this.items.filter(
-      (f) => f.producerId === producerId && !f.isDeleted,
+      (farm) => farm.producerId === producerId && !farm.isDeleted,
     );
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
-    this.items.find((f) => f.id === id)?.softDelete(deletedAt);
+    this.items.find((farm) => farm.id === id)?.softDelete(deletedAt);
   }
 
   public async softDeleteByProducerId(
@@ -132,10 +85,6 @@ describe('CreateFarmUseCase', () => {
   it('rejeita cidade fora do estado', async () => {
     const producerRepo = new InMemoryProducerRepository(crypto);
     const farmRepo = new InMemoryFarmRepository();
-    const brazilData: BrazilDataServiceInterface = {
-      getCnpjData: async () => null,
-      isCityInState: async () => false,
-    };
 
     const producer = await new CreateProducerUseCase(
       producerRepo,
@@ -147,7 +96,10 @@ describe('CreateFarmUseCase', () => {
     });
 
     await expect(
-      new CreateFarmUseCase(farmRepo, producerRepo, brazilData).execute({
+      new CreateFarmUseCase(farmRepo, producerRepo, {
+        getCnpjData: async () => null,
+        isCityInState: async () => false,
+      }).execute({
         producerId: producer.id,
         name: 'Fazenda',
         city: 'Campinas',

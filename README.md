@@ -59,12 +59,25 @@ pnpm test:api
 pnpm test:client
 pnpm db:migrate
 pnpm test:e2e
-pnpm audit:ci          # falha só em vulnerabilidades critical
+pnpm audit:ci          # falha em vulnerabilidades high+
 pnpm build
 # opcional: pnpm verify   # lint && test && test:e2e && build
 ```
 
 CI GitHub Actions replica a mesma ordem (`.github/workflows/ci.yml`).
+
+---
+
+## Escopo do desafio vs extensões
+
+| Origem | Itens |
+|--------|--------|
+| **Requisito do desafio** | CRUD produtores/fazendas, CPF/CNPJ, invariante de áreas, culturas por safra, dashboard (totais, por UF, por cultura, uso do solo), API REST, Docker, PostgreSQL, ORM, testes, logs |
+| **Extensão deliberada** | ESG/CAR/risco climático, BrasilAPI ACL, FLE+blind index, Prometheus/OTEL, benchmark harness, SPA React completa, soft-delete+unique parcial |
+
+### Restrição deliberada vs enunciado
+
+O enunciado permite **zero culturas** por safra. O contrato HTTP exige `crops.min(1)` por safra enviada ([`producer.schemas.ts`](src/presentation/schemas/producer.schemas.ts)) — decisão de qualidade cadastral (safra sem cultura não entra no payload). Para cadastrar fazenda sem safras, omita `harvests` / envie lista vazia.
 
 ---
 
@@ -109,7 +122,7 @@ Alinhadas a [`.env_example`](.env_example):
 |--------|-------|
 | `farms[]` no create | ≤ 20 |
 | `harvests[]` por fazenda | ≤ 10 |
-| `crops[]` por safra | ≤ 20 |
+| `crops[]` por safra | 1…20 (mín. 1 se a safra for enviada; ver restrição deliberada acima) |
 | `page` | 1…10000 |
 | `pageSize` | 1…100 (default 20) |
 | Body JSON | `BODY_LIMIT` (default `100kb`) |
@@ -159,21 +172,34 @@ No Docker Compose (production) o Swagger **não** é montado.
 - **Camadas DDD / Clean Architecture:** `domain` → `application` → `infrastructure` / `presentation`; domínio sem Nest/ORM.
 - **Value Objects:** `CpfCnpj`, `FarmArea` (arable + vegetation ≤ total), `CarNumber`.
 - **PII:** Field-Level Encryption (AES-256-GCM) + blind index HMAC (`document_hash`); unique parcial `WHERE deleted_at IS NULL`; soft delete anonimiza o hash.
-- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter` (circuit breaker).
-- **Dashboard:** agregações SQL nativas (várias queries); filtros Zod no query string.
-- **Frontend:** SPA Vite servida pelo Nest em production; Atomic Design no `client/`.
-- **Auth:** **fora de escopo** — API aberta; proteger rede (VPN/firewall/mTLS) em deploy real.
+- **Invariantes de área / UF / status:** Value Objects + `CHECK` no PostgreSQL (`0006` áreas; `0007` UF BR, `harvests.status`, `esg_status`, `car_status`). Violações `23505`→409 e `23514`→400 via `mapPgIntegrityError`.
+- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter` (circuit breaker; degradação pode aceitar cadastro — ver limitações).
+- **Dashboard:** agregações SQL nativas (~11 queries em paralelo); filtros Zod no query string. Plano/EXPLAIN em [`docs/bench/`](docs/bench/).
+- **Frontend:** SPA Vite servida pelo Nest em production; Atomic Design no `client/`; export do dashboard em **CSV** (sem `xlsx`).
+- **Auth:** **fora de escopo do desafio** — API aberta; **bloqueador de produção** (ver abaixo).
 
 ---
 
-## Limitações conhecidas
+## Limitações conhecidas / Production blockers
 
-- Sem autenticação / autorização.
-- Rate limit por IP (não por usuário/API key).
-- Dashboard: várias queries por request (~11 no plano atual); ver [`docs/dashboard-query-plan.md`](docs/dashboard-query-plan.md).
-- Listagem hidrata fazendas por página (custo cresce com `pageSize` e fan-out).
-- ESG local: status mock/stub tende a `APPROVED` sem provedor externo real.
-- Bench escala S: gates HTTP **FAIL** (latência/RPS); verify-aggregates PASS — detalhes em [`docs/bench/`](docs/bench/) / relatório `docs/bench/reports/S-2026-09-20.md`. Scripts `pnpm bench:*` são opcionais e **não** fazem parte do caminho mínimo do avaliador.
+**Bloqueadores para exposição pública (P0/P1):**
+
+| Item | Status | Notas |
+|------|--------|-------|
+| Autenticação / autorização / IDOR | **Ausente** | Qualquer cliente na rede muta/lê produtores e fazendas. Proteger com VPN/mTLS **ou** implementar OIDC+RBAC antes de internet. |
+| `/metrics` e agregados | Públicos | Não expor sem rede restrita. |
+| Busca por documento | Enumeração possível | `200` vs `404` revela existência de CPF/CNPJ (hash). |
+| Bench escala S | Gates HTTP **FAIL** | p95/RPS abaixo da meta — [`docs/bench/reports/S-2026-09-20.md`](docs/bench/reports/S-2026-09-20.md). |
+| BrasilAPI degradada | Fallback permissivo | Cidade/UF ou CNPJ podem ser aceitos sem validação externa completa. |
+| ESG / CAR | Stub local | `esgStatus` default `APPROVED`; CAR mock — não usar para compliance real. |
+
+**Já mitigado nesta entrega:**
+
+- Export dashboard sem `xlsx` (CSV nativo) — audit CI em **high**.
+- `CHECK` constraints de área/UF no Postgres.
+- Violação de unique (`23505`) mapeada para HTTP **409**.
+
+Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página; bundle frontend acima do budget de bench (ver `docs/bench`). Scripts `pnpm bench:*` são opcionais e **não** fazem parte do caminho mínimo do avaliador.
 
 ---
 
@@ -201,5 +227,6 @@ No Docker Compose (production) o Swagger **não** é montado.
 - Soft delete + unique parcial; logs Pino com redact de `document`.
 - Helmet, rate limit, CORS restrito em production, body limit.
 - 5xx genéricos com `errorId` / `traceId`.
+- **Dependências:** `pnpm audit:ci` (= `pnpm audit --audit-level=high`) falha a CI em vulnerabilidades **high** ou superiores. **Não** há allowlist/silenciamento. Export do dashboard é CSV nativo (sem `xlsx`; não há upload/leitura de planilhas). Se no futuro for inevitável uma exceção temporária, documentar em `docs/security/audit-exceptions.md` com CVE, justificativa e **data de expiração** — o arquivo só deve existir enquanto a exceção estiver vigente.
 
 Frontend: [`client/README.md`](client/README.md). Spec técnica: [`docs/backend-technical-spec.md`](docs/backend-technical-spec.md).

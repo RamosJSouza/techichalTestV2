@@ -72,7 +72,7 @@ const Clear = styled.button`
   }
 `;
 
-export interface SearchFieldProps {
+interface SearchFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;

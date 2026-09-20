@@ -49,14 +49,20 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Unit tests
-        run: pnpm test
+      - name: Unit tests (API)
+        run: pnpm test:api
+
+      - name: Unit tests (client)
+        run: pnpm test:client
 
       - name: Migrate
         run: node scripts/migrate.mjs
 
       - name: E2E
         run: pnpm test:e2e
+
+      - name: Audit (critical)
+        run: pnpm audit:ci
 
       - name: Build
         run: pnpm build

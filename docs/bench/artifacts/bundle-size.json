@@ -1,0 +1,50 @@
+{
+  "at": "2026-09-20T13:43:42.090Z",
+  "rows": [
+    {
+      "file": "index-DI6hrtgF.js",
+      "kind": "entry",
+      "raw": 596655,
+      "gzip": 165397
+    },
+    {
+      "file": "recharts-BO-Ht4Eb.js",
+      "kind": "recharts",
+      "raw": 393768,
+      "gzip": 110058
+    },
+    {
+      "file": "vendor-uvLBOQDv.js",
+      "kind": "vendor",
+      "raw": 411836,
+      "gzip": 131387
+    },
+    {
+      "file": "xlsx-TfwL06Em.js",
+      "kind": "xlsx",
+      "raw": 283107,
+      "gzip": 95064
+    }
+  ],
+  "gates": [
+    {
+      "name": "vendor",
+      "actual": 131387,
+      "limit": 184320,
+      "ok": true
+    },
+    {
+      "name": "recharts",
+      "actual": 110058,
+      "limit": 122880,
+      "ok": true
+    },
+    {
+      "name": "entry",
+      "actual": 165397,
+      "limit": 81920,
+      "ok": false
+    }
+  ],
+  "pass": false
+}

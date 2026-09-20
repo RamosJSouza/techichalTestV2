@@ -1,0 +1,846 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_legacyHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Alias de liveness (compatibilidade)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness — processo vivo",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness — dependências (Postgres)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/metrics": {
+      "get": {
+        "operationId": "HealthController_metricsEndpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Métricas Prometheus (HTTP, DB, circuit breakers)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/producers": {
+      "post": {
+        "operationId": "ProducerController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProducerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Produtor criado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProducerMaskedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      },
+      "get": {
+        "operationId": "ProducerController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 10000,
+              "default": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "createdAt",
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "name"
+              ]
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "desc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 255,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de produtores"
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      }
+    },
+    "/api/v1/producers/search": {
+      "get": {
+        "operationId": "ProducerController_search",
+        "parameters": [
+          {
+            "name": "document",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minLength": 11,
+              "maxLength": 18,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Busca por documento (blind index)"
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      }
+    },
+    "/api/v1/producers/{id}/esg-compliance": {
+      "get": {
+        "operationId": "ProducerController_esgCompliance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Parecer socioambiental ESG"
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      }
+    },
+    "/api/v1/producers/{id}": {
+      "get": {
+        "operationId": "ProducerController_getById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalhe do produtor"
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      },
+      "put": {
+        "operationId": "ProducerController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProducerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Produtor atualizado"
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      },
+      "delete": {
+        "operationId": "ProducerController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "producers"
+        ]
+      }
+    },
+    "/api/v1/farms": {
+      "post": {
+        "operationId": "FarmController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFarmDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fazenda criada"
+          }
+        },
+        "tags": [
+          "farms"
+        ]
+      }
+    },
+    "/api/v1/farms/{id}": {
+      "put": {
+        "operationId": "FarmController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFarmDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fazenda atualizada"
+          }
+        },
+        "tags": [
+          "farms"
+        ]
+      },
+      "delete": {
+        "operationId": "FarmController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Fazenda removida (soft delete)"
+          }
+        },
+        "tags": [
+          "farms"
+        ]
+      }
+    },
+    "/api/v1/farms/{id}/car/validate": {
+      "post": {
+        "operationId": "FarmController_validateCar",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Auditoria CAR (validação local)"
+          }
+        },
+        "tags": [
+          "farms"
+        ]
+      }
+    },
+    "/api/v1/dashboard/stats": {
+      "get": {
+        "operationId": "DashboardController_stats",
+        "parameters": [
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "crop",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 50,
+              "type": "string"
+            }
+          },
+          {
+            "name": "harvestYear",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 10,
+              "type": "string"
+            }
+          },
+          {
+            "name": "esgStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "APPROVED",
+                "WARNING",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "carStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "PENDING",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "minClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas agregadas do dashboard"
+          }
+        },
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/ibge/states/{uf}/cities": {
+      "get": {
+        "operationId": "IbgeController_listCities",
+        "parameters": [
+          {
+            "name": "uf",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de municípios do IBGE para a UF"
+          }
+        },
+        "tags": [
+          "ibge"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Brain Agriculture API",
+    "description": "API de gestão de produtores rurais, fazendas, safras e dashboard analítico. Sem autenticação no escopo atual — proteja a rede e use rate limit/CORS em produção.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "CreateProducerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "document": {
+            "type": "string",
+            "minLength": 11,
+            "maxLength": 18
+          },
+          "farms": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "city": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "state": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                },
+                "totalArea": {
+                  "type": "number",
+                  "exclusiveMinimum": true,
+                  "minimum": 0
+                },
+                "arableArea": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "vegetationArea": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "harvests": {
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "year": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 10
+                      },
+                      "crops": {
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 50
+                        }
+                      }
+                    },
+                    "required": [
+                      "year",
+                      "crops"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "carNumber": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "required": [
+                "name",
+                "city",
+                "state",
+                "totalArea",
+                "arableArea",
+                "vegetationArea"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "document"
+        ],
+        "additionalProperties": false
+      },
+      "ProducerMaskedResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a8f3d1b2-8c9e-4a1b-9f01-123456789abc"
+          },
+          "name": {
+            "type": "string",
+            "example": "João da Silva"
+          },
+          "document": {
+            "type": "string",
+            "description": "CPF/CNPJ mascarado na resposta",
+            "examples": {
+              "cpf": {
+                "value": "***.982.247-**"
+              },
+              "cnpj": {
+                "value": "**.222.333/0001-**"
+              }
+            },
+            "example": "***.982.247-**"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "document"
+        ]
+      },
+      "UpdateProducerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "document": {
+            "type": "string",
+            "minLength": 11,
+            "maxLength": 18
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateFarmDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "state": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "totalArea": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "arableArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "vegetationArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "harvests": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10
+                },
+                "crops": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  }
+                }
+              },
+              "required": [
+                "year",
+                "crops"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "carNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "producerId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "name",
+          "city",
+          "state",
+          "totalArea",
+          "arableArea",
+          "vegetationArea",
+          "producerId"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateFarmDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "state": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "totalArea": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "arableArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "vegetationArea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "carNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "nullable": true
+          },
+          "harvests": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "year": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10
+                },
+                "crops": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  }
+                }
+              },
+              "required": [
+                "year",
+                "crops"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

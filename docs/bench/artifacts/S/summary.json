@@ -1,0 +1,36 @@
+{
+  "scale": "S",
+  "capturedAt": "2026-09-20T13:42:59.734Z",
+  "summary": [
+    {
+      "name": "totals_by_state",
+      "nodeType": "Aggregate",
+      "execMs": 2.127,
+      "file": "artifacts/S/totals_by_state.json"
+    },
+    {
+      "name": "by_crop_active",
+      "nodeType": "Aggregate",
+      "execMs": 118.399,
+      "file": "artifacts/S/by_crop_active.json"
+    },
+    {
+      "name": "climate_range",
+      "nodeType": "Aggregate",
+      "execMs": 23.339,
+      "file": "artifacts/S/climate_range.json"
+    },
+    {
+      "name": "list_producers_page",
+      "nodeType": "Limit",
+      "execMs": 3.593,
+      "file": "artifacts/S/list_producers_page.json"
+    },
+    {
+      "name": "farms_for_producers",
+      "nodeType": "Hash Join",
+      "execMs": 10.839,
+      "file": "artifacts/S/farms_for_producers.json"
+    }
+  ]
+}

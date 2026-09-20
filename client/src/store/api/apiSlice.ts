@@ -2,19 +2,17 @@ import {
   createApi,
   type BaseQueryFn,
 } from '@reduxjs/toolkit/query/react';
-import { mockDashboardStats, mockProducers } from '../../shared/mocks/fixtures';
-import {
-  producerResponseToListItem,
-  type CreateFarmInput,
-  type CreateProducerInput,
-  type DashboardAnalytics,
-  type DashboardFilters,
-  type DashboardSummary,
-  type EsgComplianceResult,
-  type ProducerListItem,
-  type ProducerResponse,
-  type UpdateFarmInput,
-  type UpdateProducerInput,
+import type {
+  CreateFarmInput,
+  CreateProducerInput,
+  DashboardAnalytics,
+  DashboardFilters,
+  DashboardSummary,
+  EsgComplianceResult,
+  ProducerListItem,
+  ProducerResponse,
+  UpdateFarmInput,
+  UpdateProducerInput,
 } from '../../shared/types/api';
 import {
   axiosBaseQuery,
@@ -22,86 +20,16 @@ import {
   type AxiosBaseQueryError,
 } from './axiosBaseQuery';
 
-const useMocks = import.meta.env.VITE_USE_MOCKS === 'true';
-
-const mockBaseQuery: BaseQueryFn<
-  AxiosBaseQueryArgs,
-  unknown,
-  AxiosBaseQueryError
-> = async ({ url, method = 'GET' }) => {
-  await new Promise((r) => setTimeout(r, 50));
-  if (
-    url === '/dashboard/summary' ||
-    url.startsWith('/dashboard/summary')
-  ) {
-    const {
-      climateRiskByState: _s,
-      climateRiskByCrop: _c,
-      cropsByYear: _y,
-      farmsByMonth: _m,
-      topCities: _t,
-      ...summary
-    } = mockDashboardStats;
-    return { data: summary };
-  }
-  if (
-    url === '/dashboard/analytics' ||
-    url.startsWith('/dashboard/analytics')
-  ) {
-    const {
-      climateRiskByState,
-      climateRiskByCrop,
-      cropsByYear,
-      farmsByMonth,
-      topCities,
-    } = mockDashboardStats;
-    return {
-      data: {
-        climateRiskByState,
-        climateRiskByCrop,
-        cropsByYear,
-        farmsByMonth,
-        topCities,
-      },
-    };
-  }
-  if (url === '/producers' && method === 'GET') {
-    return {
-      data: {
-        items: mockProducers.map(producerResponseToListItem),
-        total: mockProducers.length,
-        page: 1,
-        pageSize: 20,
-      },
-    };
-  }
-  if (url.startsWith('/producers/') && method === 'GET' && !url.includes('search')) {
-    const id = url.split('/')[2];
-    const found = mockProducers.find((p) => p.id === id) ?? mockProducers[0];
-    return { data: found };
-  }
-  if (url.startsWith('/ibge/states/') && method === 'GET') {
-    return {
-      data: {
-        cities: [
-          'Ribeirão Preto',
-          'São Paulo',
-          'Campinas',
-          'Santos',
-          'Piracicaba',
-        ],
-      },
-    };
-  }
-  return { data: mockProducers[0] };
-};
+/** Ativo somente com flag explícita de desenvolvimento/teste (inline p/ tree-shake Vite). */
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 
 const dynamicBaseQuery: BaseQueryFn<
   AxiosBaseQueryArgs,
   unknown,
   AxiosBaseQueryError
 > = async (args, api, extra) => {
-  if (useMocks) {
+  if (USE_MOCKS) {
+    const { mockBaseQuery } = await import('./mockBaseQuery');
     return mockBaseQuery(args, api, extra);
   }
   return axiosBaseQuery()(args, api, extra);

@@ -19,6 +19,7 @@ import { FilterChip } from '../components/molecules/FilterChip';
 import { Pagination } from '../components/molecules/Pagination';
 import { SearchField } from '../components/molecules/SearchField';
 import { ConfirmDialog } from '../components/molecules/ConfirmDialog';
+import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { TextInput } from '../components/atoms/TextInput';
 import { ProducersDataTable } from '../components/organisms/ProducersDataTable';
 import {
@@ -116,11 +117,12 @@ export function ProducersListPage(): React.JSX.Element {
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const nameFilter = deferredQuery.trim() || undefined;
-  const { data, isLoading, isError, isFetching } = useListProducersQuery({
-    page,
-    pageSize,
-    ...(nameFilter ? { name: nameFilter } : {}),
-  });
+  const { data, isLoading, isError, isFetching, refetch, error } =
+    useListProducersQuery({
+      page,
+      pageSize,
+      ...(nameFilter ? { name: nameFilter } : {}),
+    });
   const [deleteProducer, { isLoading: deletingProducer }] =
     useDeleteProducerMutation();
   const [searchExact, { isFetching: searchingExact }] =
@@ -175,7 +177,19 @@ export function ProducersListPage(): React.JSX.Element {
   }
 
   if (isError) {
-    return <p role="alert">Falha ao carregar produtores.</p>;
+    const statusDetail =
+      typeof error === 'object' && error && 'status' in error
+        ? `HTTP ${String(error.status)}`
+        : undefined;
+    return (
+      <ErrorRetryPanel
+        message="Falha ao carregar produtores."
+        detail={statusDetail}
+        onRetry={() => {
+          void refetch();
+        }}
+      />
+    );
   }
 
   return (

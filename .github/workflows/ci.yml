@@ -66,3 +66,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Bundle size gates (gzip)
+        run: pnpm bench:bundle

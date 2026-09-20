@@ -34,7 +34,15 @@ Backlog de hipóteses (pool, índices, cache, listagem, BrasilAPI, bundle): ver 
 
 Gate SQL (M/L): Seq Scan dominante em `farms`/`harvests` nas queries D0/D1/D2 = FAIL.
 
-Bundle (release): `vendor` gzip ≤180 KB; `recharts` ≤120 KB; entry ≤80 KB; regressão >10% vs baseline = FAIL.
+Bundle (release / CI): `pnpm build:client && pnpm bench:bundle`
+
+| Chunk | Gate gzip | Notas |
+|-------|-----------|-------|
+| `vendor` | ≤180 KB | react + RTK |
+| `recharts` | ≤120 KB | lazy no dashboard |
+| `entry` (`index-*`) | ≤100 KB | após code-split de rotas |
+
+Baseline before code-split (2026-09-20): entry **167 KB** gzip (gate 80 KB falhava). After: entry **~62 KB** gzip — ver `docs/bench/artifacts/bundle-size-before.json` / `bundle-size-after.json`. Regressão >10% vs `bundle-size-baseline.json` = FAIL.
 
 ## Protocolo
 

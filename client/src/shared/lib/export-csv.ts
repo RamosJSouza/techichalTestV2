@@ -1,4 +1,4 @@
-export interface CsvSheet {
+interface CsvSheet {
   name: string;
   rows: Record<string, unknown>[];
 }

@@ -73,7 +73,7 @@ const JumpRow = styled.div`
   gap: 6px;
 `;
 
-export interface PaginationProps {
+interface PaginationProps {
   page: number;
   pageSize: number;
   total: number;

@@ -210,7 +210,7 @@ Campos: `producers.document_validation_status`, `farms.territorial_validation_st
 - `CHECK` constraints de área/UF no Postgres.
 - Violação de unique (`23505`) mapeada para HTTP **409**.
 
-Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página; bundle frontend acima do budget de bench (ver `docs/bench`). Scripts `pnpm bench:*` são opcionais e **não** fazem parte do caminho mínimo do avaliador.
+Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página. Bundle frontend com code-split (gates gzip no CI via `pnpm bench:bundle`; ver `docs/bench`). Scripts `pnpm bench:*` de carga/SQL são opcionais e **não** fazem parte do caminho mínimo do avaliador.
 
 ---
 

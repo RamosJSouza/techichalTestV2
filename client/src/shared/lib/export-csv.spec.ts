@@ -38,4 +38,36 @@ describe('exportToCsv', () => {
     const blob = (URL.createObjectURL as jest.Mock).mock.calls[0][0] as Blob;
     expect(blob.type).toContain('text/csv');
   });
+
+  it('reporta timing allowlisted sem PII (fire-and-forget)', () => {
+    const click = jest.fn();
+    const createElement = document.createElement.bind(document);
+    jest.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = createElement(tag);
+      if (tag === 'a') {
+        el.click = click;
+      }
+      return el;
+    });
+
+    exportToCsv(
+      [{ name: 'KPIs', rows: [{ metric: 'total', value: 1 }] }],
+      'dashboard-analitico',
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/observability/client-timings',
+      expect.objectContaining({
+        method: 'POST',
+        keepalive: true,
+      }),
+    );
+    const body = JSON.parse(
+      (global.fetch as jest.Mock).mock.calls[0][1].body as string,
+    ) as { event: string; durationSeconds: number };
+    expect(body.event).toBe('dashboard_csv_export');
+    expect(body.durationSeconds).toBeGreaterThanOrEqual(0);
+    expect(body).not.toHaveProperty('email');
+    expect(body).not.toHaveProperty('document');
+  });
 });

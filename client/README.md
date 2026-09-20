@@ -61,6 +61,15 @@ Breakpoints do DESIGN.md (AgroIntel Pro):
 pnpm test:client
 ```
 
+Cobertura mínima: erro HTTP + retry (dashboard/listagem), exclusão com ConfirmDialog,
+formulário em modo edição, validação CAR, export CSV + timing observável.
+
+## Observabilidade do client
+
+- Mocks **somente** com `VITE_USE_MOCKS=true` (dev/teste). Build de produção usa Axios → `/api/v1`.
+- Code splitting: rotas via `React.lazy`; gráficos (recharts) e `exportToCsv` sob demanda.
+- Bundle gzip: `pnpm build:client && pnpm bench:bundle` — gates em CI (`bench:bundle`).
+
 ## Rotas
 
 | Rota | Página |

@@ -3,7 +3,7 @@ import styled, { css } from 'styled-components';
 import { useCurrentPng } from 'recharts-to-png';
 import { Button } from '../atoms/Button';
 
-type ChartSpan = 'third' | 'half' | 'full';
+type ChartSpan = 'half' | 'full';
 
 const Panel = styled.section<{ $span: ChartSpan }>`
   background: ${({ theme }) => theme.colors.surface};
@@ -19,7 +19,6 @@ const Panel = styled.section<{ $span: ChartSpan }>`
 
   ${({ $span }) => {
     switch ($span) {
-      case 'third':
       case 'half':
         return css`
           grid-column: span 1;
@@ -107,6 +106,8 @@ export function ChartCard({
           type="button"
           variant="secondary"
           disabled={isLoading}
+          aria-busy={isLoading}
+          aria-label={`Exportar gráfico ${title} como PNG`}
           onClick={() => void handleExport()}
         >
           {isLoading ? 'Exportando…' : 'PNG'}

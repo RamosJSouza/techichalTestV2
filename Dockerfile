@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS base
+FROM node:22.22.3-alpine AS base
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
@@ -25,7 +25,7 @@ RUN pnpm --filter @brain-ag/client build & client_pid=$!; \
     pnpm build:api & api_pid=$!; \
     wait "$client_pid" && wait "$api_pid" && pnpm prune --prod
 
-FROM node:22-alpine AS runtime
+FROM node:22.22.3-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apk add --no-cache curl

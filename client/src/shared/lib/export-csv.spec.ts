@@ -7,12 +7,14 @@ describe('exportToCsv', () => {
   beforeEach(() => {
     URL.createObjectURL = jest.fn(() => 'blob:mock');
     URL.revokeObjectURL = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
     document.body.innerHTML = '';
+    jest.restoreAllMocks();
   });
 
   it('dispara download de CSV com células escapadas', () => {

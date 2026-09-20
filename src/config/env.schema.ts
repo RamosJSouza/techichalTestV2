@@ -34,6 +34,16 @@ const envSchema = z
       .optional()
       .default('false'),
     BODY_LIMIT: z.string().min(2).max(16).default('100kb'),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.string().url().optional(),
+    ),
+    OTEL_SERVICE_NAME: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.string().min(1).max(128).optional(),
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.ENCRYPTION_KEY_PREVIOUS && !data.ENCRYPTION_KEY_PREVIOUS_ID) {

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Farm } from '../../domain/entities/farm.js';
 import type {
@@ -10,31 +10,41 @@ import { DRIZZLE } from '../database/database.tokens.js';
 import { FarmMapper } from '../database/mappers/producer.mapper.js';
 import { mapPgIntegrityError } from '../database/pg-error.js';
 import { farmCrops, farms, harvests } from '../database/schema/index.js';
+import {
+  MetricsService,
+  type DbOperation,
+} from '../observability/metrics.service.js';
 
 type FarmRow = typeof farms.$inferSelect;
 type DbTransaction = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0];
 
 @Injectable()
 export class DrizzleFarmRepository implements IFarmRepository {
-  public constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  public constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDb,
+    @Optional() private readonly metrics?: MetricsService,
+  ) {}
 
   public async save(farm: Farm): Promise<Farm> {
-    try {
-      await this.db.transaction(async (tx) => {
-        await tx.insert(farms).values(FarmMapper.toPersistence(farm));
-        await this.insertHarvestsAndCrops(tx, farm);
-      });
-    } catch (error) {
-      mapPgIntegrityError(error, 'generic');
-    }
+    return this.timed('farm_save', async () => {
+      try {
+        await this.db.transaction(async (tx) => {
+          await tx.insert(farms).values(FarmMapper.toPersistence(farm));
+          await this.insertHarvestsAndCrops(tx, farm);
+        });
+      } catch (error) {
+        mapPgIntegrityError(error, 'generic');
+      }
 
-    return farm;
+      return farm;
+    });
   }
 
   public async update(
     farm: Farm,
     opts: FarmUpdateOptions = { harvestsChanged: true },
   ): Promise<Farm> {
+    return this.timed('farm_update', async () => {
     const persistence = FarmMapper.toPersistence(farm);
     try {
       await this.db.transaction(async (tx) => {
@@ -81,28 +91,43 @@ export class DrizzleFarmRepository implements IFarmRepository {
       mapPgIntegrityError(error, 'generic');
     }
     return farm;
+    });
   }
 
   public async findById(id: string): Promise<Farm | null> {
-    const [row] = await this.db
-      .select()
-      .from(farms)
-      .where(and(eq(farms.id, id), isNull(farms.deletedAt)))
-      .limit(1);
+    return this.timed('farm_find_by_id', async () => {
+      const [row] = await this.db
+        .select()
+        .from(farms)
+        .where(and(eq(farms.id, id), isNull(farms.deletedAt)))
+        .limit(1);
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    const [farm] = await this.hydrateMany([row]);
-    return farm ?? null;
+      const [farm] = await this.hydrateMany([row]);
+      return farm ?? null;
+    });
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
-    await this.db
-      .update(farms)
-      .set({ deletedAt, updatedAt: deletedAt })
-      .where(eq(farms.id, id));
+    await this.timed('farm_soft_delete', async () => {
+      await this.db
+        .update(farms)
+        .set({ deletedAt, updatedAt: deletedAt })
+        .where(eq(farms.id, id));
+    });
+  }
+
+  private async timed<T>(
+    operation: DbOperation,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (!this.metrics) {
+      return fn();
+    }
+    return this.metrics.timeDbOperation(operation, fn);
   }
 
   private async hydrateMany(rows: FarmRow[]): Promise<Farm[]> {

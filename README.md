@@ -184,6 +184,7 @@ No Docker Compose (production) o Swagger **não** é montado.
 
 Campos: `producers.document_validation_status`, `farms.territorial_validation_status` (eixo distinto de ESG/CAR).
 - **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter`. Outcomes explícitos (`VALIDATED` | `PENDING_EXTERNAL_VALIDATION` | `REJECTED`); outage **nunca** conta como validação positiva — cadastro pode seguir só marcado como `PENDING`. Timeout 5s, até 2 retries (erros transitórios), circuit breaker (opossum), cache in-memory TTL 15 min (CNPJ/UF), métricas `brasilapi_requests_total` / `brasilapi_request_duration_seconds` / `brasilapi_circuit_open`.
+- **Observabilidade:** scrape `GET /api/v1/metrics` (labels de baixa cardinalidade: `route` normalizado, `status_class`; sem ID/PII). Histogramas HTTP/DB/BrasilAPI/client CSV; `domain_errors_total`, `rate_limit_rejected_total`, `db_up`. OTLP opcional via `OTEL_EXPORTER_OTLP_ENDPOINT` ([`src/tracing.ts`](src/tracing.ts)); logs Pino com `trace_id`. Alertas/dashboard/runbook em [`docs/observability/`](docs/observability/).
 - **Dashboard:** agregações SQL nativas (~11 queries em paralelo); filtros Zod no query string. Plano/EXPLAIN em [`docs/bench/`](docs/bench/).
 - **Frontend:** SPA Vite servida pelo Nest em production; Atomic Design no `client/`; export do dashboard em **CSV** (sem `xlsx`).
 - **Auth:** **fora de escopo do desafio** — API aberta; **bloqueador de produção** (ver abaixo).
@@ -197,7 +198,7 @@ Campos: `producers.document_validation_status`, `farms.territorial_validation_st
 | Item | Status | Notas |
 |------|--------|-------|
 | Autenticação / autorização / IDOR | **Ausente** | Qualquer cliente na rede muta/lê produtores e fazendas. Proteger com VPN/mTLS **ou** implementar OIDC+RBAC antes de internet. |
-| `/metrics` e agregados | Públicos | Não expor sem rede restrita. |
+| `/api/v1/metrics` e agregados | Públicos | Não expor sem rede restrita — ver [`docs/observability/RUNBOOK.md`](docs/observability/RUNBOOK.md). |
 | Busca por documento | Enumeração possível | `200` vs `404` revela existência de CPF/CNPJ (hash). |
 | Bench escala S | Gates HTTP **FAIL** | p95/RPS abaixo da meta — [`docs/bench/reports/S-2026-09-20.md`](docs/bench/reports/S-2026-09-20.md). |
 | BrasilAPI degradada | Cadastro com `PENDING_EXTERNAL_VALIDATION` | Outage/timeout/circuit open **não** valida positivamente; ESG efetivo `WARNING` enquanto pendente. Rejeição (CNPJ inativo/404, cidade∉UF) continua bloqueando. |
@@ -227,7 +228,8 @@ Outras limitações operacionais: rate limit só por IP; listagem hidrata fazend
 | POST | `/api/v1/farms/:id/car/validate` | Auditoria CAR (stub) |
 | GET | `/api/v1/dashboard/stats` | Agregações |
 | GET | `/api/v1/health/live` · `/ready` | Health |
-| GET | `/api/v1/metrics` | Prometheus |
+| GET | `/api/v1/metrics` | Prometheus (não expor publicamente) |
+| POST | `/api/v1/observability/client-timings` | Timing allowlisted (ex.: export CSV) |
 
 ---
 

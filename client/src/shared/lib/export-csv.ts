@@ -38,8 +38,24 @@ function downloadBlob(content: string, filename: string, mime: string): void {
   URL.revokeObjectURL(url);
 }
 
+function reportClientTiming(durationSeconds: number): void {
+  const body = JSON.stringify({
+    event: 'dashboard_csv_export',
+    durationSeconds,
+  });
+  void fetch('/api/v1/observability/client-timings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true,
+  }).catch(() => {
+    /* fire-and-forget */
+  });
+}
+
 /** Exporta uma ou mais abas como arquivos CSV (um arquivo por aba). */
 export function exportToCsv(sheets: CsvSheet[], basename: string): void {
+  const started = performance.now();
   const safeBase = basename.replace(/\.csv$/i, '').replace(/\.xlsx$/i, '');
   for (const sheet of sheets) {
     const safeName = sheet.name.replace(/[^\w\-]+/g, '_').slice(0, 40) || 'sheet';
@@ -49,4 +65,6 @@ export function exportToCsv(sheets: CsvSheet[], basename: string): void {
         : `${safeBase}-${safeName}.csv`;
     downloadBlob(sheetToCsv(sheet), filename, 'text/csv;charset=utf-8');
   }
+  const durationSeconds = (performance.now() - started) / 1000;
+  reportClientTiming(durationSeconds);
 }

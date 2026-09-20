@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   and,
   asc,
@@ -31,6 +31,10 @@ import {
   harvests,
   producers,
 } from '../database/schema/index.js';
+import {
+  MetricsService,
+  type DbOperation,
+} from '../observability/metrics.service.js';
 
 type ProducerRow = typeof producers.$inferSelect;
 
@@ -39,9 +43,14 @@ export class DrizzleProducerRepository implements IProducerRepository {
   public constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @Inject(CRYPTO_SERVICE) private readonly crypto: CryptoService,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   public async save(producer: Producer): Promise<Producer> {
+    return this.timed('producer_save', () => this.saveInner(producer));
+  }
+
+  private async saveInner(producer: Producer): Promise<Producer> {
     const persistence = ProducerMapper.toPersistence(producer, this.crypto);
 
     try {
@@ -90,123 +99,145 @@ export class DrizzleProducerRepository implements IProducerRepository {
   }
 
   public async update(producer: Producer): Promise<Producer> {
-    const persistence = ProducerMapper.toPersistence(producer, this.crypto);
-    try {
-      await this.db
-        .update(producers)
-        .set({
-          name: persistence.name,
-          document: persistence.document,
-          documentHash: persistence.documentHash,
-          esgStatus: persistence.esgStatus,
-          esgCheckedAt: persistence.esgCheckedAt,
-          documentValidationStatus: persistence.documentValidationStatus,
-          updatedAt: persistence.updatedAt,
-          deletedAt: persistence.deletedAt,
-        })
-        .where(eq(producers.id, producer.id));
-    } catch (error) {
-      mapPgIntegrityError(error, 'document');
-    }
-    return producer;
+    return this.timed('producer_update', async () => {
+      const persistence = ProducerMapper.toPersistence(producer, this.crypto);
+      try {
+        await this.db
+          .update(producers)
+          .set({
+            name: persistence.name,
+            document: persistence.document,
+            documentHash: persistence.documentHash,
+            esgStatus: persistence.esgStatus,
+            esgCheckedAt: persistence.esgCheckedAt,
+            documentValidationStatus: persistence.documentValidationStatus,
+            updatedAt: persistence.updatedAt,
+            deletedAt: persistence.deletedAt,
+          })
+          .where(eq(producers.id, producer.id));
+      } catch (error) {
+        mapPgIntegrityError(error, 'document');
+      }
+      return producer;
+    });
   }
 
   public async findById(id: string): Promise<Producer | null> {
-    const [row] = await this.db
-      .select()
-      .from(producers)
-      .where(and(eq(producers.id, id), isNull(producers.deletedAt)))
-      .limit(1);
-    if (!row) {
-      return null;
-    }
-    const [hydrated] = await this.hydrateMany([row]);
-    return hydrated ?? null;
+    return this.timed('producer_find_by_id', async () => {
+      const [row] = await this.db
+        .select()
+        .from(producers)
+        .where(and(eq(producers.id, id), isNull(producers.deletedAt)))
+        .limit(1);
+      if (!row) {
+        return null;
+      }
+      const [hydrated] = await this.hydrateMany([row]);
+      return hydrated ?? null;
+    });
   }
 
   public async findByDocumentHash(
     documentHash: string,
   ): Promise<Producer | null> {
-    const [row] = await this.db
-      .select()
-      .from(producers)
-      .where(
-        and(
-          eq(producers.documentHash, documentHash),
-          isNull(producers.deletedAt),
-        ),
-      )
-      .limit(1);
-    if (!row) {
-      return null;
-    }
-    const [hydrated] = await this.hydrateMany([row]);
-    return hydrated ?? null;
+    return this.timed('producer_find_by_document_hash', async () => {
+      const [row] = await this.db
+        .select()
+        .from(producers)
+        .where(
+          and(
+            eq(producers.documentHash, documentHash),
+            isNull(producers.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!row) {
+        return null;
+      }
+      const [hydrated] = await this.hydrateMany([row]);
+      return hydrated ?? null;
+    });
   }
 
   public async findAll(): Promise<Producer[]> {
-    const rows = await this.db
-      .select()
-      .from(producers)
-      .where(isNull(producers.deletedAt));
-    return this.hydrateMany(rows);
+    return this.timed('producer_find_all', async () => {
+      const rows = await this.db
+        .select()
+        .from(producers)
+        .where(isNull(producers.deletedAt));
+      return this.hydrateMany(rows);
+    });
   }
 
   public async findMany(query: ProducerListQuery): Promise<ProducerListResult> {
-    const conditions = [isNull(producers.deletedAt)];
-    if (query.name) {
-      const escaped = query.name
-        .replace(/\\/g, '\\\\')
-        .replace(/%/g, '\\%')
-        .replace(/_/g, '\\_');
-      conditions.push(ilike(producers.name, `%${escaped}%`));
-    }
-    const whereClause = and(...conditions);
+    return this.timed('producer_find_many', async () => {
+      const conditions = [isNull(producers.deletedAt)];
+      if (query.name) {
+        const escaped = query.name
+          .replace(/\\/g, '\\\\')
+          .replace(/%/g, '\\%')
+          .replace(/_/g, '\\_');
+        conditions.push(ilike(producers.name, `%${escaped}%`));
+      }
+      const whereClause = and(...conditions);
 
-    const sortColumn =
-      query.sortBy === 'name' ? producers.name : producers.createdAt;
-    const primaryOrder =
-      query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+      const sortColumn =
+        query.sortBy === 'name' ? producers.name : producers.createdAt;
+      const primaryOrder =
+        query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
-    const offset = (query.page - 1) * query.pageSize;
+      const offset = (query.page - 1) * query.pageSize;
 
-    const [totalRow] = await this.db
-      .select({ value: count() })
-      .from(producers)
-      .where(whereClause);
+      const [totalRow] = await this.db
+        .select({ value: count() })
+        .from(producers)
+        .where(whereClause);
 
-    const rows = await this.db
-      .select()
-      .from(producers)
-      .where(whereClause)
-      .orderBy(primaryOrder, asc(producers.id))
-      .limit(query.pageSize)
-      .offset(offset);
+      const rows = await this.db
+        .select()
+        .from(producers)
+        .where(whereClause)
+        .orderBy(primaryOrder, asc(producers.id))
+        .limit(query.pageSize)
+        .offset(offset);
 
-    const items = await this.toListItems(rows);
-    return {
-      items,
-      total: Number(totalRow?.value ?? 0),
-      page: query.page,
-      pageSize: query.pageSize,
-    };
+      const items = await this.toListItems(rows);
+      return {
+        items,
+        total: Number(totalRow?.value ?? 0),
+        page: query.page,
+        pageSize: query.pageSize,
+      };
+    });
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await tx
-        .update(producers)
-        .set({
-          deletedAt,
-          updatedAt: deletedAt,
-          documentHash: `del:${id}`,
-        })
-        .where(eq(producers.id, id));
-      await tx
-        .update(farms)
-        .set({ deletedAt, updatedAt: deletedAt })
-        .where(and(eq(farms.producerId, id), isNull(farms.deletedAt)));
+    await this.timed('producer_soft_delete', async () => {
+      await this.db.transaction(async (tx) => {
+        await tx
+          .update(producers)
+          .set({
+            deletedAt,
+            updatedAt: deletedAt,
+            documentHash: `del:${id}`,
+          })
+          .where(eq(producers.id, id));
+        await tx
+          .update(farms)
+          .set({ deletedAt, updatedAt: deletedAt })
+          .where(and(eq(farms.producerId, id), isNull(farms.deletedAt)));
+      });
     });
+  }
+
+  private async timed<T>(
+    operation: DbOperation,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (!this.metrics) {
+      return fn();
+    }
+    return this.metrics.timeDbOperation(operation, fn);
   }
 
   private async toListItems(rows: ProducerRow[]): Promise<ProducerListItem[]> {

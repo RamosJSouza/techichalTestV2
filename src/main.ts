@@ -11,6 +11,7 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { isTrustProxyEnabled, parseEnv } from './config/env.schema.js';
+import { MetricsService } from './infrastructure/observability/metrics.service.js';
 
 async function bootstrap(): Promise<void> {
   const env = parseEnv();
@@ -25,6 +26,8 @@ async function bootstrap(): Promise<void> {
     app.set('trust proxy', 1);
   }
 
+  const metrics = app.get(MetricsService);
+
   app.use(helmet());
   app.use(json({ limit: env.BODY_LIMIT }));
   app.use(
@@ -36,6 +39,15 @@ async function bootstrap(): Promise<void> {
       skip: (req) => {
         const path = req.path ?? '';
         return path.includes('/health');
+      },
+      handler: (_req, res, _next, options) => {
+        metrics.recordRateLimitRejected();
+        res.status(options.statusCode).json({
+          statusCode: options.statusCode,
+          error: 'Too Many Requests',
+          message: options.message,
+          code: 'RATE_LIMIT_EXCEEDED',
+        });
       },
     }),
   );

@@ -41,6 +41,7 @@ import { DashboardController } from './controllers/dashboard.controller.js';
 import { FarmController } from './controllers/farm.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { IbgeController } from './controllers/ibge.controller.js';
+import { ObservabilityController } from './controllers/observability.controller.js';
 import { ProducerController } from './controllers/producer.controller.js';
 import { MetricsService } from '../infrastructure/observability/metrics.service.js';
 
@@ -53,6 +54,7 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
   ],
   controllers: [
     HealthController,
+    ObservabilityController,
     ProducerController,
     FarmController,
     DashboardController,

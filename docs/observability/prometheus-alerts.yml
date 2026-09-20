@@ -1,0 +1,49 @@
+groups:
+  - name: brain-ag-api
+    rules:
+      - alert: HttpP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP p95 > 1s"
+          description: "Latência p95 da API acima de 1s por 5m. Ver runbook Observabilidade."
+
+      - alert: Http5xxRate
+        expr: |
+          sum(rate(http_requests_total{status_class="5xx"}[5m]))
+            /
+          clamp_min(sum(rate(http_requests_total[5m])), 1e-9)
+          > 0.02
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taxa de 5xx > 2%"
+          description: "Erro interno elevado. Correlacionar logs por trace_id."
+
+      - alert: DbDown
+        expr: db_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres indisponível"
+          description: "db_up=0 (ready/SELECT 1 falhou). Checar DATABASE_URL e container postgres."
+
+      - alert: BrasilApiDegraded
+        expr: |
+          max(brasilapi_circuit_open) == 1
+          or
+          sum(rate(brasilapi_requests_total{result="fallback"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrasilAPI degradada"
+          description: "Circuit open e/ou fallback PENDING elevado. Cadastros podem ficar PENDING_EXTERNAL_VALIDATION."

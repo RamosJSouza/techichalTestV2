@@ -7,6 +7,7 @@ import {
 import type { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
 import { MetricsService } from '../../infrastructure/observability/metrics.service.js';
+import { normalizeHttpRoute } from '../../infrastructure/observability/normalize-http-route.js';
 
 @Injectable()
 export class HttpMetricsInterceptor implements NestInterceptor {
@@ -19,19 +20,27 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
-    const route = req.route?.path ?? req.path ?? 'unknown';
+    const route = normalizeHttpRoute(req);
+    const method = req.method;
+    const started = process.hrtime.bigint();
+
+    const record = (statusCode: number): void => {
+      const durationSeconds =
+        Number(process.hrtime.bigint() - started) / 1e9;
+      this.metrics.recordHttp(method, route, statusCode, durationSeconds);
+    };
 
     return next.handle().pipe(
       tap({
         next: () => {
-          this.metrics.recordHttp(req.method, route, res.statusCode);
+          record(res.statusCode);
         },
         error: (err: { status?: number; getStatus?: () => number }) => {
           const status =
             typeof err?.getStatus === 'function'
               ? err.getStatus()
               : (err?.status ?? 500);
-          this.metrics.recordHttp(req.method, route, status);
+          record(status);
         },
       }),
     );

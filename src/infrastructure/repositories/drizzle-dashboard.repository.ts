@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   and,
   eq,
@@ -24,6 +24,10 @@ import {
   harvests,
   producers,
 } from '../database/schema/index.js';
+import {
+  MetricsService,
+  type DbOperation,
+} from '../observability/metrics.service.js';
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
@@ -76,63 +80,82 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
     Promise<DashboardAnalytics>
   >();
 
-  public constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  public constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDb,
+    @Optional() private readonly metrics?: MetricsService,
+  ) {}
 
   public async getStats(
     filters: DashboardFilters = {},
   ): Promise<DashboardStats> {
-    const key = this.cacheKey(filters);
-    const cached = this.readCache(this.statsCache, key);
-    if (cached) {
-      return cached;
-    }
-    const pending = this.statsInflight.get(key);
-    if (pending) {
-      return pending;
-    }
-    const promise = this.loadStats(filters).finally(() => {
-      this.statsInflight.delete(key);
+    return this.timed('dashboard_stats', async () => {
+      const key = this.cacheKey(filters);
+      const cached = this.readCache(this.statsCache, key);
+      if (cached) {
+        return cached;
+      }
+      const pending = this.statsInflight.get(key);
+      if (pending) {
+        return pending;
+      }
+      const promise = this.loadStats(filters).finally(() => {
+        this.statsInflight.delete(key);
+      });
+      this.statsInflight.set(key, promise);
+      return promise;
     });
-    this.statsInflight.set(key, promise);
-    return promise;
   }
 
   public async getSummary(
     filters: DashboardFilters = {},
   ): Promise<DashboardSummary> {
-    const key = this.cacheKey(filters);
-    const cached = this.readCache(this.summaryCache, key);
-    if (cached) {
-      return cached;
-    }
-    const pending = this.summaryInflight.get(key);
-    if (pending) {
-      return pending;
-    }
-    const promise = this.loadSummary(filters).finally(() => {
-      this.summaryInflight.delete(key);
+    return this.timed('dashboard_summary', async () => {
+      const key = this.cacheKey(filters);
+      const cached = this.readCache(this.summaryCache, key);
+      if (cached) {
+        return cached;
+      }
+      const pending = this.summaryInflight.get(key);
+      if (pending) {
+        return pending;
+      }
+      const promise = this.loadSummary(filters).finally(() => {
+        this.summaryInflight.delete(key);
+      });
+      this.summaryInflight.set(key, promise);
+      return promise;
     });
-    this.summaryInflight.set(key, promise);
-    return promise;
   }
 
   public async getAnalytics(
     filters: DashboardFilters = {},
   ): Promise<DashboardAnalytics> {
-    const key = this.cacheKey(filters);
-    const cached = this.readCache(this.analyticsCache, key);
-    if (cached) {
-      return cached;
-    }
-    const pending = this.analyticsInflight.get(key);
-    if (pending) {
-      return pending;
-    }
-    const promise = this.loadAnalytics(filters).finally(() => {
-      this.analyticsInflight.delete(key);
+    return this.timed('dashboard_analytics', async () => {
+      const key = this.cacheKey(filters);
+      const cached = this.readCache(this.analyticsCache, key);
+      if (cached) {
+        return cached;
+      }
+      const pending = this.analyticsInflight.get(key);
+      if (pending) {
+        return pending;
+      }
+      const promise = this.loadAnalytics(filters).finally(() => {
+        this.analyticsInflight.delete(key);
+      });
+      this.analyticsInflight.set(key, promise);
+      return promise;
     });
-    this.analyticsInflight.set(key, promise);
-    return promise;
+  }
+
+  private async timed<T>(
+    operation: DbOperation,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    if (!this.metrics) {
+      return fn();
+    }
+    return this.metrics.timeDbOperation(operation, fn);
   }
 
   private async loadStats(

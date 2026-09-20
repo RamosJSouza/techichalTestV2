@@ -1,4 +1,5 @@
 import {
+  check,
   index,
   numeric,
   pgTable,
@@ -28,6 +29,10 @@ export const producers = pgTable(
     uniqueIndex('producers_document_hash_active_uidx')
       .on(table.documentHash)
       .where(sql`${table.deletedAt} is null`),
+    check(
+      'producers_esg_status_chk',
+      sql`${table.esgStatus} IN ('APPROVED', 'WARNING', 'BLOCKED')`,
+    ),
   ],
 );
 
@@ -65,6 +70,25 @@ export const farms = pgTable(
     index('farms_deleted_state_idx').on(table.deletedAt, table.state),
     index('farms_deleted_car_status_idx').on(table.deletedAt, table.carStatus),
     index('farms_climate_risk_idx').on(table.climateRiskScore),
+    check('farms_total_area_positive_chk', sql`${table.totalArea} > 0`),
+    check('farms_arable_area_nonneg_chk', sql`${table.arableArea} >= 0`),
+    check(
+      'farms_vegetation_area_nonneg_chk',
+      sql`${table.vegetationArea} >= 0`,
+    ),
+    check(
+      'farms_area_sum_chk',
+      sql`(${table.arableArea} + ${table.vegetationArea}) <= ${table.totalArea}`,
+    ),
+    check('farms_state_len_chk', sql`char_length(${table.state}) = 2`),
+    check(
+      'farms_state_uf_chk',
+      sql`${table.state} IN ('AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO')`,
+    ),
+    check(
+      'farms_car_status_chk',
+      sql`${table.carStatus} IS NULL OR ${table.carStatus} IN ('ACTIVE', 'PENDING', 'CANCELLED')`,
+    ),
   ],
 );
 
@@ -86,6 +110,10 @@ export const harvests = pgTable(
       table.farmId,
       table.status,
       table.year,
+    ),
+    check(
+      'harvests_status_chk',
+      sql`${table.status} IN ('ACTIVE', 'ARCHIVED')`,
     ),
   ],
 );

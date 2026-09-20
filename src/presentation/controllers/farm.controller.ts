@@ -53,7 +53,7 @@ export class FarmController {
   }
 
   @Post(':id/car/validate')
-  @ApiOkResponse({ description: 'Auditoria CAR / SICAR' })
+  @ApiOkResponse({ description: 'Auditoria CAR (validação local)' })
   public async validateCar(@Param() params: UuidParamDto) {
     return this.validateFarmCar.execute(params.id);
   }

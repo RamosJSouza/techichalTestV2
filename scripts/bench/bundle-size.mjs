@@ -46,7 +46,6 @@ for (const file of jsFiles) {
   let kind = 'other';
   if (file.includes('vendor')) kind = 'vendor';
   else if (file.includes('recharts')) kind = 'recharts';
-  else if (file.includes('xlsx')) kind = 'xlsx';
   else if (/^index-/.test(file)) kind = 'entry';
   rows.push({ file, kind, raw, gzip: gz });
 }

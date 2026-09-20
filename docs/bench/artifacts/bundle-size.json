@@ -1,11 +1,11 @@
 {
-  "at": "2026-09-20T13:43:42.090Z",
+  "at": "2026-09-20T14:49:28.344Z",
   "rows": [
     {
-      "file": "index-DI6hrtgF.js",
+      "file": "index-Dhpchnpo.js",
       "kind": "entry",
-      "raw": 596655,
-      "gzip": 165397
+      "raw": 606233,
+      "gzip": 167335
     },
     {
       "file": "recharts-BO-Ht4Eb.js",
@@ -18,12 +18,6 @@
       "kind": "vendor",
       "raw": 411836,
       "gzip": 131387
-    },
-    {
-      "file": "xlsx-TfwL06Em.js",
-      "kind": "xlsx",
-      "raw": 283107,
-      "gzip": 95064
     }
   ],
   "gates": [
@@ -41,7 +35,7 @@
     },
     {
       "name": "entry",
-      "actual": 165397,
+      "actual": 167335,
       "limit": 81920,
       "ok": false
     }

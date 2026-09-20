@@ -26,7 +26,6 @@
     "recharts": "^3.10.1",
     "recharts-to-png": "^3.0.2",
     "styled-components": "^6.1.17",
-    "xlsx": "^0.18.5",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -37,7 +36,6 @@
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
     "@types/styled-components": "^5.1.34",
-    "@types/xlsx": "^0.0.36",
     "@vitejs/plugin-react-swc": "^4.3.3",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.0.0",

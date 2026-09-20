@@ -31,6 +31,7 @@ function createChain(result: QueryResult): Promise<QueryResult> & {
   orderBy: () => unknown;
   limit: () => unknown;
   offset: () => unknown;
+  groupBy: () => unknown;
 } {
   const promise = Promise.resolve(result);
   const chain = promise as Promise<QueryResult> & Record<string, unknown>;
@@ -41,58 +42,39 @@ function createChain(result: QueryResult): Promise<QueryResult> & {
   chain.orderBy = self;
   chain.limit = self;
   chain.offset = self;
+  chain.groupBy = self;
   return chain as ReturnType<typeof createChain>;
 }
 
-describe('DrizzleProducerRepository hydrateMany isolation', () => {
-  it('não associa fazenda de outro produtor na página', async () => {
+describe('DrizzleProducerRepository findMany summary', () => {
+  it('agrega fazendas por produtor sem misturar IDs', async () => {
     const p1 = '11111111-1111-1111-1111-111111111111';
     const p2 = '22222222-2222-2222-2222-222222222222';
-    const f1 = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-    const f2 = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
     const producerRows = [producerRow(p1, 'A'), producerRow(p2, 'B')];
-    const farmRows = [
+    const aggRows = [
       {
-        id: f1,
         producerId: p1,
-        name: 'F1',
-        city: 'Campinas',
-        state: 'SP',
-        totalArea: '100',
-        arableArea: '60',
-        vegetationArea: '20',
-        carNumber: null,
-        carStatus: null,
-        climateRiskScore: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
+        farmsCount: 1,
+        totalAreaHa: 100,
+        arableAreaHa: 60,
+        vegetationAreaHa: 20,
+        farmStates: ['SP'],
       },
       {
-        id: f2,
         producerId: p2,
-        name: 'F2',
-        city: 'Londrina',
-        state: 'PR',
-        totalArea: '200',
-        arableArea: '100',
-        vegetationArea: '40',
-        carNumber: null,
-        carStatus: null,
-        climateRiskScore: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        deletedAt: null,
+        farmsCount: 1,
+        totalAreaHa: 200,
+        arableAreaHa: 100,
+        vegetationAreaHa: 40,
+        farmStates: ['PR'],
       },
     ];
 
     const queues = [
       createChain([{ value: 2 }]),
       createChain(producerRows),
-      createChain(farmRows),
-      createChain([]),
-      createChain([]),
+      createChain(aggRows),
     ];
     let call = 0;
     const db = {
@@ -112,10 +94,15 @@ describe('DrizzleProducerRepository hydrateMany isolation', () => {
     });
 
     expect(result.items).toHaveLength(2);
+    expect(call).toBe(3);
     const a = result.items.find((p) => p.id === p1);
     const b = result.items.find((p) => p.id === p2);
-    expect(a?.farms.map((f) => f.id)).toEqual([f1]);
-    expect(b?.farms.map((f) => f.id)).toEqual([f2]);
-    expect(a?.farms.some((f) => f.id === f2)).toBe(false);
+    expect(a?.farmsCount).toBe(1);
+    expect(a?.farmStates).toEqual(['SP']);
+    expect(a?.totalAreaHa).toBe(100);
+    expect(b?.farmsCount).toBe(1);
+    expect(b?.farmStates).toEqual(['PR']);
+    expect(b?.totalAreaHa).toBe(200);
+    expect(a).not.toHaveProperty('farms');
   });
 });

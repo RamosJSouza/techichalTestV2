@@ -1,10 +1,38 @@
 import { Producer } from '../../domain/entities/producer.js';
 import type {
   IProducerRepository,
+  ProducerListItem,
   ProducerListQuery,
   ProducerListResult,
 } from '../../domain/repositories/producer.repository.js';
 import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
+
+function toListItem(producer: Producer): ProducerListItem {
+  const states = [
+    ...new Set(producer.farms.map((farm) => farm.state)),
+  ].sort();
+  return {
+    id: producer.id,
+    name: producer.name,
+    documentDigits: producer.document.value,
+    esgStatus: producer.esgStatus,
+    esgCheckedAt: producer.esgCheckedAt,
+    farmsCount: producer.farms.length,
+    farmStates: states,
+    totalAreaHa: producer.farms.reduce(
+      (acc, farm) => acc + farm.area.totalArea,
+      0,
+    ),
+    arableAreaHa: producer.farms.reduce(
+      (acc, farm) => acc + farm.area.arableArea,
+      0,
+    ),
+    vegetationAreaHa: producer.farms.reduce(
+      (acc, farm) => acc + farm.area.vegetationArea,
+      0,
+    ),
+  };
+}
 
 export class InMemoryProducerRepository implements IProducerRepository {
   private readonly items = new Map<string, Producer>();
@@ -62,7 +90,7 @@ export class InMemoryProducerRepository implements IProducerRepository {
     const total = items.length;
     const start = (query.page - 1) * query.pageSize;
     return {
-      items: items.slice(start, start + query.pageSize),
+      items: items.slice(start, start + query.pageSize).map(toListItem),
       total,
       page: query.page,
       pageSize: query.pageSize,

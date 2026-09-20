@@ -1,8 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, ilike, inArray, isNull } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  sql,
+} from 'drizzle-orm';
 import { Producer } from '../../domain/entities/producer.js';
 import type {
   IProducerRepository,
+  ProducerListItem,
   ProducerListQuery,
   ProducerListResult,
 } from '../../domain/repositories/producer.repository.js';
@@ -13,6 +24,7 @@ import {
   FarmMapper,
   ProducerMapper,
 } from '../database/mappers/producer.mapper.js';
+import { mapPgIntegrityError } from '../database/pg-error.js';
 import {
   farmCrops,
   farms,
@@ -32,61 +44,69 @@ export class DrizzleProducerRepository implements IProducerRepository {
   public async save(producer: Producer): Promise<Producer> {
     const persistence = ProducerMapper.toPersistence(producer, this.crypto);
 
-    await this.db.transaction(async (tx) => {
-      await tx.insert(producers).values(persistence);
+    try {
+      await this.db.transaction(async (tx) => {
+        await tx.insert(producers).values(persistence);
 
-      if (producer.farms.length === 0) {
-        return;
-      }
+        if (producer.farms.length === 0) {
+          return;
+        }
 
-      await tx
-        .insert(farms)
-        .values(producer.farms.map((farm) => FarmMapper.toPersistence(farm)));
+        await tx
+          .insert(farms)
+          .values(producer.farms.map((farm) => FarmMapper.toPersistence(farm)));
 
-      const harvestValues = producer.farms.flatMap((farm) =>
-        farm.harvests.map((harvest) => ({
-          id: harvest.id,
-          farmId: farm.id,
-          year: harvest.year,
-          status: harvest.status,
-          createdAt: farm.createdAt,
-        })),
-      );
-      if (harvestValues.length > 0) {
-        await tx.insert(harvests).values(harvestValues);
-      }
-
-      const cropValues = producer.farms.flatMap((farm) =>
-        farm.harvests.flatMap((harvest) =>
-          harvest.crops.map((crop) => ({
-            id: crop.id,
-            harvestId: harvest.id,
-            cropName: crop.name,
+        const harvestValues = producer.farms.flatMap((farm) =>
+          farm.harvests.map((harvest) => ({
+            id: harvest.id,
+            farmId: farm.id,
+            year: harvest.year,
+            status: harvest.status,
+            createdAt: farm.createdAt,
           })),
-        ),
-      );
-      if (cropValues.length > 0) {
-        await tx.insert(farmCrops).values(cropValues);
-      }
-    });
+        );
+        if (harvestValues.length > 0) {
+          await tx.insert(harvests).values(harvestValues);
+        }
+
+        const cropValues = producer.farms.flatMap((farm) =>
+          farm.harvests.flatMap((harvest) =>
+            harvest.crops.map((crop) => ({
+              id: crop.id,
+              harvestId: harvest.id,
+              cropName: crop.name,
+            })),
+          ),
+        );
+        if (cropValues.length > 0) {
+          await tx.insert(farmCrops).values(cropValues);
+        }
+      });
+    } catch (error) {
+      mapPgIntegrityError(error, 'document');
+    }
 
     return producer;
   }
 
   public async update(producer: Producer): Promise<Producer> {
     const persistence = ProducerMapper.toPersistence(producer, this.crypto);
-    await this.db
-      .update(producers)
-      .set({
-        name: persistence.name,
-        document: persistence.document,
-        documentHash: persistence.documentHash,
-        esgStatus: persistence.esgStatus,
-        esgCheckedAt: persistence.esgCheckedAt,
-        updatedAt: persistence.updatedAt,
-        deletedAt: persistence.deletedAt,
-      })
-      .where(eq(producers.id, producer.id));
+    try {
+      await this.db
+        .update(producers)
+        .set({
+          name: persistence.name,
+          document: persistence.document,
+          documentHash: persistence.documentHash,
+          esgStatus: persistence.esgStatus,
+          esgCheckedAt: persistence.esgCheckedAt,
+          updatedAt: persistence.updatedAt,
+          deletedAt: persistence.deletedAt,
+        })
+        .where(eq(producers.id, producer.id));
+    } catch (error) {
+      mapPgIntegrityError(error, 'document');
+    }
     return producer;
   }
 
@@ -96,13 +116,11 @@ export class DrizzleProducerRepository implements IProducerRepository {
       .from(producers)
       .where(and(eq(producers.id, id), isNull(producers.deletedAt)))
       .limit(1);
-
     if (!row) {
       return null;
     }
-
-    const [producer] = await this.hydrateMany([row]);
-    return producer ?? null;
+    const [hydrated] = await this.hydrateMany([row]);
+    return hydrated ?? null;
   }
 
   public async findByDocumentHash(
@@ -112,16 +130,17 @@ export class DrizzleProducerRepository implements IProducerRepository {
       .select()
       .from(producers)
       .where(
-        and(eq(producers.documentHash, documentHash), isNull(producers.deletedAt)),
+        and(
+          eq(producers.documentHash, documentHash),
+          isNull(producers.deletedAt),
+        ),
       )
       .limit(1);
-
     if (!row) {
       return null;
     }
-
-    const [producer] = await this.hydrateMany([row]);
-    return producer ?? null;
+    const [hydrated] = await this.hydrateMany([row]);
+    return hydrated ?? null;
   }
 
   public async findAll(): Promise<Producer[]> {
@@ -163,7 +182,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
       .limit(query.pageSize)
       .offset(offset);
 
-    const items = await this.hydrateMany(rows);
+    const items = await this.toListItems(rows);
     return {
       items,
       total: Number(totalRow?.value ?? 0),
@@ -186,6 +205,54 @@ export class DrizzleProducerRepository implements IProducerRepository {
         .update(farms)
         .set({ deletedAt, updatedAt: deletedAt })
         .where(and(eq(farms.producerId, id), isNull(farms.deletedAt)));
+    });
+  }
+
+  private async toListItems(rows: ProducerRow[]): Promise<ProducerListItem[]> {
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const producerIds = rows.map((row) => row.id);
+    const aggRows = await this.db
+      .select({
+        producerId: farms.producerId,
+        farmsCount: count(),
+        totalAreaHa: sql<number>`coalesce(sum(${farms.totalArea})::float8, 0)`,
+        arableAreaHa: sql<number>`coalesce(sum(${farms.arableArea})::float8, 0)`,
+        vegetationAreaHa: sql<number>`coalesce(sum(${farms.vegetationArea})::float8, 0)`,
+        farmStates: sql<string[]>`coalesce(
+          array_agg(DISTINCT ${farms.state} ORDER BY ${farms.state}),
+          '{}'::text[]
+        )`,
+      })
+      .from(farms)
+      .where(
+        and(inArray(farms.producerId, producerIds), isNull(farms.deletedAt)),
+      )
+      .groupBy(farms.producerId);
+
+    const byProducer = new Map(
+      aggRows.map((row) => [row.producerId, row] as const),
+    );
+
+    return rows.map((row) => {
+      const agg = byProducer.get(row.id);
+      const states = Array.isArray(agg?.farmStates)
+        ? [...agg.farmStates].filter(Boolean).sort()
+        : [];
+      return {
+        id: row.id,
+        name: row.name,
+        documentDigits: this.crypto.decrypt(row.document),
+        esgStatus: row.esgStatus,
+        esgCheckedAt: row.esgCheckedAt,
+        farmsCount: Number(agg?.farmsCount ?? 0),
+        farmStates: states,
+        totalAreaHa: Number(agg?.totalAreaHa ?? 0),
+        arableAreaHa: Number(agg?.arableAreaHa ?? 0),
+        vegetationAreaHa: Number(agg?.vegetationAreaHa ?? 0),
+      };
     });
   }
 

@@ -3,9 +3,13 @@ import {
   matchesProducerSearch,
 } from './match-producer-search';
 import { mockProducers } from '../mocks/fixtures';
-import type { ProducerResponse } from '../types/api';
+import {
+  producerResponseToListItem,
+  type ProducerListItem,
+} from '../types/api';
 
-const sample: ProducerResponse = mockProducers[0]!;
+const sample: ProducerListItem = producerResponseToListItem(mockProducers[0]!);
+const listItems = mockProducers.map(producerResponseToListItem);
 
 describe('matchesProducerSearch', () => {
   it('query vazia retorna true (match all)', () => {
@@ -24,14 +28,8 @@ describe('matchesProducerSearch', () => {
     expect(matchesProducerSearch(sample, 'MT')).toBe(false);
   });
 
-  it('bate por cultura da safra', () => {
-    expect(matchesProducerSearch(sample, 'soja')).toBe(true);
-    expect(matchesProducerSearch(sample, 'algodão')).toBe(false);
-  });
-
-  it('bate por cidade e nome da fazenda', () => {
-    expect(matchesProducerSearch(sample, 'ribeirão')).toBe(true);
-    expect(matchesProducerSearch(sample, 'santa maria')).toBe(true);
+  it('não busca mais por cultura (summary sem crops)', () => {
+    expect(matchesProducerSearch(sample, 'soja')).toBe(false);
   });
 
   it('bate por dígitos do documento mascarado', () => {
@@ -40,10 +38,8 @@ describe('matchesProducerSearch', () => {
   });
 
   it('filterProducersBySearch filtra a lista', () => {
-    const result = filterProducersBySearch(mockProducers, 'milho');
-    expect(result).toHaveLength(1);
-    expect(filterProducersBySearch(mockProducers, 'inexistente')).toHaveLength(
-      0,
-    );
+    const result = filterProducersBySearch(listItems, 'joão');
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(filterProducersBySearch(listItems, 'inexistente')).toHaveLength(0);
   });
 });

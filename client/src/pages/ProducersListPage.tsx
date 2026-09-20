@@ -18,9 +18,13 @@ import { Spinner } from '../components/atoms/Spinner';
 import { FilterChip } from '../components/molecules/FilterChip';
 import { Pagination } from '../components/molecules/Pagination';
 import { SearchField } from '../components/molecules/SearchField';
+import { ConfirmDialog } from '../components/molecules/ConfirmDialog';
 import { TextInput } from '../components/atoms/TextInput';
 import { ProducersDataTable } from '../components/organisms/ProducersDataTable';
-import type { ProducerResponse } from '../shared/types/api';
+import {
+  producerResponseToListItem,
+  type ProducerListItem,
+} from '../shared/types/api';
 
 const PAGE_SIZE_DEFAULT = 20;
 
@@ -74,9 +78,9 @@ const ExactBox = styled.div`
 `;
 
 function applyFilter(
-  items: ProducerResponse[],
+  items: ProducerListItem[],
   filter: ProducerFilter,
-): ProducerResponse[] {
+): ProducerListItem[] {
   switch (filter) {
     case 'all':
       return items;
@@ -84,11 +88,8 @@ function applyFilter(
       return items.filter((p) => p.document.includes('/'));
     case 'cpf':
       return items.filter((p) => !p.document.includes('/'));
-    case 'large': {
-      const totalHa = (p: ProducerResponse): number =>
-        p.farms.reduce((acc, f) => acc + f.totalArea, 0);
-      return items.filter((p) => totalHa(p) > 2000);
-    }
+    case 'large':
+      return items.filter((p) => p.totalAreaHa > 2000);
     default: {
       const _exhaustive: never = filter;
       return _exhaustive;
@@ -97,9 +98,9 @@ function applyFilter(
 }
 
 function mergeById(
-  primary: ProducerResponse[],
-  extra: ProducerResponse | null,
-): ProducerResponse[] {
+  primary: ProducerListItem[],
+  extra: ProducerListItem | null,
+): ProducerListItem[] {
   if (!extra) {
     return primary;
   }
@@ -112,19 +113,26 @@ function mergeById(
 export function ProducersListPage(): React.JSX.Element {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
+  const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
+  const nameFilter = deferredQuery.trim() || undefined;
   const { data, isLoading, isError, isFetching } = useListProducersQuery({
     page,
     pageSize,
+    ...(nameFilter ? { name: nameFilter } : {}),
   });
-  const [deleteProducer] = useDeleteProducerMutation();
+  const [deleteProducer, { isLoading: deletingProducer }] =
+    useDeleteProducerMutation();
   const [searchExact, { isFetching: searchingExact }] =
     useLazySearchProducerQuery();
   const filter = useAppSelector((s) => s.producer.filter);
   const dispatch = useAppDispatch();
-  const [query, setQuery] = useState('');
-  const deferredQuery = useDeferredValue(query);
   const [exactDocument, setExactDocument] = useState('');
-  const [exactHit, setExactHit] = useState<ProducerResponse | null>(null);
+  const [exactHit, setExactHit] = useState<ProducerListItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -141,7 +149,7 @@ export function ProducersListPage(): React.JSX.Element {
       void (async () => {
         try {
           const result = await searchExact(exactDocument.trim()).unwrap();
-          setExactHit(result);
+          setExactHit(producerResponseToListItem(result));
         } catch {
           setExactHit(null);
         }
@@ -250,21 +258,7 @@ export function ProducersListPage(): React.JSX.Element {
         <>
           <ProducersDataTable
             producers={filtered}
-            onDelete={async (id) => {
-              if (!window.confirm('Remover produtor (soft delete)?')) {
-                return;
-              }
-              try {
-                await deleteProducer(id).unwrap();
-                dispatch(
-                  showToast({
-                    message: 'Produtor removido.',
-                    variant: 'success',
-                  }),
-                );
-              } catch {
-              }
-            }}
+            onDelete={(producer) => setPendingDelete(producer)}
           />
           <Pagination
             page={page}
@@ -279,6 +273,40 @@ export function ProducersListPage(): React.JSX.Element {
           />
         </>
       )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Excluir produtor"
+        message={
+          pendingDelete
+            ? `Remover o produtor "${pendingDelete.name}"? Esta ação é um soft delete.`
+            : ''
+        }
+        busy={deletingProducer}
+        onCancel={() => {
+          if (!deletingProducer) {
+            setPendingDelete(null);
+          }
+        }}
+        onConfirm={() => {
+          if (!pendingDelete || deletingProducer) {
+            return;
+          }
+          const { id } = pendingDelete;
+          void (async () => {
+            try {
+              await deleteProducer(id).unwrap();
+              dispatch(
+                showToast({
+                  message: 'Produtor removido.',
+                  variant: 'success',
+                }),
+              );
+              setPendingDelete(null);
+            } catch {
+            }
+          })();
+        }}
+      />
     </div>
   );
 }

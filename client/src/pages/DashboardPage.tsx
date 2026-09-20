@@ -1,6 +1,9 @@
 import { useDeferredValue, useMemo, useState, useTransition } from 'react';
 import styled, { css } from 'styled-components';
-import { useGetDashboardStatsQuery } from '../store/api/apiSlice';
+import {
+  useGetDashboardAnalyticsQuery,
+  useGetDashboardSummaryQuery,
+} from '../store/api/apiSlice';
 import { KpiCard } from '../components/molecules/KpiCard';
 import { Spinner } from '../components/atoms/Spinner';
 import { Button } from '../components/atoms/Button';
@@ -13,9 +16,13 @@ import {
   StackedBarChartCard,
   type StackedBarDatum,
 } from '../components/organisms/charts/StackedBarChartCard';
-import { exportToExcel } from '../shared/lib/export-excel';
+import { exportToCsv } from '../shared/lib/export-csv';
 import { theme } from '../shared/theme/theme';
-import type { DashboardFilters, DashboardStats } from '../shared/types/api';
+import type {
+  DashboardAnalytics,
+  DashboardFilters,
+  DashboardSummary,
+} from '../shared/types/api';
 
 const CHART_PALETTE = [
   theme.colors.primary,
@@ -154,25 +161,28 @@ function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]!;
 }
 
-function buildExcelSheets(data: DashboardStats) {
+function buildExportSheets(
+  summary: DashboardSummary,
+  analytics: DashboardAnalytics,
+) {
   return [
     {
       name: 'KPIs',
       rows: [
-        { metrica: 'Total de fazendas', valor: data.totalFarms },
-        { metrica: 'Área total (ha)', valor: data.totalHectares },
-        { metrica: 'Área média/fazenda (ha)', valor: data.averageFarmSize },
-        { metrica: 'Conformidade CAR (%)', valor: data.carComplianceRate },
-        { metrica: 'Conformidade ESG (%)', valor: data.esgComplianceRate },
+        { metrica: 'Total de fazendas', valor: summary.totalFarms },
+        { metrica: 'Área total (ha)', valor: summary.totalHectares },
+        { metrica: 'Área média/fazenda (ha)', valor: summary.averageFarmSize },
+        { metrica: 'Conformidade CAR (%)', valor: summary.carComplianceRate },
+        { metrica: 'Conformidade ESG (%)', valor: summary.esgComplianceRate },
         {
           metrica: 'Risco climático médio',
-          valor: data.regionalClimateRisk.averageScore,
+          valor: summary.regionalClimateRisk.averageScore,
         },
       ],
     },
     {
       name: 'Por UF',
-      rows: data.byState.map((s) => ({
+      rows: summary.byState.map((s) => ({
         uf: s.state,
         fazendas: s.count,
         hectares: s.hectares,
@@ -181,7 +191,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Por cultura',
-      rows: data.byCrop.map((c) => ({
+      rows: summary.byCrop.map((c) => ({
         cultura: c.crop,
         quantidade: c.count,
         percentual: c.percentage,
@@ -192,19 +202,19 @@ function buildExcelSheets(data: DashboardStats) {
       rows: [
         {
           tipo: 'Agricultável',
-          hectares: data.byLandUse.arableHectares,
-          percentual: data.byLandUse.arablePercentage,
+          hectares: summary.byLandUse.arableHectares,
+          percentual: summary.byLandUse.arablePercentage,
         },
         {
           tipo: 'Vegetação',
-          hectares: data.byLandUse.vegetationHectares,
-          percentual: data.byLandUse.vegetationPercentage,
+          hectares: summary.byLandUse.vegetationHectares,
+          percentual: summary.byLandUse.vegetationPercentage,
         },
       ],
     },
     {
       name: 'CAR',
-      rows: data.byCarStatus.map((c) => ({
+      rows: summary.byCarStatus.map((c) => ({
         status: c.status,
         quantidade: c.count,
         percentual: c.percentage,
@@ -212,7 +222,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'ESG',
-      rows: data.byEsgStatus.map((e) => ({
+      rows: summary.byEsgStatus.map((e) => ({
         status: e.status,
         quantidade: e.count,
         percentual: e.percentage,
@@ -220,7 +230,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Risco por UF',
-      rows: data.climateRiskByState.map((r) => ({
+      rows: analytics.climateRiskByState.map((r) => ({
         uf: r.state,
         riscoMedio: r.averageScore,
         fazendasComScore: r.farmsWithScore,
@@ -228,7 +238,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Risco por cultura',
-      rows: data.climateRiskByCrop.map((r) => ({
+      rows: analytics.climateRiskByCrop.map((r) => ({
         cultura: r.crop,
         riscoMedio: r.averageScore,
         fazendasComScore: r.farmsWithScore,
@@ -236,7 +246,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Culturas por safra',
-      rows: data.cropsByYear.map((c) => ({
+      rows: analytics.cropsByYear.map((c) => ({
         safra: c.year,
         cultura: c.crop,
         quantidade: c.count,
@@ -244,7 +254,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Evolucao',
-      rows: data.farmsByMonth.map((m) => ({
+      rows: analytics.farmsByMonth.map((m) => ({
         mes: m.month,
         fazendas: m.farms,
         hectares: m.hectares,
@@ -252,7 +262,7 @@ function buildExcelSheets(data: DashboardStats) {
     },
     {
       name: 'Top cidades',
-      rows: data.topCities.map((c) => ({
+      rows: analytics.topCities.map((c) => ({
         cidade: c.city,
         uf: c.state,
         fazendas: c.farms,
@@ -271,25 +281,36 @@ export function DashboardPage(): React.JSX.Element {
     [deferredFilters],
   );
 
-  const { data, isLoading, isError, error, isFetching } =
-    useGetDashboardStatsQuery(queryFilters);
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+    error,
+    isFetching: summaryFetching,
+  } = useGetDashboardSummaryQuery(queryFilters);
+
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    isFetching: analyticsFetching,
+  } = useGetDashboardAnalyticsQuery(queryFilters);
 
   const harvestYears = useMemo(() => {
-    if (!data) return [];
-    return [...new Set(data.cropsByYear.map((c) => c.year))].sort();
-  }, [data]);
+    if (!analytics) return [];
+    return [...new Set(analytics.cropsByYear.map((c) => c.year))].sort();
+  }, [analytics]);
 
   const stackedCrops = useMemo(() => {
-    if (!data) {
+    if (!analytics) {
       return {
         rows: [] as StackedBarDatum[],
         series: [] as Array<{ dataKey: string; color: string }>,
       };
     }
-    const years = [...new Set(data.cropsByYear.map((c) => c.year))].sort();
-    const crops = [...new Set(data.cropsByYear.map((c) => c.crop))];
+    const years = [...new Set(analytics.cropsByYear.map((c) => c.year))].sort();
+    const crops = [...new Set(analytics.cropsByYear.map((c) => c.crop))];
     const lookup = new Map(
-      data.cropsByYear.map((c) => [`${c.year}|${c.crop}`, c.count]),
+      analytics.cropsByYear.map((c) => [`${c.year}|${c.crop}`, c.count]),
     );
     const rows: StackedBarDatum[] = years.map((year) => {
       const row: StackedBarDatum = { name: year };
@@ -303,23 +324,23 @@ export function DashboardPage(): React.JSX.Element {
       color: paletteColor(i),
     }));
     return { rows, series };
-  }, [data]);
+  }, [analytics]);
 
   const landUseSlices = useMemo(() => {
-    if (!data) return [];
+    if (!summary) return [];
     return [
       {
         name: 'Agricultável',
-        value: data.byLandUse.arableHectares,
+        value: summary.byLandUse.arableHectares,
         fill: theme.colors.primary,
       },
       {
         name: 'Vegetação',
-        value: data.byLandUse.vegetationHectares,
+        value: summary.byLandUse.vegetationHectares,
         fill: theme.colors.secondary,
       },
     ];
-  }, [data]);
+  }, [summary]);
 
   const handleFiltersChange = (next: DashboardFilters): void => {
     startTransition(() => {
@@ -327,13 +348,14 @@ export function DashboardPage(): React.JSX.Element {
     });
   };
 
-  const isRefreshing = isFetching || isPending;
+  const isRefreshing = summaryFetching || analyticsFetching || isPending;
+  const analyticsReady = Boolean(analytics) && !analyticsLoading;
 
-  if (isLoading && !data) {
+  if (summaryLoading && !summary) {
     return <Spinner />;
   }
 
-  if (isError || !data) {
+  if (summaryError || !summary) {
     return (
       <p role="alert">
         Falha ao carregar dashboard.{' '}
@@ -356,11 +378,16 @@ export function DashboardPage(): React.JSX.Element {
         <Button
           type="button"
           variant="secondary"
-          onClick={() =>
-            exportToExcel(buildExcelSheets(data), 'dashboard-analitico.xlsx')
-          }
+          disabled={!analytics}
+          onClick={() => {
+            if (!analytics) return;
+            exportToCsv(
+              buildExportSheets(summary, analytics),
+              'dashboard-analitico',
+            );
+          }}
         >
-          Exportar Excel
+          Exportar CSV
         </Button>
       </TitleRow>
 
@@ -374,45 +401,45 @@ export function DashboardPage(): React.JSX.Element {
       <KpiGrid>
         <KpiCard
           label="Total de Fazendas"
-          value={formatNumber(data.totalFarms)}
+          value={formatNumber(summary.totalFarms)}
           icon="home_work"
         />
         <KpiCard
           label="Área Total"
-          value={formatNumber(data.totalHectares)}
+          value={formatNumber(summary.totalHectares)}
           unit="ha"
           icon="landscape"
         />
         <KpiCard
           label="Área Agricultável"
-          value={formatNumber(data.byLandUse.arableHectares)}
+          value={formatNumber(summary.byLandUse.arableHectares)}
           unit="ha"
           icon="agriculture"
         />
         <KpiCard
           label="Risco Climático Médio"
           value={
-            data.regionalClimateRisk.averageScore === null
+            summary.regionalClimateRisk.averageScore === null
               ? '—'
-              : formatNumber(data.regionalClimateRisk.averageScore)
+              : formatNumber(summary.regionalClimateRisk.averageScore)
           }
           icon="thermostat"
         />
         <KpiCard
           label="Área média / fazenda"
-          value={formatNumber(data.averageFarmSize)}
+          value={formatNumber(summary.averageFarmSize)}
           unit="ha"
           icon="landscape"
         />
         <KpiCard
           label="Conformidade CAR"
-          value={formatNumber(data.carComplianceRate)}
+          value={formatNumber(summary.carComplianceRate)}
           unit="%"
           icon="verified"
         />
         <KpiCard
           label="Conformidade ESG"
-          value={formatNumber(data.esgComplianceRate)}
+          value={formatNumber(summary.esgComplianceRate)}
           unit="%"
           icon="eco"
         />
@@ -427,7 +454,7 @@ export function DashboardPage(): React.JSX.Element {
                 ref={ref}
                 compact
                 centerLabel="Agricultável"
-                centerValue={`${formatNumber(data.byLandUse.arablePercentage)}%`}
+                centerValue={`${formatNumber(summary.byLandUse.arablePercentage)}%`}
                 data={landUseSlices}
               />
             )}
@@ -439,7 +466,7 @@ export function DashboardPage(): React.JSX.Element {
                 ref={ref}
                 compact
                 centerLabel="Culturas"
-                data={data.byCrop.map((c, i) => ({
+                data={summary.byCrop.map((c, i) => ({
                   name: c.crop,
                   value: c.count,
                   fill: paletteColor(i),
@@ -459,9 +486,11 @@ export function DashboardPage(): React.JSX.Element {
                 compact
                 centerLabel="UFs"
                 centerValue={
-                  data.byState.length ? String(data.byState.length) : '—'
+                  summary.byState.length
+                    ? String(summary.byState.length)
+                    : '—'
                 }
-                data={data.byState.map((s, i) => ({
+                data={summary.byState.map((s, i) => ({
                   name: s.state,
                   value: s.count,
                   fill: paletteColor(i),
@@ -476,8 +505,8 @@ export function DashboardPage(): React.JSX.Element {
                 ref={ref}
                 compact
                 centerLabel="Ativos"
-                centerValue={`${formatNumber(data.carComplianceRate)}%`}
-                data={data.byCarStatus.map((c, i) => ({
+                centerValue={`${formatNumber(summary.carComplianceRate)}%`}
+                data={summary.byCarStatus.map((c, i) => ({
                   name: c.status,
                   value: c.count,
                   fill: paletteColor(i),
@@ -492,8 +521,8 @@ export function DashboardPage(): React.JSX.Element {
                 ref={ref}
                 compact
                 centerLabel="Aprovados"
-                centerValue={`${formatNumber(data.esgComplianceRate)}%`}
-                data={data.byEsgStatus.map((e, i) => ({
+                centerValue={`${formatNumber(summary.esgComplianceRate)}%`}
+                data={summary.byEsgStatus.map((e, i) => ({
                   name: e.status,
                   value: e.count,
                   fill: paletteColor(i),
@@ -506,109 +535,121 @@ export function DashboardPage(): React.JSX.Element {
 
       <Section>
         <SectionLabel>Risco climático</SectionLabel>
-        <DualGrid $refreshing={isRefreshing}>
-          <ChartCard
-            title="Risco por UF"
-            filename="risco-por-uf.png"
-            span="half"
-          >
-            {(ref) => (
-              <BarChartCard
-                ref={ref}
-                valueLabel="Risco médio"
-                color={theme.colors.tertiary}
-                data={data.climateRiskByState.map((r) => ({
-                  name: r.state,
-                  value: r.averageScore ?? 0,
-                }))}
-              />
-            )}
-          </ChartCard>
+        {!analyticsReady ? (
+          <Spinner />
+        ) : (
+          <DualGrid $refreshing={isRefreshing}>
+            <ChartCard
+              title="Risco por UF"
+              filename="risco-por-uf.png"
+              span="half"
+            >
+              {(ref) => (
+                <BarChartCard
+                  ref={ref}
+                  valueLabel="Risco médio"
+                  color={theme.colors.tertiary}
+                  data={analytics.climateRiskByState.map((r) => ({
+                    name: r.state,
+                    value: r.averageScore ?? 0,
+                  }))}
+                />
+              )}
+            </ChartCard>
 
-          <ChartCard
-            title="Risco por cultura"
-            filename="risco-por-cultura.png"
-            span="half"
-          >
-            {(ref) => (
-              <BarChartCard
-                ref={ref}
-                valueLabel="Risco médio"
-                color={theme.colors.info}
-                data={data.climateRiskByCrop.map((r) => ({
-                  name: r.crop,
-                  value: r.averageScore ?? 0,
-                }))}
-              />
-            )}
-          </ChartCard>
-        </DualGrid>
+            <ChartCard
+              title="Risco por cultura"
+              filename="risco-por-cultura.png"
+              span="half"
+            >
+              {(ref) => (
+                <BarChartCard
+                  ref={ref}
+                  valueLabel="Risco médio"
+                  color={theme.colors.info}
+                  data={analytics.climateRiskByCrop.map((r) => ({
+                    name: r.crop,
+                    value: r.averageScore ?? 0,
+                  }))}
+                />
+              )}
+            </ChartCard>
+          </DualGrid>
+        )}
       </Section>
 
       <Section>
         <SectionLabel>Séries e ranking</SectionLabel>
-        <FullGrid $refreshing={isRefreshing}>
-          <ChartCard
-            title="Culturas por safra"
-            filename="culturas-por-safra.png"
-            span="full"
-          >
-            {(ref) => (
-              <StackedBarChartCard
-                ref={ref}
-                tall
-                data={stackedCrops.rows}
-                series={stackedCrops.series}
-              />
-            )}
-          </ChartCard>
+        {!analyticsReady ? (
+          <Spinner />
+        ) : (
+          <FullGrid $refreshing={isRefreshing}>
+            <ChartCard
+              title="Culturas por safra"
+              filename="culturas-por-safra.png"
+              span="full"
+            >
+              {(ref) => (
+                <StackedBarChartCard
+                  ref={ref}
+                  tall
+                  data={stackedCrops.rows}
+                  series={stackedCrops.series}
+                />
+              )}
+            </ChartCard>
 
-          <ChartCard
-            title="Evolução temporal"
-            filename="evolucao-temporal.png"
-            span="full"
-          >
-            {(ref) => (
-              <LineChartCard
-                ref={ref}
-                tall
-                data={data.farmsByMonth.map((m) => ({
-                  name: m.month,
-                  farms: m.farms,
-                  hectares: m.hectares,
-                }))}
-                series={[
-                  {
-                    dataKey: 'farms',
-                    color: theme.colors.primary,
-                    name: 'Fazendas',
-                  },
-                  {
-                    dataKey: 'hectares',
-                    color: theme.colors.secondary,
-                    name: 'Hectares',
-                  },
-                ]}
-              />
-            )}
-          </ChartCard>
+            <ChartCard
+              title="Evolução temporal"
+              filename="evolucao-temporal.png"
+              span="full"
+            >
+              {(ref) => (
+                <LineChartCard
+                  ref={ref}
+                  tall
+                  data={analytics.farmsByMonth.map((m) => ({
+                    name: m.month,
+                    farms: m.farms,
+                    hectares: m.hectares,
+                  }))}
+                  series={[
+                    {
+                      dataKey: 'farms',
+                      color: theme.colors.primary,
+                      name: 'Fazendas',
+                    },
+                    {
+                      dataKey: 'hectares',
+                      color: theme.colors.secondary,
+                      name: 'Hectares',
+                    },
+                  ]}
+                />
+              )}
+            </ChartCard>
 
-          <ChartCard title="Top cidades" filename="top-cidades.png" span="full">
-            {(ref) => (
-              <BarChartCard
-                ref={ref}
-                tall
-                horizontal
-                valueLabel="Fazendas"
-                color={theme.colors.primaryDark}
-                data={data.topCities.map((c) => ({
-                  name: `${c.city}/${c.state}`,
-                  value: c.farms,
-                }))}
-              />
-            )}
-          </ChartCard>
-        </FullGrid>
+            <ChartCard
+              title="Top cidades"
+              filename="top-cidades.png"
+              span="full"
+            >
+              {(ref) => (
+                <BarChartCard
+                  ref={ref}
+                  tall
+                  horizontal
+                  valueLabel="Fazendas"
+                  color={theme.colors.primaryDark}
+                  data={analytics.topCities.map((c) => ({
+                    name: `${c.city}/${c.state}`,
+                    value: c.farms,
+                  }))}
+                />
+              )}
+            </ChartCard>
+          </FullGrid>
+        )}
       </Section>
     </Page>
   );

@@ -4,6 +4,7 @@ import { ThemeProvider } from 'styled-components';
 import { ProducersDataTable } from './ProducersDataTable';
 import { theme } from '../../shared/theme/theme';
 import { mockProducers } from '../../shared/mocks/fixtures';
+import { producerResponseToListItem } from '../../shared/types/api';
 
 describe('ProducersDataTable', () => {
   it('exibe documento mascarado e não CPF completo', () => {
@@ -11,7 +12,7 @@ describe('ProducersDataTable', () => {
       <ThemeProvider theme={theme}>
         <MemoryRouter>
           <ProducersDataTable
-            producers={mockProducers}
+            producers={mockProducers.map(producerResponseToListItem)}
             onDelete={() => undefined}
           />
         </MemoryRouter>

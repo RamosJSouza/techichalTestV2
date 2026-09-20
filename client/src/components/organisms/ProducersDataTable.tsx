@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import type { ProducerResponse } from '../../shared/types/api';
+import type { ProducerListItem } from '../../shared/types/api';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
@@ -38,8 +38,8 @@ const Tr = styled.tr`
 `;
 
 interface ProducersDataTableProps {
-  producers: ProducerResponse[];
-  onDelete: (id: string) => void;
+  producers: ProducerListItem[];
+  onDelete: (producer: Pick<ProducerListItem, 'id' | 'name'>) => void;
 }
 
 function isCnpjMasked(document: string): boolean {
@@ -85,9 +85,9 @@ export function ProducersDataTable({
               <span data-testid="masked-document">{p.document}</span>
             </Td>
             <Td>
-              {p.farms.length} fazenda{p.farms.length === 1 ? '' : 's'}
-              {p.farms.length
-                ? ` (${[...new Set(p.farms.map((f) => f.state))].join(' / ')})`
+              {p.farmsCount} fazenda{p.farmsCount === 1 ? '' : 's'}
+              {p.farmsCount > 0 && p.farmStates.length
+                ? ` (${p.farmStates.join(' / ')})`
                 : ''}
             </Td>
             <Td>
@@ -108,7 +108,7 @@ export function ProducersDataTable({
               </Link>
               <Button
                 variant="danger"
-                onClick={() => onDelete(p.id)}
+                onClick={() => onDelete({ id: p.id, name: p.name })}
                 aria-label={`Excluir ${p.name}`}
               >
                 Excluir

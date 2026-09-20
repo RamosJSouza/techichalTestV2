@@ -1,4 +1,4 @@
-import type { ProducerResponse } from '../types/api';
+import type { ProducerListItem } from '../types/api';
 
 function normalizeSearchText(value: string): string {
   return value
@@ -12,50 +12,30 @@ export function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
 }
 
-function buildProducerSearchBlob(producer: ProducerResponse): string {
-  const parts: string[] = [
+function buildProducerSearchBlob(producer: ProducerListItem): string {
+  return [
     producer.name,
     producer.document,
     producer.esgStatus,
-  ];
-
-  for (const farm of producer.farms) {
-    parts.push(
-      farm.name,
-      farm.city,
-      farm.state,
-      farm.carNumber ?? '',
-      String(farm.totalArea),
-      String(farm.arableArea),
-      String(farm.vegetationArea),
-    );
-    for (const harvest of farm.harvests) {
-      parts.push(harvest.year, harvest.status, ...harvest.crops);
-    }
-  }
-
-  return parts.join(' ');
+    ...producer.farmStates,
+    String(producer.farmsCount),
+    String(producer.totalAreaHa),
+  ].join(' ');
 }
 
 function matchesDocumentDigits(
-  producer: ProducerResponse,
+  producer: ProducerListItem,
   query: string,
 ): boolean {
   const needle = digitsOnly(query);
   if (needle.length === 0) {
     return false;
   }
-  const docDigits = digitsOnly(producer.document);
-  if (docDigits.includes(needle)) {
-    return true;
-  }
-  return producer.farms.some((farm) =>
-    digitsOnly(farm.carNumber ?? '').includes(needle),
-  );
+  return digitsOnly(producer.document).includes(needle);
 }
 
 export function matchesProducerSearch(
-  producer: ProducerResponse,
+  producer: ProducerListItem,
   query: string,
 ): boolean {
   const trimmed = query.trim();
@@ -63,8 +43,10 @@ export function matchesProducerSearch(
     return true;
   }
 
-  // Query só com dígitos → apenas documento/CAR (evita falso positivo em "1000" etc.)
-  if (/^\d+$/.test(digitsOnly(trimmed)) && digitsOnly(trimmed) === trimmed.replace(/\s/g, '')) {
+  if (
+    /^\d+$/.test(digitsOnly(trimmed)) &&
+    digitsOnly(trimmed) === trimmed.replace(/\s/g, '')
+  ) {
     return matchesDocumentDigits(producer, trimmed);
   }
 
@@ -78,8 +60,8 @@ export function matchesProducerSearch(
 }
 
 export function filterProducersBySearch(
-  producers: ProducerResponse[],
+  producers: ProducerListItem[],
   query: string,
-): ProducerResponse[] {
+): ProducerListItem[] {
   return producers.filter((p) => matchesProducerSearch(p, query));
 }

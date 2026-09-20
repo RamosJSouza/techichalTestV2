@@ -3,15 +3,18 @@ import {
   type BaseQueryFn,
 } from '@reduxjs/toolkit/query/react';
 import { mockDashboardStats, mockProducers } from '../../shared/mocks/fixtures';
-import type {
-  CreateFarmInput,
-  CreateProducerInput,
-  DashboardFilters,
-  DashboardStats,
-  EsgComplianceResult,
-  ProducerResponse,
-  UpdateFarmInput,
-  UpdateProducerInput,
+import {
+  producerResponseToListItem,
+  type CreateFarmInput,
+  type CreateProducerInput,
+  type DashboardAnalytics,
+  type DashboardFilters,
+  type DashboardSummary,
+  type EsgComplianceResult,
+  type ProducerListItem,
+  type ProducerResponse,
+  type UpdateFarmInput,
+  type UpdateProducerInput,
 } from '../../shared/types/api';
 import {
   axiosBaseQuery,
@@ -27,11 +30,50 @@ const mockBaseQuery: BaseQueryFn<
   AxiosBaseQueryError
 > = async ({ url, method = 'GET' }) => {
   await new Promise((r) => setTimeout(r, 50));
-  if (url === '/dashboard/stats' || url.startsWith('/dashboard/stats')) {
-    return { data: mockDashboardStats };
+  if (
+    url === '/dashboard/summary' ||
+    url.startsWith('/dashboard/summary')
+  ) {
+    const {
+      climateRiskByState: _s,
+      climateRiskByCrop: _c,
+      cropsByYear: _y,
+      farmsByMonth: _m,
+      topCities: _t,
+      ...summary
+    } = mockDashboardStats;
+    return { data: summary };
+  }
+  if (
+    url === '/dashboard/analytics' ||
+    url.startsWith('/dashboard/analytics')
+  ) {
+    const {
+      climateRiskByState,
+      climateRiskByCrop,
+      cropsByYear,
+      farmsByMonth,
+      topCities,
+    } = mockDashboardStats;
+    return {
+      data: {
+        climateRiskByState,
+        climateRiskByCrop,
+        cropsByYear,
+        farmsByMonth,
+        topCities,
+      },
+    };
   }
   if (url === '/producers' && method === 'GET') {
-    return { data: mockProducers };
+    return {
+      data: {
+        items: mockProducers.map(producerResponseToListItem),
+        total: mockProducers.length,
+        page: 1,
+        pageSize: 20,
+      },
+    };
   }
   if (url.startsWith('/producers/') && method === 'GET' && !url.includes('search')) {
     const id = url.split('/')[2];
@@ -70,19 +112,29 @@ export const apiSlice = createApi({
   baseQuery: dynamicBaseQuery,
   tagTypes: ['Producers', 'Dashboard'],
   endpoints: (builder) => ({
-    getDashboardStats: builder.query<
-      DashboardStats,
+    getDashboardSummary: builder.query<
+      DashboardSummary,
       DashboardFilters | void
     >({
       query: (filters) => ({
-        url: '/dashboard/stats',
+        url: '/dashboard/summary',
+        params: filters ?? undefined,
+      }),
+      providesTags: ['Dashboard'],
+    }),
+    getDashboardAnalytics: builder.query<
+      DashboardAnalytics,
+      DashboardFilters | void
+    >({
+      query: (filters) => ({
+        url: '/dashboard/analytics',
         params: filters ?? undefined,
       }),
       providesTags: ['Dashboard'],
     }),
     listProducers: builder.query<
       {
-        items: ProducerResponse[];
+        items: ProducerListItem[];
         total: number;
         page: number;
         pageSize: number;
@@ -167,7 +219,8 @@ export const apiSlice = createApi({
 });
 
 export const {
-  useGetDashboardStatsQuery,
+  useGetDashboardSummaryQuery,
+  useGetDashboardAnalyticsQuery,
   useListProducersQuery,
   useGetProducerQuery,
   useLazySearchProducerQuery,

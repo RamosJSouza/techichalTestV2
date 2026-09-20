@@ -29,6 +29,43 @@ export interface ProducerResponse {
   updatedAt: string;
 }
 
+/** Item da listagem paginada (sem farms/harvests/crops). */
+export interface ProducerListItem {
+  id: string;
+  name: string;
+  document: string;
+  esgStatus: string;
+  esgCheckedAt: string | null;
+  farmsCount: number;
+  farmStates: string[];
+  totalAreaHa: number;
+  arableAreaHa: number;
+  vegetationAreaHa: number;
+}
+
+export function producerResponseToListItem(
+  producer: ProducerResponse,
+): ProducerListItem {
+  const farmStates = [
+    ...new Set(producer.farms.map((farm) => farm.state)),
+  ].sort();
+  return {
+    id: producer.id,
+    name: producer.name,
+    document: producer.document,
+    esgStatus: producer.esgStatus,
+    esgCheckedAt: producer.esgCheckedAt,
+    farmsCount: producer.farms.length,
+    farmStates,
+    totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),
+    arableAreaHa: producer.farms.reduce((acc, f) => acc + f.arableArea, 0),
+    vegetationAreaHa: producer.farms.reduce(
+      (acc, f) => acc + f.vegetationArea,
+      0,
+    ),
+  };
+}
+
 export interface DashboardFilters {
   state?: string;
   crop?: string;
@@ -39,7 +76,7 @@ export interface DashboardFilters {
   maxClimateRisk?: number;
 }
 
-export interface DashboardStats {
+export interface DashboardSummary {
   totalFarms: number;
   totalHectares: number;
   averageFarmSize: number;
@@ -76,6 +113,9 @@ export interface DashboardStats {
     count: number;
     percentage: number;
   }>;
+}
+
+export interface DashboardAnalytics {
   climateRiskByState: Array<{
     state: string;
     averageScore: number | null;
@@ -103,6 +143,8 @@ export interface DashboardStats {
     hectares: number;
   }>;
 }
+
+export type DashboardStats = DashboardSummary & DashboardAnalytics;
 
 export interface CreateProducerInput {
   name: string;

@@ -10,4 +10,5 @@ export interface CnpjCompanyData {
 export interface BrazilDataServiceInterface {
   getCnpjData(cnpj: string): Promise<CnpjCompanyData | null>;
   isCityInState(city: string, state: string): Promise<boolean | null>;
+  listCitiesByState(uf: string): Promise<string[] | null>;
 }

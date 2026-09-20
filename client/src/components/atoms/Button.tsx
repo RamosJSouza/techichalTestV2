@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import styled, { css } from 'styled-components';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger';
@@ -52,14 +53,12 @@ const StyledButton = styled.button<{ $variant: ButtonVariant }>`
   }}
 `;
 
-export function Button({
-  variant = 'primary',
-  children,
-  ...rest
-}: ButtonProps): React.JSX.Element {
-  return (
-    <StyledButton type="button" $variant={variant} {...rest}>
-      {children}
-    </StyledButton>
-  );
-}
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button({ variant = 'primary', children, ...rest }, ref) {
+    return (
+      <StyledButton ref={ref} type="button" $variant={variant} {...rest}>
+        {children}
+      </StyledButton>
+    );
+  },
+);

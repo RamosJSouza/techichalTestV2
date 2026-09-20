@@ -28,6 +28,7 @@ import { Select } from '../components/atoms/Select';
 import { CropChip } from '../components/molecules/CropChip';
 import { ValidationBanner } from '../components/molecules/ValidationBanner';
 import { CityAutocomplete } from '../components/molecules/CityAutocomplete';
+import { ConfirmDialog } from '../components/molecules/ConfirmDialog';
 import { Spinner } from '../components/atoms/Spinner';
 import { BRAZILIAN_STATES } from '../shared/lib/brazilian-states';
 import type { FarmResponse } from '../shared/types/api';
@@ -115,6 +116,10 @@ export function ProducerFormPage(): React.JSX.Element {
   const [draftFarms, setDraftFarms] = useState<FarmAreasFormValues[]>([]);
   const [editingFarmId, setEditingFarmId] = useState<string | null>(null);
   const [isAddingFarm, setIsAddingFarm] = useState(false);
+  const [pendingFarmDelete, setPendingFarmDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const loadedProducerId = useRef<string | null>(null);
 
   const { data: existing, isLoading: loadingExisting } = useGetProducerQuery(
@@ -339,9 +344,6 @@ export function ProducerFormPage(): React.JSX.Element {
   }, onInvalid);
 
   const handleDeleteFarm = async (farmId: string): Promise<void> => {
-    if (!window.confirm('Remover esta fazenda (soft delete)?')) {
-      return;
-    }
     try {
       await deleteFarm(farmId).unwrap();
       dispatch(
@@ -350,6 +352,7 @@ export function ProducerFormPage(): React.JSX.Element {
       if (editingFarmId === farmId) {
         startNewFarm();
       }
+      setPendingFarmDelete(null);
     } catch {
     }
   };
@@ -377,6 +380,7 @@ export function ProducerFormPage(): React.JSX.Element {
   };
 
   return (
+    <>
     <Card onSubmit={onSubmit} noValidate>
       <h1>{isEdit ? 'Editar produtor' : 'Novo produtor & fazenda'}</h1>
       <p style={{ color: '#616161', marginTop: 0 }}>
@@ -434,7 +438,7 @@ export function ProducerFormPage(): React.JSX.Element {
                       variant="danger"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void handleDeleteFarm(farm.id);
+                        setPendingFarmDelete({ id: farm.id, name: farm.name });
                       }}
                     >
                       Excluir
@@ -638,5 +642,27 @@ export function ProducerFormPage(): React.JSX.Element {
         </>
       )}
     </Card>
+    <ConfirmDialog
+      open={pendingFarmDelete !== null}
+      title="Excluir fazenda"
+      message={
+        pendingFarmDelete
+          ? `Remover a fazenda "${pendingFarmDelete.name}"? Esta ação é um soft delete.`
+          : ''
+      }
+      busy={deletingFarm}
+      onCancel={() => {
+        if (!deletingFarm) {
+          setPendingFarmDelete(null);
+        }
+      }}
+      onConfirm={() => {
+        if (!pendingFarmDelete || deletingFarm) {
+          return;
+        }
+        void handleDeleteFarm(pendingFarmDelete.id);
+      }}
+    />
+    </>
   );
 }

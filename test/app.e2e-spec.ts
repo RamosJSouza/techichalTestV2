@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { join } from 'node:path';
+import { config as loadEnv } from 'dotenv';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -11,6 +12,8 @@ import type { BrazilDataServiceInterface } from '../src/application/services/bra
 import { GlobalExceptionFilter } from '../src/presentation/filters/global-exception.filter.js';
 import { ZodValidationPipe } from '../src/presentation/pipes/zod-validation.pipe.js';
 import { E2eAppModule } from './e2e-app.module.js';
+
+loadEnv();
 
 const databaseUrl = process.env.DATABASE_URL;
 const isCi = process.env.CI === 'true' || process.env.CI === '1';
@@ -123,10 +126,22 @@ const offlineBrazil: BrazilDataServiceInterface = {
     expect(typeof list.body.total).toBe('number');
     expect(list.body.page).toBe(1);
     expect(list.body.pageSize).toBe(10);
+    const listed = list.body.items.find(
+      (item: { id: string }) => item.id === id,
+    );
+    expect(listed).toBeDefined();
+    expect(listed).toHaveProperty('farmsCount');
+    expect(listed).toHaveProperty('totalAreaHa');
+    expect(listed).toHaveProperty('farmStates');
+    expect(listed).not.toHaveProperty('farms');
 
-    await request(app.getHttpServer())
+    const detail = await request(app.getHttpServer())
       .get(`/api/v1/producers/${id}`)
       .expect(200);
+    expect(Array.isArray(detail.body.farms)).toBe(true);
+    if (detail.body.farms.length > 0) {
+      expect(Array.isArray(detail.body.farms[0].harvests)).toBe(true);
+    }
 
     await request(app.getHttpServer())
       .delete(`/api/v1/producers/${id}`)

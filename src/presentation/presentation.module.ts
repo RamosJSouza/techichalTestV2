@@ -40,6 +40,7 @@ import { FarmController } from './controllers/farm.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { IbgeController } from './controllers/ibge.controller.js';
 import { ProducerController } from './controllers/producer.controller.js';
+import { MetricsService } from '../infrastructure/observability/metrics.service.js';
 
 @Module({
   imports: [DatabaseModule, HttpModule],
@@ -51,6 +52,7 @@ import { ProducerController } from './controllers/producer.controller.js';
     IbgeController,
   ],
   providers: [
+    MetricsService,
     NestLoggerAdapter,
     NestAppConfigAdapter,
     {
@@ -201,5 +203,6 @@ import { ProducerController } from './controllers/producer.controller.js';
       useExisting: CRYPTO_SERVICE,
     },
   ],
+  exports: [MetricsService],
 })
 export class PresentationModule {}

@@ -68,4 +68,34 @@ describe('Producer use cases', () => {
     });
     expect(producer.esgStatus).toBe('APPROVED');
   });
+
+  it('rejeita documento duplicado (conflict)', async () => {
+    await createProducer.execute({
+      name: 'Primeiro',
+      document: '529.982.247-25',
+    });
+    await expect(
+      createProducer.execute({
+        name: 'Segundo',
+        document: '529.982.247-25',
+      }),
+    ).rejects.toThrow(/existe|Já existe|documento/i);
+  });
+
+  it('permite cadastro quando BrasilAPI retorna null (degradação)', async () => {
+    const offline: BrazilDataServiceInterface = {
+      getCnpjData: async () => null,
+      isCityInState: async () => null,
+      listCitiesByState: async () => null,
+    };
+    const producer = await buildCreateProducer(
+      repository,
+      offline,
+      crypto,
+    ).execute({
+      name: 'Offline',
+      document: '111.444.777-35',
+    });
+    expect(producer.name).toBe('Offline');
+  });
 });

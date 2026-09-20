@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
@@ -16,8 +18,32 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));
+  app.use(helmet());
+  app.use(
+    rateLimit({
+      windowMs: env.THROTTLE_TTL_MS,
+      max: env.THROTTLE_LIMIT,
+      standardHeaders: true,
+      legacyHeaders: false,
+      skip: (req) => {
+        const path = req.path ?? '';
+        return (
+          path.includes('/health') ||
+          path.includes('/metrics') ||
+          path.includes('/api/docs')
+        );
+      },
+    }),
+  );
 
-  if (env.NODE_ENV !== 'production') {
+  if (env.NODE_ENV === 'production') {
+    const origins = env.CORS_ORIGINS.split(',')
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0);
+    if (origins.length > 0) {
+      app.enableCors({ origin: origins, credentials: false });
+    }
+  } else {
     app.enableCors({ origin: true });
   }
 
@@ -26,7 +52,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Brain Agriculture API')
     .setDescription(
-      'API de gestão de produtores rurais, fazendas, safras e dashboard analítico.',
+      'API de gestão de produtores rurais, fazendas, safras e dashboard analítico. Sem autenticação no escopo atual — proteja a rede e use rate limit/CORS em produção.',
     )
     .setVersion('1.0.0')
     .build();

@@ -110,6 +110,18 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     }
   }
 
+  public getCircuitStats(): {
+    cnpjOpen: boolean;
+    cityOpen: boolean;
+    citiesOpen: boolean;
+  } {
+    return {
+      cnpjOpen: this.cnpjBreaker.opened,
+      cityOpen: this.cityBreaker.opened,
+      citiesOpen: this.citiesBreaker.opened,
+    };
+  }
+
   private async fetchCnpj(cnpj: string): Promise<CnpjCompanyData> {
     try {
       const response = await this.withRetry(() =>

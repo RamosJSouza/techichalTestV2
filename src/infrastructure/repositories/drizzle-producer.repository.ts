@@ -1,7 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, isNull } from 'drizzle-orm';
 import { Producer } from '../../domain/entities/producer.js';
-import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
+import type {
+  IProducerRepository,
+  ProducerListQuery,
+  ProducerListResult,
+} from '../../domain/repositories/producer.repository.js';
 import type { CryptoService } from '../crypto/crypto.service.js';
 import type { DrizzleDb } from '../database/database.module.js';
 import { CRYPTO_SERVICE, DRIZZLE } from '../database/database.tokens.js';
@@ -126,6 +130,46 @@ export class DrizzleProducerRepository implements IProducerRepository {
       .from(producers)
       .where(isNull(producers.deletedAt));
     return this.hydrateMany(rows);
+  }
+
+  public async findMany(query: ProducerListQuery): Promise<ProducerListResult> {
+    const conditions = [isNull(producers.deletedAt)];
+    if (query.name) {
+      const escaped = query.name
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      conditions.push(ilike(producers.name, `%${escaped}%`));
+    }
+    const whereClause = and(...conditions);
+
+    const sortColumn =
+      query.sortBy === 'name' ? producers.name : producers.createdAt;
+    const primaryOrder =
+      query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+    const offset = (query.page - 1) * query.pageSize;
+
+    const [totalRow] = await this.db
+      .select({ value: count() })
+      .from(producers)
+      .where(whereClause);
+
+    const rows = await this.db
+      .select()
+      .from(producers)
+      .where(whereClause)
+      .orderBy(primaryOrder, asc(producers.id))
+      .limit(query.pageSize)
+      .offset(offset);
+
+    const items = await this.hydrateMany(rows);
+    return {
+      items,
+      total: Number(totalRow?.value ?? 0),
+      page: query.page,
+      pageSize: query.pageSize,
+    };
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {

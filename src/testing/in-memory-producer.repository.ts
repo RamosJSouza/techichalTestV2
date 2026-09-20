@@ -1,5 +1,9 @@
 import { Producer } from '../../domain/entities/producer.js';
-import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
+import type {
+  IProducerRepository,
+  ProducerListQuery,
+  ProducerListResult,
+} from '../../domain/repositories/producer.repository.js';
 import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
 
 export class InMemoryProducerRepository implements IProducerRepository {
@@ -41,6 +45,28 @@ export class InMemoryProducerRepository implements IProducerRepository {
 
   public async findAll(): Promise<Producer[]> {
     return [...this.items.values()].filter((producer) => !producer.isDeleted);
+  }
+
+  public async findMany(query: ProducerListQuery): Promise<ProducerListResult> {
+    let items = await this.findAll();
+    if (query.name) {
+      const needle = query.name.toLowerCase();
+      items = items.filter((p) => p.name.toLowerCase().includes(needle));
+    }
+    items.sort((a, b) => {
+      const av = query.sortBy === 'name' ? a.name : a.createdAt.toISOString();
+      const bv = query.sortBy === 'name' ? b.name : b.createdAt.toISOString();
+      const cmp = av < bv ? -1 : av > bv ? 1 : a.id.localeCompare(b.id);
+      return query.sortOrder === 'asc' ? cmp : -cmp;
+    });
+    const total = items.length;
+    const start = (query.page - 1) * query.pageSize;
+    return {
+      items: items.slice(start, start + query.pageSize),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
   }
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {

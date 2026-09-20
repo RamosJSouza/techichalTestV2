@@ -80,8 +80,23 @@ export const apiSlice = createApi({
       }),
       providesTags: ['Dashboard'],
     }),
-    listProducers: builder.query<ProducerResponse[], void>({
-      query: () => ({ url: '/producers' }),
+    listProducers: builder.query<
+      {
+        items: ProducerResponse[];
+        total: number;
+        page: number;
+        pageSize: number;
+      },
+      { page?: number; pageSize?: number; name?: string } | void
+    >({
+      query: (params) => ({
+        url: '/producers',
+        params: {
+          page: params?.page ?? 1,
+          pageSize: params?.pageSize ?? 100,
+          ...(params?.name ? { name: params.name } : {}),
+        },
+      }),
       providesTags: ['Producers'],
     }),
     getProducer: builder.query<ProducerResponse, string>({

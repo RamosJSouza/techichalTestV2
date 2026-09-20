@@ -4,7 +4,10 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
+import { trace } from '@opentelemetry/api';
+import { randomUUID } from 'node:crypto';
 import type { Response, Request } from 'express';
 import { ZodError } from 'zod';
 import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
@@ -14,10 +17,14 @@ import { SocioEnvironmentalBlockException } from '../../domain/exceptions/socio-
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
+
   public catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+    const errorId = randomUUID();
+    const traceId = this.resolveTraceId();
 
     if (exception instanceof ZodError) {
       response.status(HttpStatus.BAD_REQUEST).json({
@@ -29,6 +36,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           path: issue.path.join('.'),
           message: issue.message,
         })),
+        errorId,
+        traceId,
         timestamp: new Date().toISOString(),
         path: request.url,
       });
@@ -42,6 +51,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         error: HttpStatus[status] ?? 'Error',
         message: exception.message,
         code: exception.code,
+        errorId,
+        traceId,
         timestamp: new Date().toISOString(),
         path: request.url,
       });
@@ -50,6 +61,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
+      if (status >= 500) {
+        this.logInternal(exception, errorId, traceId, request.url);
+        response.status(status).json({
+          statusCode: status,
+          error: 'Internal Server Error',
+          message: 'Internal server error',
+          code: 'INTERNAL_ERROR',
+          errorId,
+          traceId,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+        });
+        return;
+      }
+
       const exceptionResponse = exception.getResponse();
       const body =
         typeof exceptionResponse === 'object' && exceptionResponse !== null
@@ -59,23 +85,46 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       response.status(status).json({
         ...body,
         statusCode: status,
+        errorId,
+        traceId,
         timestamp: new Date().toISOString(),
         path: request.url,
       });
       return;
     }
 
-    const message =
-      exception instanceof Error ? exception.message : 'Internal server error';
-
+    this.logInternal(exception, errorId, traceId, request.url);
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'Internal Server Error',
-      message,
+      message: 'Internal server error',
       code: 'INTERNAL_ERROR',
+      errorId,
+      traceId,
       timestamp: new Date().toISOString(),
       path: request.url,
     });
+  }
+
+  private resolveTraceId(): string | null {
+    const span = trace.getActiveSpan();
+    if (!span) {
+      return null;
+    }
+    return span.spanContext().traceId || null;
+  }
+
+  private logInternal(
+    exception: unknown,
+    errorId: string,
+    traceId: string | null,
+    path: string,
+  ): void {
+    const detail =
+      exception instanceof Error
+        ? { name: exception.name, message: exception.message, stack: exception.stack }
+        : { detail: String(exception) };
+    this.logger.error({ errorId, traceId, path, ...detail }, 'Unhandled error');
   }
 
   private mapDomainStatus(exception: DomainException): number {

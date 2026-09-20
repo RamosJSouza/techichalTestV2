@@ -22,6 +22,7 @@ import { UpdateProducerUseCase } from '../../application/use-cases/update-produc
 import { MaskPII } from '../decorators/mask-pii.decorator.js';
 import {
   CreateProducerDto,
+  ListProducersQueryDto,
   SearchProducerQueryDto,
   UpdateProducerDto,
   UuidParamDto,
@@ -75,13 +76,16 @@ export class ProducerController {
 
   @Get()
   @ApiOkResponse({
-    description: 'Lista de produtores',
-    type: ProducerMaskedResponseDto,
-    isArray: true,
+    description: 'Lista paginada de produtores',
   })
-  public async list() {
-    const producers = await this.listProducers.execute();
-    return producers.map(toProducerResponse);
+  public async list(@Query() query: ListProducersQueryDto) {
+    const result = await this.listProducers.execute(query);
+    return {
+      items: result.items.map(toProducerResponse),
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+    };
   }
 
   @Get('search')

@@ -1,20 +1,49 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { join } from 'node:path';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from '../src/app.module.js';
+import { BRAZIL_DATA_SERVICE } from '../src/application/services/brazil-data.service.interface.js';
+import type { BrazilDataServiceInterface } from '../src/application/services/brazil-data.service.interface.js';
 import { GlobalExceptionFilter } from '../src/presentation/filters/global-exception.filter.js';
 import { ZodValidationPipe } from '../src/presentation/pipes/zod-validation.pipe.js';
+import { E2eAppModule } from './e2e-app.module.js';
 
-const hasDatabase = Boolean(process.env.DATABASE_URL);
+const databaseUrl = process.env.DATABASE_URL;
+const isCi = process.env.CI === 'true' || process.env.CI === '1';
 
-(hasDatabase ? describe : describe.skip)('Brain Agriculture API (e2e)', () => {
+if (isCi && !databaseUrl) {
+  throw new Error('DATABASE_URL is required for e2e in CI');
+}
+
+const offlineBrazil: BrazilDataServiceInterface = {
+  getCnpjData: async () => null,
+  isCityInState: async () => true,
+  listCitiesByState: async () => ['Ribeirão Preto', 'Campinas'],
+};
+
+(databaseUrl ? describe : describe.skip)('Brain Agriculture API (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    const client = postgres(databaseUrl!, { max: 1 });
+    try {
+      await migrate(drizzle(client), {
+        migrationsFolder: join(process.cwd(), 'drizzle'),
+      });
+    } finally {
+      await client.end({ timeout: 5 });
+    }
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+      imports: [E2eAppModule],
+    })
+      .overrideProvider(BRAZIL_DATA_SERVICE)
+      .useValue(offlineBrazil)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
@@ -24,14 +53,24 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
-  it('GET /api/v1/health', async () => {
+  it('GET /api/v1/health/live', async () => {
     await request(app.getHttpServer())
-      .get('/api/v1/health')
+      .get('/api/v1/health/live')
       .expect(200)
       .expect({ status: 'ok' });
+  });
+
+  it('GET /api/v1/health/ready', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/v1/health/ready')
+      .expect(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.database).toBe('up');
   });
 
   it('rejeita payload com campo extra (Zod strict)', async () => {
@@ -47,7 +86,7 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
     expect(response.body.code).toBe('VALIDATION_ERROR');
   });
 
-  it('cria produtor com documento mascarado e soft-delete', async () => {
+  it('CRUD produtor com documento mascarado, listagem paginada e soft-delete', async () => {
     const create = await request(app.getHttpServer())
       .post('/api/v1/producers')
       .send({
@@ -72,6 +111,16 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
 
     const id = create.body.id as string;
 
+    const list = await request(app.getHttpServer())
+      .get('/api/v1/producers')
+      .query({ page: 1, pageSize: 10 })
+      .expect(200);
+
+    expect(Array.isArray(list.body.items)).toBe(true);
+    expect(typeof list.body.total).toBe('number');
+    expect(list.body.page).toBe(1);
+    expect(list.body.pageSize).toBe(10);
+
     await request(app.getHttpServer())
       .get(`/api/v1/producers/${id}`)
       .expect(200);
@@ -85,12 +134,29 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
       .expect(404);
   });
 
+  it('retorna 409 para documento duplicado', async () => {
+    const payload = {
+      name: 'Duplicado',
+      document: '390.533.447-05',
+    };
+    const first = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send(payload);
+    expect([200, 201]).toContain(first.status);
+
+    const second = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send(payload)
+      .expect(409);
+    expect(second.body.code).toBeDefined();
+  });
+
   it('rejeita área de fazenda inválida', async () => {
     const producer = await request(app.getHttpServer())
       .post('/api/v1/producers')
       .send({
         name: 'Produtor Área',
-        document: '390.533.447-05',
+        document: '111.444.777-35',
       });
 
     expect([200, 201]).toContain(producer.status);
@@ -121,5 +187,15 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
     expect(response.body).toHaveProperty('byState');
     expect(response.body).toHaveProperty('byCrop');
     expect(response.body).toHaveProperty('byLandUse');
+  });
+
+  it('cria produtor com BrasilAPI offline (degradação)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Offline BrasilAPI',
+        document: '153.509.460-56',
+      });
+    expect([200, 201]).toContain(response.status);
   });
 });

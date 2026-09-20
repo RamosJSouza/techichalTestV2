@@ -107,7 +107,10 @@ function mergeById(
 }
 
 export function ProducersListPage(): React.JSX.Element {
-  const { data, isLoading, isError } = useListProducersQuery();
+  const { data, isLoading, isError } = useListProducersQuery({
+    page: 1,
+    pageSize: 100,
+  });
   const [deleteProducer] = useDeleteProducerMutation();
   const [searchExact, { isFetching: searchingExact }] =
     useLazySearchProducerQuery();
@@ -140,7 +143,7 @@ export function ProducersListPage(): React.JSX.Element {
   }, [exactDocument, searchExact]);
 
   const filtered = useMemo(() => {
-    const searched = filterProducersBySearch(data ?? [], deferredQuery);
+    const searched = filterProducersBySearch(data?.items ?? [], deferredQuery);
     const withExact = mergeById(searched, exactHit);
     return applyFilter(withExact, filter);
   }, [data, deferredQuery, filter, exactHit]);

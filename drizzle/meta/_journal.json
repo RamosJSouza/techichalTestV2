@@ -29,6 +29,13 @@
       "when": 1789832000000,
       "tag": "0003_farm_car_status",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789900000000,
+      "tag": "0004_dashboard_list_indexes",
+      "breakpoints": true
     }
   ]
 }

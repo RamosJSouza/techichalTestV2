@@ -8,9 +8,11 @@ API REST NestJS e SPA React servida no mesmo processo em produção (`/`).
 
 ## Pré-requisitos
 
-- Node.js 22+ (ver `.nvmrc`)
-- pnpm 10+
+- **Node.js 22.22.3** (exato — ver `.nvmrc` e `engines` no `package.json`)
+- **pnpm 10.32.1** (Corepack / `packageManager`)
 - Docker Desktop
+
+O repositório usa `engine-strict` e `package-manager-strict` (`.npmrc`).
 
 ## Executar com Docker (recomendado)
 
@@ -83,23 +85,43 @@ Safras (`harvests`) têm `status` `ACTIVE` | `ARCHIVED` (novas = `ACTIVE`). O gr
 - **Domínio:** Value Objects `CpfCnpj`, `FarmArea`, `CarNumber`
 - **Integração:** BrasilAPI (CNPJ ativo + cidade∈UF) com circuit breaker; Fase 2 via ports + mocks
 
-## Segurança de PII
+## Segurança de PII e produção
 
 - Documento criptografado em repouso (AES-256-GCM, formato `iv:authTag:ciphertext`)
 - Busca via `document_hash` (HMAC-SHA256)
 - Respostas HTTP com `@MaskPII()` + interceptor (`***.XXX.XXX-**` / `**.XXX.XXX/XXXX-**`)
 - Soft delete via `deleted_at`
-- Logs Pino com `trace_id` / `span_id` (OpenTelemetry)
+- Logs Pino com `trace_id` / `span_id` (OpenTelemetry) e redact de `document`
+- Em `NODE_ENV=production`, secrets de exemplo / senha `postgrespassword` são **rejeitados**
+- Rate limit (`express-rate-limit` via `THROTTLE_*`), `helmet`, CORS via `CORS_ORIGINS` (CSV)
+- Erros 5xx desconhecidos: mensagem genérica + `errorId` / `traceId` (detalhe só nos logs)
+- **Sem autenticação no escopo atual** — API aberta; proteger rede (VPN/firewall) em produção controlada
 
-## Testes
+### Gerar chaves
 
 ```bash
-pnpm test          # unitários
-pnpm test:e2e      # requer DATABASE_URL + migrations
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Health: `GET /api/v1/health/live` (liveness), `GET /api/v1/health/ready` (Postgres), `GET /api/v1/metrics` (Prometheus).
+
+## Testes e Jest
+
+```bash
+pnpm lint
+pnpm test          # unitários API + client
+pnpm test:e2e      # requer DATABASE_URL; aplica migrations no beforeAll (módulo E2eAppModule sem nestjs-pino)
 pnpm build         # client + API em paralelo (Vite SWC + Nest SWC)
 ```
 
-Builds Docker usam BuildKit (`DOCKER_BUILDKIT=1`, padrão no Docker moderno) com cache do store pnpm e compilação paralela client/API.
+**Estratégia Jest (única por runtime):**
+
+| Escopo | Config | Módulos |
+|--------|--------|---------|
+| API / E2E | `jest.config.cjs` + `node --experimental-vm-modules` | ESM (`ts-jest` `useESM`), alinhado a `"type":"module"` / Nest |
+| Client | `client/jest.config.cjs` | Transform CJS via `ts-jest` (React/jsdom); sem `jest.config.ts` nem loader TS transitivo |
+
+Builds Docker usam BuildKit (`DOCKER_BUILDKIT=1`) com cache do store pnpm e compilação paralela client/API.
 
 ## Scripts úteis
 

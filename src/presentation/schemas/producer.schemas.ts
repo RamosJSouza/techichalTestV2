@@ -41,6 +41,16 @@ export const searchProducerQuerySchema = z
   })
   .strict();
 
+export const listProducersQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    sortBy: z.enum(['createdAt', 'name']).default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+    name: z.string().trim().min(1).max(255).optional(),
+  })
+  .strict();
+
 export const uuidParamSchema = z
   .object({
     id: z.string().uuid(),

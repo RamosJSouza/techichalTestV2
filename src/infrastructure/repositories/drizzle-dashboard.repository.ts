@@ -53,125 +53,132 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
     filters: DashboardFilters = {},
   ): Promise<DashboardStats> {
     const farmWhere = this.buildFarmWhere(filters);
-
-    const [totals] = await this.db
-      .select({
-        totalFarms: count(farms.id),
-        totalHectares: sum(farms.totalArea),
-        arableHectares: sum(farms.arableArea),
-        vegetationHectares: sum(farms.vegetationArea),
-      })
-      .from(farms)
-      .where(farmWhere);
-
     const climateWhere = and(farmWhere, isNotNull(farms.climateRiskScore));
-    const [climate] = await this.db
-      .select({
-        averageScore: avg(farms.climateRiskScore),
-        farmsWithScore: count(farms.id),
-      })
-      .from(farms)
-      .where(climateWhere);
-
-    const byStateRows = await this.db
-      .select({
-        state: farms.state,
-        count: count(farms.id),
-        hectares: sum(farms.totalArea),
-      })
-      .from(farms)
-      .where(farmWhere)
-      .groupBy(farms.state);
-
     const cropWhere = and(farmWhere, eq(harvests.status, 'ACTIVE'));
-    const byCropRows = await this.db
-      .select({
-        crop: farmCrops.cropName,
-        count: count(farmCrops.id),
-      })
-      .from(farmCrops)
-      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
-      .innerJoin(farms, eq(harvests.farmId, farms.id))
-      .where(cropWhere)
-      .groupBy(farmCrops.cropName);
-
-    const byCarStatusRows = await this.db
-      .select({
-        status: farms.carStatus,
-        count: count(farms.id),
-      })
-      .from(farms)
-      .where(farmWhere)
-      .groupBy(farms.carStatus);
-
     const esgWhere = and(farmWhere, isNull(producers.deletedAt));
-    const byEsgStatusRows = await this.db
-      .select({
-        status: producers.esgStatus,
-        count: count(sql`DISTINCT ${producers.id}`),
-      })
-      .from(farms)
-      .innerJoin(producers, eq(farms.producerId, producers.id))
-      .where(esgWhere)
-      .groupBy(producers.esgStatus);
 
-    const climateByStateRows = await this.db
-      .select({
-        state: farms.state,
-        averageScore: avg(farms.climateRiskScore),
-        farmsWithScore: count(farms.id),
-      })
-      .from(farms)
-      .where(climateWhere)
-      .groupBy(farms.state);
+    const [
+      totalsRows,
+      climateRows,
+      byStateRows,
+      byCropRows,
+      byCarStatusRows,
+      byEsgStatusRows,
+      climateByStateRows,
+      climateByCropRows,
+      cropsByYearRows,
+      farmsByMonthRows,
+      topCitiesRows,
+    ] = await Promise.all([
+      this.db
+        .select({
+          totalFarms: count(farms.id),
+          totalHectares: sum(farms.totalArea),
+          arableHectares: sum(farms.arableArea),
+          vegetationHectares: sum(farms.vegetationArea),
+        })
+        .from(farms)
+        .where(farmWhere),
+      this.db
+        .select({
+          averageScore: avg(farms.climateRiskScore),
+          farmsWithScore: count(farms.id),
+        })
+        .from(farms)
+        .where(climateWhere),
+      this.db
+        .select({
+          state: farms.state,
+          count: count(farms.id),
+          hectares: sum(farms.totalArea),
+        })
+        .from(farms)
+        .where(farmWhere)
+        .groupBy(farms.state),
+      this.db
+        .select({
+          crop: farmCrops.cropName,
+          count: count(farmCrops.id),
+        })
+        .from(farmCrops)
+        .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+        .innerJoin(farms, eq(harvests.farmId, farms.id))
+        .where(cropWhere)
+        .groupBy(farmCrops.cropName),
+      this.db
+        .select({
+          status: farms.carStatus,
+          count: count(farms.id),
+        })
+        .from(farms)
+        .where(farmWhere)
+        .groupBy(farms.carStatus),
+      this.db
+        .select({
+          status: producers.esgStatus,
+          count: count(sql`DISTINCT ${producers.id}`),
+        })
+        .from(farms)
+        .innerJoin(producers, eq(farms.producerId, producers.id))
+        .where(esgWhere)
+        .groupBy(producers.esgStatus),
+      this.db
+        .select({
+          state: farms.state,
+          averageScore: avg(farms.climateRiskScore),
+          farmsWithScore: count(farms.id),
+        })
+        .from(farms)
+        .where(climateWhere)
+        .groupBy(farms.state),
+      this.db
+        .select({
+          crop: farmCrops.cropName,
+          averageScore: avg(farms.climateRiskScore),
+          farmsWithScore: count(sql`DISTINCT ${farms.id}`),
+        })
+        .from(farmCrops)
+        .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+        .innerJoin(farms, eq(harvests.farmId, farms.id))
+        .where(and(cropWhere, isNotNull(farms.climateRiskScore)))
+        .groupBy(farmCrops.cropName),
+      this.db
+        .select({
+          year: harvests.year,
+          crop: farmCrops.cropName,
+          count: count(farmCrops.id),
+        })
+        .from(farmCrops)
+        .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+        .innerJoin(farms, eq(harvests.farmId, farms.id))
+        .where(cropWhere)
+        .groupBy(harvests.year, farmCrops.cropName),
+      this.db
+        .select({
+          month: sql<string>`to_char(date_trunc('month', ${farms.createdAt}), 'YYYY-MM')`,
+          farms: count(farms.id),
+          hectares: sum(farms.totalArea),
+        })
+        .from(farms)
+        .where(farmWhere)
+        .groupBy(sql`date_trunc('month', ${farms.createdAt})`)
+        .orderBy(sql`date_trunc('month', ${farms.createdAt})`),
+      this.db
+        .select({
+          city: farms.city,
+          state: farms.state,
+          farms: count(farms.id),
+          hectares: sum(farms.totalArea),
+        })
+        .from(farms)
+        .where(farmWhere)
+        .groupBy(farms.city, farms.state)
+        .orderBy(desc(count(farms.id)))
+        .limit(10),
+    ]);
 
-    const climateByCropRows = await this.db
-      .select({
-        crop: farmCrops.cropName,
-        averageScore: avg(farms.climateRiskScore),
-        farmsWithScore: count(sql`DISTINCT ${farms.id}`),
-      })
-      .from(farmCrops)
-      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
-      .innerJoin(farms, eq(harvests.farmId, farms.id))
-      .where(and(cropWhere, isNotNull(farms.climateRiskScore)))
-      .groupBy(farmCrops.cropName);
-
-    const cropsByYearRows = await this.db
-      .select({
-        year: harvests.year,
-        crop: farmCrops.cropName,
-        count: count(farmCrops.id),
-      })
-      .from(farmCrops)
-      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
-      .innerJoin(farms, eq(harvests.farmId, farms.id))
-      .where(cropWhere)
-      .groupBy(harvests.year, farmCrops.cropName);
-
-    const farmsByMonthRows = await this.db
-      .select({
-        month: sql<string>`to_char(date_trunc('month', ${farms.createdAt}), 'YYYY-MM')`,
-        farms: count(farms.id),
-        hectares: sum(farms.totalArea),
-      })
-      .from(farms)
-      .where(farmWhere)
-      .groupBy(sql`date_trunc('month', ${farms.createdAt})`)
-      .orderBy(sql`date_trunc('month', ${farms.createdAt})`);
-
-    const topCitiesRows = await this.db
-      .select({
-        city: farms.city,
-        state: farms.state,
-        farms: count(farms.id),
-        hectares: sum(farms.totalArea),
-      })
-      .from(farms)
-      .where(farmWhere)
-      .groupBy(farms.city, farms.state)
-      .orderBy(desc(count(farms.id)))
-      .limit(10);
+    const totals = totalsRows[0];
+    const climate = climateRows[0];
 
     const totalFarms = Number(totals?.totalFarms ?? 0);
     const totalHectares = Number(totals?.totalHectares ?? 0);

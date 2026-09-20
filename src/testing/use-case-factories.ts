@@ -6,7 +6,6 @@ import type { IFarmRepository } from '../domain/repositories/farm.repository.js'
 import type { IProducerRepository } from '../domain/repositories/producer.repository.js';
 import type { CryptoService } from '../infrastructure/crypto/crypto.service.js';
 import {
-  testAgTechMocks,
   testConfig,
   testCrypto,
   testLogger,
@@ -15,23 +14,19 @@ import {
 export const defaultBrazil: BrazilDataServiceInterface = {
   getCnpjData: async () => null,
   isCityInState: async () => true,
+  listCitiesByState: async () => [],
 };
 
 export function buildCreateProducer(
   repository: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
   crypto: CryptoService = testCrypto(),
-  configOverrides: Parameters<typeof testConfig>[0] = {},
 ): CreateProducerUseCase {
-  const mocks = testAgTechMocks();
   return new CreateProducerUseCase(
     repository,
     brazil,
     crypto,
-    mocks.socio,
-    mocks.car,
-    mocks.proagro,
-    testConfig(configOverrides),
+    testConfig(),
     testLogger(),
   );
 }
@@ -40,17 +35,12 @@ export function buildCreateFarm(
   farmRepo: IFarmRepository,
   producerRepo: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
-  configOverrides: Parameters<typeof testConfig>[0] = {},
 ): CreateFarmUseCase {
-  const mocks = testAgTechMocks();
   return new CreateFarmUseCase(
     farmRepo,
     producerRepo,
     brazil,
-    mocks.socio,
-    mocks.car,
-    mocks.proagro,
-    testConfig(configOverrides),
+    testConfig(),
     testLogger(),
   );
 }
@@ -59,12 +49,5 @@ export function buildUpdateFarm(
   farmRepo: IFarmRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
 ): UpdateFarmUseCase {
-  const mocks = testAgTechMocks();
-  return new UpdateFarmUseCase(
-    farmRepo,
-    brazil,
-    mocks.car,
-    mocks.proagro,
-    testLogger(),
-  );
+  return new UpdateFarmUseCase(farmRepo, brazil, testLogger());
 }

@@ -1,15 +1,14 @@
 import { InvalidCarNumberException } from '../../domain/exceptions/invalid-car-number.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
+import {
+  validateCar,
+  type CarValidationResult,
+} from '../../domain/policies/car-validation.policy.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
-import type {
-  CarValidationResult,
-  CarValidationServiceInterface,
-} from '../services/car-validation.service.interface.js';
 
 export class ValidateFarmCarUseCase {
   public constructor(
     private readonly farmRepository: IFarmRepository,
-    private readonly carValidation: CarValidationServiceInterface,
   ) {}
 
   public async execute(
@@ -25,7 +24,7 @@ export class ValidateFarmCarUseCase {
       );
     }
 
-    const result = await this.carValidation.validateCar({
+    const result = validateCar({
       carNumber: farm.carNumber.value,
       totalArea: farm.area.totalArea,
       vegetationArea: farm.area.vegetationArea,

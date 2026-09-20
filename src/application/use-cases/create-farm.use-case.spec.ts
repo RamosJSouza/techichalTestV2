@@ -62,6 +62,7 @@ describe('CreateFarmUseCase', () => {
       buildCreateFarm(farmRepo, producerRepo, {
         getCnpjData: async () => null,
         isCityInState: async () => false,
+        listCitiesByState: async () => [],
       }).execute({
         producerId: producer.id,
         name: 'Fazenda',

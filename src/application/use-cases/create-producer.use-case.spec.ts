@@ -50,6 +50,7 @@ describe('Producer use cases', () => {
         isActive: false,
       }),
       isCityInState: async () => true,
+      listCitiesByState: async () => [],
     };
 
     await expect(
@@ -60,11 +61,11 @@ describe('Producer use cases', () => {
     ).rejects.toThrow(/ATIVA/);
   });
 
-  it('marca WARNING ESG para documento terminado em 0', async () => {
+  it('marca APPROVED ESG (validação local determinística, sem SERPRO)', async () => {
     const producer = await createProducer.execute({
       name: 'Risco',
       document: '100.000.002-80',
     });
-    expect(producer.esgStatus).toBe('WARNING');
+    expect(producer.esgStatus).toBe('APPROVED');
   });
 });

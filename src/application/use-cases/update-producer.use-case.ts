@@ -5,7 +5,7 @@ import type { IProducerRepository } from '../../domain/repositories/producer.rep
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
 
-export interface UpdateProducerInput {
+interface UpdateProducerInput {
   name?: string;
   document?: string;
 }

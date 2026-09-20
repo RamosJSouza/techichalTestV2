@@ -1,5 +1,5 @@
 import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
-import { testAgTechMocks, testCrypto } from '../../testing/test-helpers.js';
+import { testCrypto } from '../../testing/test-helpers.js';
 import { buildCreateProducer } from '../../testing/use-case-factories.js';
 import { GetProducerEsgComplianceUseCase } from './get-producer-esg-compliance.use-case.js';
 
@@ -14,7 +14,6 @@ describe('GetProducerEsgComplianceUseCase', () => {
 
     const result = await new GetProducerEsgComplianceUseCase(
       repo,
-      testAgTechMocks().socio,
     ).execute(producer.id);
 
     expect(result.producerId).toBe(producer.id);

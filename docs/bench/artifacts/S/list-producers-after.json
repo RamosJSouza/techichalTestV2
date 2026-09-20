@@ -1,0 +1,40 @@
+{
+  "label": "after",
+  "scale": "S",
+  "baseUrl": "http://localhost:3000",
+  "at": "2026-09-20T15:39:35.210Z",
+  "results": [
+    {
+      "id": "L0",
+      "path": "/api/v1/producers?page=1&pageSize=20",
+      "pageSize": 20,
+      "samples": 40,
+      "errors": 0,
+      "p50Ms": 35.95,
+      "p95Ms": 45.99,
+      "payloadP50Bytes": 5080,
+      "payloadP95Bytes": 5080,
+      "itemsInLastResponse": 20,
+      "shapeMode": "summary",
+      "estimatedQueries": 3,
+      "heapDeltaBytes": 1900312,
+      "heapAfterBytes": 9906696
+    },
+    {
+      "id": "L1",
+      "path": "/api/v1/producers?page=1&pageSize=100",
+      "pageSize": 100,
+      "samples": 30,
+      "errors": 0,
+      "p50Ms": 47.34,
+      "p95Ms": 66.44,
+      "payloadP50Bytes": 25186,
+      "payloadP95Bytes": 25186,
+      "itemsInLastResponse": 100,
+      "shapeMode": "summary",
+      "estimatedQueries": 3,
+      "heapDeltaBytes": 1555248,
+      "heapAfterBytes": 11485864
+    }
+  ]
+}

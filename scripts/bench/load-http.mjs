@@ -20,6 +20,7 @@ const SLO = {
 const scenarios = [
   { id: 'H0', path: '/api/v1/health/live', samples: 50 },
   { id: 'D0', path: '/api/v1/dashboard/stats', samples: 80 },
+  { id: 'D0s', path: '/api/v1/dashboard/summary', samples: 80 },
   { id: 'D1', path: '/api/v1/dashboard/stats?state=SP', samples: 40 },
   { id: 'D2', path: '/api/v1/dashboard/stats?crop=Soja', samples: 40 },
   { id: 'D3', path: '/api/v1/dashboard/stats?minClimateRisk=10&maxClimateRisk=40', samples: 40 },
@@ -93,6 +94,7 @@ async function measure(path, samples, concurrency = 5) {
 console.log(`Warm-up against ${baseUrl}…`);
 for (let i = 0; i < 10; i += 1) {
   await fetch(`${baseUrl}/api/v1/dashboard/stats`);
+  await fetch(`${baseUrl}/api/v1/dashboard/summary`);
   await fetch(`${baseUrl}/api/v1/producers?page=1&pageSize=20`);
 }
 
@@ -107,6 +109,7 @@ for (const scenario of scenarios) {
 }
 
 const d0 = results.find((r) => r.id === 'D0');
+const d0s = results.find((r) => r.id === 'D0s');
 const l0 = results.find((r) => r.id === 'L0');
 const l1 = results.find((r) => r.id === 'L1');
 
@@ -114,8 +117,30 @@ const gates = [
   { name: 'D0_p95', ok: d0.p95 <= SLO.D0_p95, actual: d0.p95, limit: SLO.D0_p95 },
   { name: 'D0_p99', ok: d0.p99 <= SLO.D0_p99, actual: d0.p99, limit: SLO.D0_p99 },
   { name: 'D0_rps', ok: d0.rps >= SLO.D0_rps, actual: d0.rps, limit: SLO.D0_rps },
+  { name: 'D0_errors', ok: d0.errors === 0, actual: d0.errors, limit: 0 },
+  {
+    name: 'D0s_p95',
+    ok: d0s.p95 <= SLO.D0_p95,
+    actual: d0s.p95,
+    limit: SLO.D0_p95,
+  },
+  {
+    name: 'D0s_p99',
+    ok: d0s.p99 <= SLO.D0_p99,
+    actual: d0s.p99,
+    limit: SLO.D0_p99,
+  },
+  {
+    name: 'D0s_rps',
+    ok: d0s.rps >= SLO.D0_rps,
+    actual: d0s.rps,
+    limit: SLO.D0_rps,
+  },
+  { name: 'D0s_errors', ok: d0s.errors === 0, actual: d0s.errors, limit: 0 },
   { name: 'L0_p95', ok: l0.p95 <= SLO.L0_p95, actual: l0.p95, limit: SLO.L0_p95 },
+  { name: 'L0_errors', ok: l0.errors === 0, actual: l0.errors, limit: 0 },
   { name: 'L1_p95', ok: l1.p95 <= SLO.L1_p95, actual: l1.p95, limit: SLO.L1_p95 },
+  { name: 'L1_errors', ok: l1.errors === 0, actual: l1.errors, limit: 0 },
 ];
 
 const pass = gates.every((g) => g.ok);

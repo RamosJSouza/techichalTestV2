@@ -44,14 +44,17 @@ function pickState() {
 
 function pickCarStatus() {
   const r = rng();
-  if (r < 0.7) return 'APPROVED';
+  if (r < 0.7) return 'ACTIVE';
   if (r < 0.9) return 'PENDING';
-  if (r < 0.95) return 'REJECTED';
+  if (r < 0.95) return 'CANCELLED';
   return null;
 }
 
 function pickEsg() {
-  return rng() < 0.85 ? 'APPROVED' : 'PENDING';
+  const r = rng();
+  if (r < 0.8) return 'APPROVED';
+  if (r < 0.95) return 'WARNING';
+  return 'BLOCKED';
 }
 
 console.log(`Seeding scale=${scale} farms=${targetFarms} producers=${producerCount}`);

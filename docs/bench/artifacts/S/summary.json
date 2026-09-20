@@ -1,36 +1,118 @@
 {
   "scale": "S",
-  "capturedAt": "2026-09-20T13:42:59.734Z",
+  "capturedAt": "2026-09-20T15:39:36.535Z",
   "summary": [
     {
-      "name": "totals_by_state",
+      "name": "dash_totals",
       "nodeType": "Aggregate",
-      "execMs": 2.127,
-      "file": "artifacts/S/totals_by_state.json"
+      "execMs": 11.326,
+      "sharedHitBlocks": 233,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_totals.json"
     },
     {
-      "name": "by_crop_active",
+      "name": "dash_climate_avg",
       "nodeType": "Aggregate",
-      "execMs": 118.399,
-      "file": "artifacts/S/by_crop_active.json"
+      "execMs": 7.978,
+      "sharedHitBlocks": 233,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_climate_avg.json"
     },
     {
-      "name": "climate_range",
+      "name": "dash_by_state",
       "nodeType": "Aggregate",
-      "execMs": 23.339,
-      "file": "artifacts/S/climate_range.json"
+      "execMs": 11.684,
+      "sharedHitBlocks": 233,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_by_state.json"
+    },
+    {
+      "name": "dash_by_car",
+      "nodeType": "Aggregate",
+      "execMs": 15.069,
+      "sharedHitBlocks": 233,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_by_car.json"
+    },
+    {
+      "name": "dash_by_esg",
+      "nodeType": "Aggregate",
+      "execMs": 55.2,
+      "sharedHitBlocks": 346,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_by_esg.json"
+    },
+    {
+      "name": "dash_by_crop",
+      "nodeType": "Aggregate",
+      "execMs": 151.802,
+      "sharedHitBlocks": 803,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_by_crop.json"
+    },
+    {
+      "name": "dash_climate_by_state",
+      "nodeType": "Aggregate",
+      "execMs": 12.374,
+      "sharedHitBlocks": 233,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_climate_by_state.json"
+    },
+    {
+      "name": "dash_climate_by_crop",
+      "nodeType": "Aggregate",
+      "execMs": 241.66,
+      "sharedHitBlocks": 803,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_climate_by_crop.json"
+    },
+    {
+      "name": "dash_crops_by_year",
+      "nodeType": "Aggregate",
+      "execMs": 128.27,
+      "sharedHitBlocks": 803,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_crops_by_year.json"
+    },
+    {
+      "name": "dash_farms_by_month",
+      "nodeType": "Sort",
+      "execMs": 16.673,
+      "sharedHitBlocks": 236,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_farms_by_month.json"
+    },
+    {
+      "name": "dash_top_cities",
+      "nodeType": "Limit",
+      "execMs": 14.74,
+      "sharedHitBlocks": 236,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/dash_top_cities.json"
     },
     {
       "name": "list_producers_page",
       "nodeType": "Limit",
-      "execMs": 3.593,
+      "execMs": 4.191,
+      "sharedHitBlocks": 107,
+      "sharedReadBlocks": 0,
       "file": "artifacts/S/list_producers_page.json"
     },
     {
       "name": "farms_for_producers",
       "nodeType": "Hash Join",
-      "execMs": 10.839,
+      "execMs": 13.541,
+      "sharedHitBlocks": 340,
+      "sharedReadBlocks": 0,
       "file": "artifacts/S/farms_for_producers.json"
+    },
+    {
+      "name": "farms_agg_for_list",
+      "nodeType": "Aggregate",
+      "execMs": 10.581,
+      "sharedHitBlocks": 340,
+      "sharedReadBlocks": 0,
+      "file": "artifacts/S/farms_agg_for_list.json"
     }
   ]
 }

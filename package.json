@@ -42,7 +42,7 @@
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
-    "audit:ci": "pnpm audit --audit-level=critical",
+    "audit:ci": "pnpm audit --audit-level=high",
     "verify": "pnpm lint && pnpm test && pnpm test:e2e && pnpm build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -56,6 +56,7 @@
     "bench:explain": "node --env-file=.env scripts/bench/explain-capture.mjs",
     "bench:load": "node --env-file=.env scripts/bench/load-http.mjs",
     "bench:bundle": "node scripts/bench/bundle-size.mjs",
+    "bench:list-compare": "node --env-file=.env scripts/bench/list-producers-compare.mjs",
     "bench:run": "node --env-file=.env scripts/bench/run.mjs"
   },
   "dependencies": {

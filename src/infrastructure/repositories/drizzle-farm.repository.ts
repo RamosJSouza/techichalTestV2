@@ -50,6 +50,8 @@ export class DrizzleFarmRepository implements IFarmRepository {
             carNumber: persistence.carNumber,
             carStatus: persistence.carStatus,
             climateRiskScore: persistence.climateRiskScore,
+            territorialValidationStatus:
+              persistence.territorialValidationStatus,
             updatedAt: persistence.updatedAt,
             deletedAt: persistence.deletedAt,
           })

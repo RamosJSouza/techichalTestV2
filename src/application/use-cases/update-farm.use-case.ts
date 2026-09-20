@@ -33,12 +33,13 @@ export class UpdateFarmUseCase {
     const nextCity = input.city ?? farm.city;
     const nextState = input.state ?? farm.state;
     if (input.city !== undefined || input.state !== undefined) {
-      await assertCityBelongsToState(
+      const territorialStatus = await assertCityBelongsToState(
         this.brazilData,
         nextCity,
         nextState,
         this.logger,
       );
+      farm.setTerritorialValidationStatus(territorialStatus);
     }
 
     farm.updateDetails(input);

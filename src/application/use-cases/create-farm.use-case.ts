@@ -44,14 +44,23 @@ export class CreateFarmUseCase {
       logger: this.logger,
     });
 
-    await assertCityBelongsToState(
+    if (producer.documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION') {
+      this.logger.warn(
+        `Farm create with producer ${producer.id} still pending document validation`,
+      );
+    }
+
+    const territorialStatus = await assertCityBelongsToState(
       this.brazilData,
       input.city,
       input.state,
       this.logger,
     );
 
-    const farm = Farm.create(input);
+    const farm = Farm.create({
+      ...input,
+      territorialValidationStatus: territorialStatus,
+    });
     applyFarmCompliancePolicies(farm);
 
     await this.farmRepository.save(farm);

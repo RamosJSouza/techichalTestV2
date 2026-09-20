@@ -1,6 +1,7 @@
 import { Crop, Farm, Harvest } from '../../../domain/entities/farm.js';
 import type { HarvestStatus } from '../../../domain/entities/farm.js';
 import { Producer } from '../../../domain/entities/producer.js';
+import { parseExternalValidationStatus } from '../../../domain/constants/external-validation-status.js';
 import type { EsgStatus } from '../../../domain/policies/socio-environmental.policy.js';
 import type { CryptoService } from '../../crypto/crypto.service.js';
 import { farms, farmCrops, harvests, producers } from '../schema/index.js';
@@ -51,6 +52,9 @@ export class ProducerMapper {
       farms: domainFarms,
       esgStatus: toEsgStatus(row.esgStatus),
       esgCheckedAt: row.esgCheckedAt,
+      documentValidationStatus: parseExternalValidationStatus(
+        row.documentValidationStatus,
+      ),
       deletedAt: row.deletedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -67,6 +71,7 @@ export class ProducerMapper {
     documentHash: string;
     esgStatus: string;
     esgCheckedAt: Date | null;
+    documentValidationStatus: string;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -78,6 +83,7 @@ export class ProducerMapper {
       documentHash: crypto.blindIndex(producer.document.value),
       esgStatus: producer.esgStatus,
       esgCheckedAt: producer.esgCheckedAt,
+      documentValidationStatus: producer.documentValidationStatus,
       createdAt: producer.createdAt,
       updatedAt: producer.updatedAt,
       deletedAt: producer.deletedAt,
@@ -121,6 +127,9 @@ export class FarmMapper {
         farmRow.climateRiskScore === null
           ? null
           : Number(farmRow.climateRiskScore),
+      territorialValidationStatus: parseExternalValidationStatus(
+        farmRow.territorialValidationStatus,
+      ),
       deletedAt: farmRow.deletedAt,
       createdAt: farmRow.createdAt,
       updatedAt: farmRow.updatedAt,
@@ -139,6 +148,7 @@ export class FarmMapper {
     carNumber: string | null;
     carStatus: string | null;
     climateRiskScore: string | null;
+    territorialValidationStatus: string;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -158,6 +168,7 @@ export class FarmMapper {
         farm.climateRiskScore === null
           ? null
           : farm.climateRiskScore.toFixed(2),
+      territorialValidationStatus: farm.territorialValidationStatus,
       createdAt: farm.createdAt,
       updatedAt: farm.updatedAt,
       deletedAt: farm.deletedAt,

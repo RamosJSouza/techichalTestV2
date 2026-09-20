@@ -100,6 +100,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
           documentHash: persistence.documentHash,
           esgStatus: persistence.esgStatus,
           esgCheckedAt: persistence.esgCheckedAt,
+          documentValidationStatus: persistence.documentValidationStatus,
           updatedAt: persistence.updatedAt,
           deletedAt: persistence.deletedAt,
         })
@@ -247,6 +248,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
         documentDigits: this.crypto.decrypt(row.document),
         esgStatus: row.esgStatus,
         esgCheckedAt: row.esgCheckedAt,
+        documentValidationStatus: row.documentValidationStatus,
         farmsCount: Number(agg?.farmsCount ?? 0),
         farmStates: states,
         totalAreaHa: Number(agg?.totalAreaHa ?? 0),

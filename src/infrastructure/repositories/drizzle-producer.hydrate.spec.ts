@@ -16,6 +16,7 @@ function producerRow(id: string, name: string) {
     documentHash: crypto.blindIndex(doc),
     esgStatus: 'APPROVED',
     esgCheckedAt: null,
+    documentValidationStatus: 'VALIDATED',
     createdAt: new Date('2025-01-01T00:00:00Z'),
     updatedAt: new Date('2025-01-01T00:00:00Z'),
     deletedAt: null,

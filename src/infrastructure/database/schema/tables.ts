@@ -20,6 +20,11 @@ export const producers = pgTable(
     documentHash: varchar('document_hash', { length: 64 }).notNull(),
     esgStatus: varchar('esg_status', { length: 20 }).default('APPROVED').notNull(),
     esgCheckedAt: timestamp('esg_checked_at', { withTimezone: true }),
+    documentValidationStatus: varchar('document_validation_status', {
+      length: 40,
+    })
+      .default('VALIDATED')
+      .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -32,6 +37,10 @@ export const producers = pgTable(
     check(
       'producers_esg_status_chk',
       sql`${table.esgStatus} IN ('APPROVED', 'WARNING', 'BLOCKED')`,
+    ),
+    check(
+      'producers_document_validation_status_chk',
+      sql`${table.documentValidationStatus} IN ('VALIDATED', 'PENDING_EXTERNAL_VALIDATION', 'REJECTED')`,
     ),
   ],
 );
@@ -58,6 +67,11 @@ export const farms = pgTable(
       precision: 5,
       scale: 2,
     }),
+    territorialValidationStatus: varchar('territorial_validation_status', {
+      length: 40,
+    })
+      .default('VALIDATED')
+      .notNull(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -88,6 +102,10 @@ export const farms = pgTable(
     check(
       'farms_car_status_chk',
       sql`${table.carStatus} IS NULL OR ${table.carStatus} IN ('ACTIVE', 'PENDING', 'CANCELLED')`,
+    ),
+    check(
+      'farms_territorial_validation_status_chk',
+      sql`${table.territorialValidationStatus} IN ('VALIDATED', 'PENDING_EXTERNAL_VALIDATION', 'REJECTED')`,
     ),
   ],
 );

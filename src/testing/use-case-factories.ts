@@ -12,9 +12,9 @@ import {
 } from './test-helpers.js';
 
 export const defaultBrazil: BrazilDataServiceInterface = {
-  getCnpjData: async () => null,
-  isCityInState: async () => true,
-  listCitiesByState: async () => [],
+  getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+  isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
+  listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
 };
 
 export function buildCreateProducer(

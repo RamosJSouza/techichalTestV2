@@ -29,6 +29,7 @@ describe('Producer use cases', () => {
     expect(producer.name).toBe('João Silva');
     expect(producer.document.value).toBe('52998224725');
     expect(producer.esgStatus).toBe('APPROVED');
+    expect(producer.documentValidationStatus).toBe('VALIDATED');
   });
 
   it('soft delete remove da listagem', async () => {
@@ -44,13 +45,16 @@ describe('Producer use cases', () => {
   it('rejeita CNPJ inativo quando BrasilAPI responde', async () => {
     const inactiveBrazil: BrazilDataServiceInterface = {
       getCnpjData: async () => ({
-        cnpj: '11222333000181',
-        razaoSocial: 'Empresa X',
-        situacaoCadastral: 'BAIXADA',
-        isActive: false,
+        outcome: 'VALIDATED',
+        data: {
+          cnpj: '11222333000181',
+          razaoSocial: 'Empresa X',
+          situacaoCadastral: 'BAIXADA',
+          isActive: false,
+        },
       }),
-      isCityInState: async () => true,
-      listCitiesByState: async () => [],
+      isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
+      listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
     };
 
     await expect(
@@ -59,6 +63,24 @@ describe('Producer use cases', () => {
         document: '11.222.333/0001-81',
       }),
     ).rejects.toThrow(/ATIVA/);
+  });
+
+  it('rejeita CNPJ quando BrasilAPI retorna REJECTED (404)', async () => {
+    const rejectedBrazil: BrazilDataServiceInterface = {
+      getCnpjData: async () => ({
+        outcome: 'REJECTED',
+        reason: 'CNPJ não encontrado na Receita Federal.',
+      }),
+      isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
+      listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+    };
+
+    await expect(
+      buildCreateProducer(repository, rejectedBrazil, crypto).execute({
+        name: 'Empresa X',
+        document: '11.222.333/0001-81',
+      }),
+    ).rejects.toThrow(/não encontrado|ATIVA/i);
   });
 
   it('marca APPROVED ESG (validação local determinística, sem SERPRO)', async () => {
@@ -82,11 +104,13 @@ describe('Producer use cases', () => {
     ).rejects.toThrow(/existe|Já existe|documento/i);
   });
 
-  it('permite cadastro quando BrasilAPI retorna null (degradação)', async () => {
+  it('persiste PENDING_EXTERNAL_VALIDATION quando BrasilAPI indisponível (CNPJ)', async () => {
     const offline: BrazilDataServiceInterface = {
-      getCnpjData: async () => null,
-      isCityInState: async () => null,
-      listCitiesByState: async () => null,
+      getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      isCityInState: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      listCitiesByState: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+      }),
     };
     const producer = await buildCreateProducer(
       repository,
@@ -94,8 +118,11 @@ describe('Producer use cases', () => {
       crypto,
     ).execute({
       name: 'Offline',
-      document: '111.444.777-35',
+      document: '11.222.333/0001-81',
     });
-    expect(producer.name).toBe('Offline');
+    expect(producer.documentValidationStatus).toBe(
+      'PENDING_EXTERNAL_VALIDATION',
+    );
+    expect(producer.esgStatus).toBe('WARNING');
   });
 });

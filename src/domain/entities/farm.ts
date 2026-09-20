@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { ExternalValidationStatus } from '../constants/external-validation-status.js';
 import { CarNumber } from '../value-objects/car-number.js';
 import { FarmArea } from '../value-objects/farm-area.js';
 
@@ -67,6 +68,7 @@ export class Farm {
     private _carNumber: CarNumber | null,
     private _climateRiskScore: number | null,
     private _carStatus: CarStatus | null,
+    private _territorialValidationStatus: ExternalValidationStatus,
     private _deletedAt: Date | null,
     public readonly createdAt: Date,
     private _updatedAt: Date,
@@ -82,6 +84,7 @@ export class Farm {
     vegetationArea: number;
     harvests?: Array<{ year: string; crops: string[] }>;
     carNumber?: string;
+    territorialValidationStatus?: ExternalValidationStatus;
   }): Farm {
     const area = FarmArea.create(
       props.totalArea,
@@ -106,6 +109,7 @@ export class Farm {
       carNumber,
       null,
       null,
+      props.territorialValidationStatus ?? 'VALIDATED',
       null,
       now,
       now,
@@ -125,6 +129,7 @@ export class Farm {
     carNumber: string | null;
     carStatus: CarStatus | null;
     climateRiskScore: number | null;
+    territorialValidationStatus: ExternalValidationStatus;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -145,6 +150,7 @@ export class Farm {
       props.carNumber ? CarNumber.create(props.carNumber) : null,
       props.climateRiskScore,
       props.carStatus,
+      props.territorialValidationStatus,
       props.deletedAt,
       props.createdAt,
       props.updatedAt,
@@ -181,6 +187,10 @@ export class Farm {
 
   public get carStatus(): CarStatus | null {
     return this._carStatus;
+  }
+
+  public get territorialValidationStatus(): ExternalValidationStatus {
+    return this._territorialValidationStatus;
   }
 
   public get deletedAt(): Date | null {
@@ -246,6 +256,13 @@ export class Farm {
 
   public setClimateRiskScore(score: number): void {
     this._climateRiskScore = Number(score.toFixed(2));
+    this.touch();
+  }
+
+  public setTerritorialValidationStatus(
+    status: ExternalValidationStatus,
+  ): void {
+    this._territorialValidationStatus = status;
     this.touch();
   }
 

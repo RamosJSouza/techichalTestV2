@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { ExternalValidationStatus } from '../constants/external-validation-status.js';
 import type { EsgStatus } from '../policies/socio-environmental.policy.js';
 import { CpfCnpj } from '../value-objects/cpf-cnpj.js';
 import { Farm } from './farm.js';
@@ -11,6 +12,7 @@ export class Producer {
     private readonly _farms: Farm[],
     private _esgStatus: EsgStatus,
     private _esgCheckedAt: Date | null,
+    private _documentValidationStatus: ExternalValidationStatus,
     private _deletedAt: Date | null,
     public readonly createdAt: Date,
     private _updatedAt: Date,
@@ -20,6 +22,7 @@ export class Producer {
     name: string;
     document: string;
     farms?: Farm[];
+    documentValidationStatus?: ExternalValidationStatus;
   }): Producer {
     const document = CpfCnpj.create(props.document);
     const now = new Date();
@@ -30,6 +33,7 @@ export class Producer {
       props.farms ?? [],
       'APPROVED',
       null,
+      props.documentValidationStatus ?? 'VALIDATED',
       null,
       now,
       now,
@@ -43,6 +47,7 @@ export class Producer {
     farms: Farm[];
     esgStatus: EsgStatus;
     esgCheckedAt: Date | null;
+    documentValidationStatus: ExternalValidationStatus;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -54,6 +59,7 @@ export class Producer {
       [...props.farms],
       props.esgStatus,
       props.esgCheckedAt,
+      props.documentValidationStatus,
       props.deletedAt,
       props.createdAt,
       props.updatedAt,
@@ -80,6 +86,10 @@ export class Producer {
     return this._esgCheckedAt;
   }
 
+  public get documentValidationStatus(): ExternalValidationStatus {
+    return this._documentValidationStatus;
+  }
+
   public get deletedAt(): Date | null {
     return this._deletedAt;
   }
@@ -99,6 +109,11 @@ export class Producer {
 
   public updateDocument(document: string): void {
     this._document = CpfCnpj.create(document);
+    this.touch();
+  }
+
+  public setDocumentValidationStatus(status: ExternalValidationStatus): void {
+    this._documentValidationStatus = status;
     this.touch();
   }
 

@@ -15,6 +15,7 @@ export interface FarmResponse {
   carNumber: string | null;
   carStatus: string | null;
   climateRiskScore: number | null;
+  territorialValidationStatus: string;
   harvests: Array<{
     id: string;
     year: string;
@@ -29,6 +30,7 @@ export interface ProducerResponse {
   document: string;
   esgStatus: string;
   esgCheckedAt: string | null;
+  documentValidationStatus: string;
   farms: FarmResponse[];
   createdAt: string;
   updatedAt: string;
@@ -40,6 +42,7 @@ export interface ProducerListItemResponse {
   document: string;
   esgStatus: string;
   esgCheckedAt: string | null;
+  documentValidationStatus: string;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;
@@ -60,6 +63,7 @@ export function toFarmResponse(farm: Farm): FarmResponse {
     carNumber: farm.carNumber?.value ?? null,
     carStatus: farm.carStatus,
     climateRiskScore: farm.climateRiskScore,
+    territorialValidationStatus: farm.territorialValidationStatus,
     harvests: farm.harvests.map((harvest) => ({
       id: harvest.id,
       year: harvest.year,
@@ -76,6 +80,7 @@ export function toProducerResponse(producer: Producer): ProducerResponse {
     document: producer.document.masked(),
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt?.toISOString() ?? null,
+    documentValidationStatus: producer.documentValidationStatus,
     farms: producer.farms.map(toFarmResponse),
     createdAt: producer.createdAt.toISOString(),
     updatedAt: producer.updatedAt.toISOString(),
@@ -91,6 +96,7 @@ export function toProducerListItem(
     document: CpfCnpj.create(item.documentDigits).masked(),
     esgStatus: item.esgStatus,
     esgCheckedAt: item.esgCheckedAt?.toISOString() ?? null,
+    documentValidationStatus: item.documentValidationStatus,
     farmsCount: item.farmsCount,
     farmStates: item.farmStates,
     totalAreaHa: item.totalAreaHa,
@@ -112,6 +118,7 @@ export function producerResponseToListItem(
     document: producer.document,
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt,
+    documentValidationStatus: producer.documentValidationStatus,
     farmsCount: producer.farms.length,
     farmStates: states,
     totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),

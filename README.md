@@ -172,8 +172,18 @@ No Docker Compose (production) o Swagger **não** é montado.
 - **Camadas DDD / Clean Architecture:** `domain` → `application` → `infrastructure` / `presentation`; domínio sem Nest/ORM.
 - **Value Objects:** `CpfCnpj`, `FarmArea` (arable + vegetation ≤ total), `CarNumber`.
 - **PII:** Field-Level Encryption (AES-256-GCM) + blind index HMAC (`document_hash`); unique parcial `WHERE deleted_at IS NULL`; soft delete anonimiza o hash.
-- **Invariantes de área / UF / status:** Value Objects + `CHECK` no PostgreSQL (`0006` áreas; `0007` UF BR, `harvests.status`, `esg_status`, `car_status`). Violações `23505`→409 e `23514`→400 via `mapPgIntegrityError`.
-- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter` (circuit breaker; degradação pode aceitar cadastro — ver limitações).
+- **Invariantes de área / UF / status:** Value Objects + `CHECK` no PostgreSQL (`0006` áreas; `0007` UF BR, `harvests.status`, `esg_status`, `car_status`; `0008` `document_validation_status` / `territorial_validation_status`). Violações `23505`→409 e `23514`→400 via `mapPgIntegrityError`.
+
+### Validação externa BrasilAPI (estados)
+
+| Status | Significado |
+|--------|-------------|
+| `VALIDATED` | BrasilAPI confirmou (CNPJ ativo / cidade ∈ UF) ou CPF validado só localmente |
+| `PENDING_EXTERNAL_VALIDATION` | Timeout, 5xx, rede ou circuit open — persistido, **não** é compliance OK |
+| `REJECTED` | Não persistido: CNPJ inativo/404 ou cidade ∉ UF (exceção de domínio) |
+
+Campos: `producers.document_validation_status`, `farms.territorial_validation_status` (eixo distinto de ESG/CAR).
+- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter`. Outcomes explícitos (`VALIDATED` | `PENDING_EXTERNAL_VALIDATION` | `REJECTED`); outage **nunca** conta como validação positiva — cadastro pode seguir só marcado como `PENDING`. Timeout 5s, até 2 retries (erros transitórios), circuit breaker (opossum), cache in-memory TTL 15 min (CNPJ/UF), métricas `brasilapi_requests_total` / `brasilapi_request_duration_seconds` / `brasilapi_circuit_open`.
 - **Dashboard:** agregações SQL nativas (~11 queries em paralelo); filtros Zod no query string. Plano/EXPLAIN em [`docs/bench/`](docs/bench/).
 - **Frontend:** SPA Vite servida pelo Nest em production; Atomic Design no `client/`; export do dashboard em **CSV** (sem `xlsx`).
 - **Auth:** **fora de escopo do desafio** — API aberta; **bloqueador de produção** (ver abaixo).
@@ -190,7 +200,7 @@ No Docker Compose (production) o Swagger **não** é montado.
 | `/metrics` e agregados | Públicos | Não expor sem rede restrita. |
 | Busca por documento | Enumeração possível | `200` vs `404` revela existência de CPF/CNPJ (hash). |
 | Bench escala S | Gates HTTP **FAIL** | p95/RPS abaixo da meta — [`docs/bench/reports/S-2026-09-20.md`](docs/bench/reports/S-2026-09-20.md). |
-| BrasilAPI degradada | Fallback permissivo | Cidade/UF ou CNPJ podem ser aceitos sem validação externa completa. |
+| BrasilAPI degradada | Cadastro com `PENDING_EXTERNAL_VALIDATION` | Outage/timeout/circuit open **não** valida positivamente; ESG efetivo `WARNING` enquanto pendente. Rejeição (CNPJ inativo/404, cidade∉UF) continua bloqueando. |
 | ESG / CAR | Stub local | `esgStatus` default `APPROVED`; CAR mock — não usar para compliance real. |
 
 **Já mitigado nesta entrega:**

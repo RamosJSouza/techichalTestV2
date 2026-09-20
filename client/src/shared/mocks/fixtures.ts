@@ -73,6 +73,7 @@ export const mockProducers: ProducerResponse[] = [
     document: '***.982.247-**',
     esgStatus: 'APPROVED',
     esgCheckedAt: null,
+    documentValidationStatus: 'VALIDATED',
     farms: [
       {
         id: '22222222-2222-4222-8222-222222222222',
@@ -86,6 +87,7 @@ export const mockProducers: ProducerResponse[] = [
         carNumber: null,
         carStatus: null,
         climateRiskScore: 38.2,
+        territorialValidationStatus: 'VALIDATED',
         harvests: [
           {
             id: '33333333-3333-4333-8333-333333333333',

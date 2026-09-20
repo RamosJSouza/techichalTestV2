@@ -36,6 +36,7 @@ const farmA: FarmResponse = {
   carNumber: null,
   carStatus: null,
   climateRiskScore: null,
+  territorialValidationStatus: 'VALIDATED',
   harvests: [{ id: 'h-a', year: '2025/2026', status: 'ACTIVE', crops: ['Soja'] }],
 };
 
@@ -51,6 +52,7 @@ const farmB: FarmResponse = {
   carNumber: 'SP-123-ABC',
   carStatus: null,
   climateRiskScore: null,
+  territorialValidationStatus: 'VALIDATED',
   harvests: [{ id: 'h-b', year: '2026/2027', status: 'ACTIVE', crops: ['Milho'] }],
 };
 
@@ -61,6 +63,7 @@ function makeProducer(farms: FarmResponse[]): ProducerResponse {
     document: '***.982.247-**',
     esgStatus: 'APPROVED',
     esgCheckedAt: null,
+    documentValidationStatus: 'VALIDATED',
     farms,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

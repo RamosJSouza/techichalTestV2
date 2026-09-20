@@ -21,6 +21,7 @@ export interface ProducerListItem {
   documentDigits: string;
   esgStatus: string;
   esgCheckedAt: Date | null;
+  documentValidationStatus: string;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;

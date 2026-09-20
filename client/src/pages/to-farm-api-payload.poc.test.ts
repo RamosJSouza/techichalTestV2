@@ -22,6 +22,7 @@ const farmWithTwoHarvests: FarmResponse = {
   carNumber: null,
   carStatus: null,
   climateRiskScore: null,
+  territorialValidationStatus: 'VALIDATED',
   harvests: [
     { id: 'h1', year: '2025/2026', status: 'ACTIVE', crops: ['Soja', 'Milho'] },
     { id: 'h2', year: '2026/2027', status: 'ACTIVE', crops: ['Café'] },

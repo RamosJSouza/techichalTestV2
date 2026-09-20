@@ -17,6 +17,7 @@ function toListItem(producer: Producer): ProducerListItem {
     documentDigits: producer.document.value,
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt,
+    documentValidationStatus: producer.documentValidationStatus,
     farmsCount: producer.farms.length,
     farmStates: states,
     totalAreaHa: producer.farms.reduce(

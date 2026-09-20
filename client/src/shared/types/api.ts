@@ -10,6 +10,7 @@ export interface FarmResponse {
   carNumber: string | null;
   carStatus: string | null;
   climateRiskScore: number | null;
+  territorialValidationStatus: string;
   harvests: Array<{
     id: string;
     year: string;
@@ -24,6 +25,7 @@ export interface ProducerResponse {
   document: string;
   esgStatus: string;
   esgCheckedAt: string | null;
+  documentValidationStatus: string;
   farms: FarmResponse[];
   createdAt: string;
   updatedAt: string;
@@ -36,6 +38,7 @@ export interface ProducerListItem {
   document: string;
   esgStatus: string;
   esgCheckedAt: string | null;
+  documentValidationStatus: string;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;
@@ -55,6 +58,7 @@ export function producerResponseToListItem(
     document: producer.document,
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt,
+    documentValidationStatus: producer.documentValidationStatus,
     farmsCount: producer.farms.length,
     farmStates,
     totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),
@@ -197,6 +201,8 @@ export interface EsgComplianceResult {
   hasIbamaEmbargo: boolean;
   hasSlaveLaborFlag: boolean;
   details: string[];
+  documentValidationStatus: string;
+  hasPendingExternalValidation: boolean;
 }
 
 export interface ApiErrorBody {

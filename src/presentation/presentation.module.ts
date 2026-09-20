@@ -45,7 +45,12 @@ import { ProducerController } from './controllers/producer.controller.js';
 import { MetricsService } from '../infrastructure/observability/metrics.service.js';
 
 @Module({
-  imports: [DatabaseModule, HttpModule],
+  imports: [
+    DatabaseModule,
+    HttpModule.register({
+      timeout: 5000,
+    }),
+  ],
   controllers: [
     HealthController,
     ProducerController,
@@ -109,8 +114,16 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
       useFactory: (
         producers: IProducerRepository,
         crypto: CryptoServiceInterface,
-      ): UpdateProducerUseCase => new UpdateProducerUseCase(producers, crypto),
-      inject: [PRODUCER_REPOSITORY, CRYPTO_SERVICE_PORT],
+        brazil: BrazilDataServiceInterface,
+        logger: LoggerPort,
+      ): UpdateProducerUseCase =>
+        new UpdateProducerUseCase(producers, crypto, brazil, logger),
+      inject: [
+        PRODUCER_REPOSITORY,
+        CRYPTO_SERVICE_PORT,
+        BRAZIL_DATA_SERVICE,
+        LOGGER_PORT,
+      ],
     },
     {
       provide: DeleteProducerUseCase,

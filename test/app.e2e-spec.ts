@@ -23,9 +23,12 @@ if (isCi && !databaseUrl) {
 }
 
 const offlineBrazil: BrazilDataServiceInterface = {
-  getCnpjData: async () => null,
-  isCityInState: async () => true,
-  listCitiesByState: async () => ['Ribeirão Preto', 'Campinas'],
+  getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+  isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
+  listCitiesByState: async () => ({
+    outcome: 'VALIDATED',
+    data: ['Ribeirão Preto', 'Campinas'],
+  }),
 };
 
 (databaseUrl ? describe : describe.skip)('Brain Agriculture API (e2e)', () => {
@@ -216,13 +219,16 @@ const offlineBrazil: BrazilDataServiceInterface = {
     expect(response.body).toHaveProperty('byLandUse');
   });
 
-  it('cria produtor com BrasilAPI offline (degradação)', async () => {
+  it('cria produtor com BrasilAPI offline (degradação → PENDING)', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/v1/producers')
       .send({
         name: 'Offline BrasilAPI',
-        document: '153.509.460-56',
+        document: '11.222.333/0001-81',
       });
     expect([200, 201]).toContain(response.status);
+    expect(response.body.documentValidationStatus).toBe(
+      'PENDING_EXTERNAL_VALIDATION',
+    );
   });
 });

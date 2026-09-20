@@ -43,6 +43,41 @@ describe('CreateFarmUseCase', () => {
     expect(farm.harvests).toHaveLength(1);
     expect(farm.carStatus).toBe('ACTIVE');
     expect(farm.climateRiskScore).not.toBeNull();
+    expect(farm.territorialValidationStatus).toBe('VALIDATED');
+  });
+
+  it('persiste PENDING territorial quando BrasilAPI indisponível', async () => {
+    const producerRepo = new InMemoryProducerRepository(crypto);
+    const farmRepo = new InMemoryFarmRepository();
+
+    const producer = await buildCreateProducer(
+      producerRepo,
+      defaultBrazil,
+      crypto,
+    ).execute({
+      name: 'João',
+      document: '529.982.247-25',
+    });
+
+    const farm = await buildCreateFarm(farmRepo, producerRepo, {
+      getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      isCityInState: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      listCitiesByState: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+      }),
+    }).execute({
+      producerId: producer.id,
+      name: 'Santa Maria',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+    });
+
+    expect(farm.territorialValidationStatus).toBe(
+      'PENDING_EXTERNAL_VALIDATION',
+    );
   });
 
   it('rejeita cidade fora do estado', async () => {
@@ -60,9 +95,9 @@ describe('CreateFarmUseCase', () => {
 
     await expect(
       buildCreateFarm(farmRepo, producerRepo, {
-        getCnpjData: async () => null,
-        isCityInState: async () => false,
-        listCitiesByState: async () => [],
+        getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+        isCityInState: async () => ({ outcome: 'VALIDATED', data: false }),
+        listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
       }).execute({
         producerId: producer.id,
         name: 'Fazenda',

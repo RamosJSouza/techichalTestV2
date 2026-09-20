@@ -7,8 +7,21 @@ export interface CnpjCompanyData {
   isActive: boolean;
 }
 
+/**
+ * Resultado discriminado da BrasilAPI.
+ * Outage / circuit open → PENDING (nunca positivo silencioso).
+ * Rejeição definitiva → REJECTED.
+ */
+export type BrazilLookupResult<T> =
+  | { outcome: 'VALIDATED'; data: T }
+  | { outcome: 'PENDING_EXTERNAL_VALIDATION' }
+  | { outcome: 'REJECTED'; reason: string };
+
 export interface BrazilDataServiceInterface {
-  getCnpjData(cnpj: string): Promise<CnpjCompanyData | null>;
-  isCityInState(city: string, state: string): Promise<boolean | null>;
-  listCitiesByState(uf: string): Promise<string[] | null>;
+  getCnpjData(cnpj: string): Promise<BrazilLookupResult<CnpjCompanyData>>;
+  isCityInState(
+    city: string,
+    state: string,
+  ): Promise<BrazilLookupResult<boolean>>;
+  listCitiesByState(uf: string): Promise<BrazilLookupResult<string[]>>;
 }

@@ -13,6 +13,8 @@ export interface EsgComplianceResult {
   hasIbamaEmbargo: boolean;
   hasSlaveLaborFlag: boolean;
   details: string[];
+  documentValidationStatus: string;
+  hasPendingExternalValidation: boolean;
 }
 
 export class GetProducerEsgComplianceUseCase {
@@ -27,15 +29,37 @@ export class GetProducerEsgComplianceUseCase {
     }
 
     const check = localSocioEnvironmentalCheck(producer.document.value);
+    const details = [...check.details];
+
+    const hasPendingDocument =
+      producer.documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION';
+    const hasPendingTerritorial = producer.farms.some(
+      (farm) =>
+        farm.territorialValidationStatus === 'PENDING_EXTERNAL_VALIDATION',
+    );
+    const hasPendingExternalValidation =
+      hasPendingDocument || hasPendingTerritorial;
+
+    let esgStatus: EsgStatus = producer.esgStatus;
+    if (hasPendingExternalValidation) {
+      details.push(
+        'Validação externa BrasilAPI pendente (documento e/ou território); compliance plena não confirmada.',
+      );
+      if (esgStatus === 'APPROVED') {
+        esgStatus = 'WARNING';
+      }
+    }
 
     return {
       producerId: producer.id,
       documentMasked: producer.document.masked(),
-      esgStatus: producer.esgStatus,
+      esgStatus,
       esgCheckedAt: producer.esgCheckedAt?.toISOString() ?? null,
       hasIbamaEmbargo: check.hasIbamaEmbargo,
       hasSlaveLaborFlag: check.hasSlaveLaborFlag,
-      details: check.details,
+      details,
+      documentValidationStatus: producer.documentValidationStatus,
+      hasPendingExternalValidation,
     };
   }
 }

@@ -80,6 +80,7 @@ for (let offset = 0; offset < producerCount; offset += batchSize) {
       document: crypto.encrypt(digits),
       document_hash: crypto.blindIndex(digits),
       esg_status: pickEsg(),
+      document_validation_status: 'VALIDATED',
       deleted_at: deleted ? new Date().toISOString() : null,
     });
   }
@@ -91,6 +92,7 @@ for (let offset = 0; offset < producerCount; offset += batchSize) {
       'document',
       'document_hash',
       'esg_status',
+      'document_validation_status',
       'deleted_at',
     )}
   `;
@@ -135,6 +137,7 @@ for (let offset = 0; offset < targetFarms; offset += batchSize) {
       climate_risk_score: hasClimate
         ? String((rng() * 100).toFixed(2))
         : null,
+      territorial_validation_status: 'VALIDATED',
       deleted_at: deleted ? new Date().toISOString() : null,
       created_at: new Date(
         Date.UTC(2024, Math.floor(rng() * 12), 1 + Math.floor(rng() * 27)),
@@ -156,6 +159,7 @@ for (let offset = 0; offset < targetFarms; offset += batchSize) {
       'car_number',
       'car_status',
       'climate_risk_score',
+      'territorial_validation_status',
       'deleted_at',
       'created_at',
     )}

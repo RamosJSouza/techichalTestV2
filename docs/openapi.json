@@ -857,12 +857,96 @@
               }
             },
             "example": "***.982.247-**"
-          }
+          },
+          "esgStatus": {
+            "type": "string",
+            "enum": ["APPROVED", "WARNING", "BLOCKED"]
+          },
+          "esgCheckedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "documentValidationStatus": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "PENDING_EXTERNAL_VALIDATION",
+              "REJECTED"
+            ],
+            "description": "Status da validação externa do documento (BrasilAPI CNPJ). CPF local → VALIDATED. Outage → PENDING."
+          },
+          "farms": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FarmResponse" }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
         },
         "required": [
           "id",
           "name",
-          "document"
+          "document",
+          "esgStatus",
+          "documentValidationStatus",
+          "farms",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "FarmResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "producerId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "city": { "type": "string" },
+          "state": { "type": "string", "minLength": 2, "maxLength": 2 },
+          "totalArea": { "type": "number" },
+          "arableArea": { "type": "number" },
+          "vegetationArea": { "type": "number" },
+          "carNumber": { "type": ["string", "null"] },
+          "carStatus": {
+            "type": ["string", "null"],
+            "enum": ["ACTIVE", "PENDING", "CANCELLED", null]
+          },
+          "climateRiskScore": { "type": ["number", "null"] },
+          "territorialValidationStatus": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "PENDING_EXTERNAL_VALIDATION",
+              "REJECTED"
+            ],
+            "description": "Status da validação cidade∈UF via BrasilAPI IBGE. Outage → PENDING."
+          },
+          "harvests": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "year": { "type": "string" },
+                "status": { "type": "string" },
+                "crops": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "required": ["id", "year", "status", "crops"]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "producerId",
+          "name",
+          "city",
+          "state",
+          "totalArea",
+          "arableArea",
+          "vegetationArea",
+          "territorialValidationStatus",
+          "harvests"
         ]
       },
       "ProducerListItem": {
@@ -883,6 +967,14 @@
             "type": ["string", "null"],
             "format": "date-time"
           },
+          "documentValidationStatus": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "PENDING_EXTERNAL_VALIDATION",
+              "REJECTED"
+            ]
+          },
           "farmsCount": { "type": "integer", "minimum": 0 },
           "farmStates": {
             "type": "array",
@@ -898,6 +990,7 @@
           "document",
           "esgStatus",
           "esgCheckedAt",
+          "documentValidationStatus",
           "farmsCount",
           "farmStates",
           "totalAreaHa",

@@ -24,9 +24,12 @@ import { useAppDispatch, useAppSelector } from '../store/store';
 import { setWizardStep, showToast } from '../store/slices/uiSlice';
 import { Button } from '../components/atoms/Button';
 import { TextInput } from '../components/atoms/TextInput';
+import { Select } from '../components/atoms/Select';
 import { CropChip } from '../components/molecules/CropChip';
 import { ValidationBanner } from '../components/molecules/ValidationBanner';
+import { CityAutocomplete } from '../components/molecules/CityAutocomplete';
 import { Spinner } from '../components/atoms/Spinner';
+import { BRAZILIAN_STATES } from '../shared/lib/brazilian-states';
 import type { FarmResponse } from '../shared/types/api';
 import {
   defaultFarm,
@@ -179,6 +182,8 @@ export function ProducerFormPage(): React.JSX.Element {
   const arableArea = watch('farm.arableArea');
   const vegetationArea = watch('farm.vegetationArea');
   const harvestYear = watch('farm.harvests.0.year');
+  const farmState = watch('farm.state');
+  const farmCity = watch('farm.city');
 
   const areaValid = useMemo(() => {
     const total = toFiniteNumber(totalArea);
@@ -475,16 +480,32 @@ export function ProducerFormPage(): React.JSX.Element {
             error={errors.farm?.name?.message}
             {...register('farm.name')}
           />
-          <TextInput
-            label="Cidade"
-            error={errors.farm?.city?.message}
-            {...register('farm.city')}
-          />
-          <TextInput
-            label="UF (2 letras)"
-            maxLength={2}
+          <Select
+            label="UF"
             error={errors.farm?.state?.message}
-            {...register('farm.state')}
+            value={farmState ?? ''}
+            onChange={(e) => {
+              setValue('farm.state', e.target.value.toUpperCase(), {
+                shouldValidate: true,
+              });
+              setValue('farm.city', '', { shouldValidate: true });
+            }}
+          >
+            <option value="">Selecione</option>
+            {BRAZILIAN_STATES.map((uf) => (
+              <option key={uf} value={uf}>
+                {uf}
+              </option>
+            ))}
+          </Select>
+          <CityAutocomplete
+            uf={farmState ?? ''}
+            value={farmCity ?? ''}
+            error={errors.farm?.city?.message}
+            disabled={!farmState}
+            onChange={(v) =>
+              setValue('farm.city', v, { shouldValidate: true })
+            }
           />
           <TextInput
             label="Área total (ha)"
@@ -536,7 +557,7 @@ export function ProducerFormPage(): React.JSX.Element {
               disabled={validatingCar}
               onClick={() => void handleValidateCar()}
             >
-              {validatingCar ? 'Validando CAR…' : 'Validar CAR (SICAR)'}
+              {validatingCar ? 'Validando CAR…' : 'Validar CAR'}
             </Button>
           ) : null}
 

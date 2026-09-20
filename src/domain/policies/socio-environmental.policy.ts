@@ -1,12 +1,12 @@
 export type EsgStatus = 'APPROVED' | 'WARNING' | 'BLOCKED';
 
-export interface SocioEnvironmentalCheckResult {
+interface SocioEnvironmentalCheckResult {
   hasIbamaEmbargo: boolean;
   hasSlaveLaborFlag: boolean;
   details: string[];
 }
 
-export interface SocioEnvironmentalDecision {
+interface SocioEnvironmentalDecision {
   status: EsgStatus;
   blocked: boolean;
 }
@@ -25,4 +25,14 @@ export class SocioEnvironmentalPolicy {
     }
     return { status: 'WARNING', blocked: false };
   }
+}
+
+export function localSocioEnvironmentalCheck(
+  _documentDigits: string,
+): SocioEnvironmentalCheckResult {
+  return {
+    hasIbamaEmbargo: false,
+    hasSlaveLaborFlag: false,
+    details: [],
+  };
 }

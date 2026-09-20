@@ -93,7 +93,7 @@ export const apiSlice = createApi({
         url: '/producers',
         params: {
           page: params?.page ?? 1,
-          pageSize: params?.pageSize ?? 100,
+          pageSize: params?.pageSize ?? 20,
           ...(params?.name ? { name: params.name } : {}),
         },
       }),

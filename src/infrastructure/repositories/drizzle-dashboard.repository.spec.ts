@@ -81,6 +81,40 @@ describe('DrizzleDashboardRepository', () => {
     expect(stats.topCities[0]?.city).toBe('Ribeirão Preto');
   });
 
+  it('snapshot das chaves do DashboardStats após getStats', async () => {
+    const queues = Array.from({ length: 11 }, () => createChain([]));
+    let call = 0;
+    const db = {
+      select: () => {
+        const next = queues[call] ?? createChain([]);
+        call += 1;
+        return next;
+      },
+    };
+    const repo = new DrizzleDashboardRepository(db as never);
+    const stats = await repo.getStats();
+    expect(Object.keys(stats).sort()).toEqual(
+      [
+        'averageFarmSize',
+        'byCarStatus',
+        'byCrop',
+        'byEsgStatus',
+        'byLandUse',
+        'byState',
+        'carComplianceRate',
+        'climateRiskByCrop',
+        'climateRiskByState',
+        'cropsByYear',
+        'esgComplianceRate',
+        'farmsByMonth',
+        'regionalClimateRisk',
+        'topCities',
+        'totalFarms',
+        'totalHectares',
+      ].sort(),
+    );
+  });
+
   it('aceita filtros sem lançar', async () => {
     const empty = createChain([]);
     const db = {

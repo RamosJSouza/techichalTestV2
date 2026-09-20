@@ -40,7 +40,6 @@ export function AppHeader(): React.JSX.Element {
         <Icon name="menu" />
       </MobileToggle>
       <SystemStatusPill />
-      <span style={{ color: '#616161', fontSize: 14 }}>AgroIntel Pro</span>
     </Header>
   );
 }

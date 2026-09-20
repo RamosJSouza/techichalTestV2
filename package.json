@@ -48,7 +48,13 @@
     "db:studio": "drizzle-kit studio",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f api"
+    "docker:logs": "docker compose logs -f api",
+    "bench:seed": "node --env-file=.env scripts/bench/seed-scale.mjs",
+    "bench:verify": "node --env-file=.env scripts/bench/verify-aggregates.mjs",
+    "bench:explain": "node --env-file=.env scripts/bench/explain-capture.mjs",
+    "bench:load": "node --env-file=.env scripts/bench/load-http.mjs",
+    "bench:bundle": "node scripts/bench/bundle-size.mjs",
+    "bench:run": "node --env-file=.env scripts/bench/run.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^12.0.1",

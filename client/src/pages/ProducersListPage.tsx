@@ -16,10 +16,13 @@ import {
 import { Button } from '../components/atoms/Button';
 import { Spinner } from '../components/atoms/Spinner';
 import { FilterChip } from '../components/molecules/FilterChip';
+import { Pagination } from '../components/molecules/Pagination';
 import { SearchField } from '../components/molecules/SearchField';
 import { TextInput } from '../components/atoms/TextInput';
 import { ProducersDataTable } from '../components/organisms/ProducersDataTable';
 import type { ProducerResponse } from '../shared/types/api';
+
+const PAGE_SIZE_DEFAULT = 20;
 
 const TitleRow = styled.div`
   display: flex;
@@ -107,9 +110,11 @@ function mergeById(
 }
 
 export function ProducersListPage(): React.JSX.Element {
-  const { data, isLoading, isError } = useListProducersQuery({
-    page: 1,
-    pageSize: 100,
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
+  const { data, isLoading, isError, isFetching } = useListProducersQuery({
+    page,
+    pageSize,
   });
   const [deleteProducer] = useDeleteProducerMutation();
   const [searchExact, { isFetching: searchingExact }] =
@@ -120,6 +125,10 @@ export function ProducersListPage(): React.JSX.Element {
   const deferredQuery = useDeferredValue(query);
   const [exactDocument, setExactDocument] = useState('');
   const [exactHit, setExactHit] = useState<ProducerResponse | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [deferredQuery]);
 
   useEffect(() => {
     const digits = digitsOnly(exactDocument);
@@ -150,6 +159,8 @@ export function ProducersListPage(): React.JSX.Element {
 
   const hasActiveQuery =
     query.trim().length > 0 || digitsOnly(exactDocument).length >= 11;
+
+  const total = data?.total ?? 0;
 
   if (isLoading) {
     return <Spinner />;
@@ -217,8 +228,8 @@ export function ProducersListPage(): React.JSX.Element {
         {hasActiveQuery ? (
           <ResultMeta aria-live="polite">
             {filtered.length === 1
-              ? '1 resultado'
-              : `${filtered.length} resultados`}
+              ? '1 resultado nesta página'
+              : `${filtered.length} resultados nesta página`}
             {deferredQuery !== query ? '…' : ''}
           </ResultMeta>
         ) : null}
@@ -236,24 +247,37 @@ export function ProducersListPage(): React.JSX.Element {
           .
         </Empty>
       ) : (
-        <ProducersDataTable
-          producers={filtered}
-          onDelete={async (id) => {
-            if (!window.confirm('Remover produtor (soft delete)?')) {
-              return;
-            }
-            try {
-              await deleteProducer(id).unwrap();
-              dispatch(
-                showToast({
-                  message: 'Produtor removido.',
-                  variant: 'success',
-                }),
-              );
-            } catch {
-            }
-          }}
-        />
+        <>
+          <ProducersDataTable
+            producers={filtered}
+            onDelete={async (id) => {
+              if (!window.confirm('Remover produtor (soft delete)?')) {
+                return;
+              }
+              try {
+                await deleteProducer(id).unwrap();
+                dispatch(
+                  showToast({
+                    message: 'Produtor removido.',
+                    variant: 'success',
+                  }),
+                );
+              } catch {
+              }
+            }}
+          />
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            disabled={isFetching}
+            onPageChange={setPage}
+            onPageSizeChange={(next) => {
+              setPageSize(next);
+              setPage(1);
+            }}
+          />
+        </>
       )}
     </div>
   );

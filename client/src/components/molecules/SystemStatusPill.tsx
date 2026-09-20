@@ -30,7 +30,7 @@ export function SystemStatusPill(): React.JSX.Element {
   return (
     <Pill>
       <Dot />
-      Sistema Operacional — Base Centralizada
+      Sistema Operacional
     </Pill>
   );
 }

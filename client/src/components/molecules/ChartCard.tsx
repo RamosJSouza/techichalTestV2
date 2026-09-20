@@ -15,6 +15,7 @@ const Panel = styled.section<{ $span: ChartSpan }>`
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing.md};
   min-width: 0;
+  overflow: hidden;
 
   ${({ $span }) => {
     switch ($span) {
@@ -41,6 +42,7 @@ const Header = styled.div`
   align-items: center;
   gap: ${({ theme }) => theme.spacing.sm};
   flex-wrap: wrap;
+  flex-shrink: 0;
 `;
 
 const Title = styled.h2`
@@ -48,6 +50,13 @@ const Title = styled.h2`
   font-size: 1rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.text};
+`;
+
+const Body = styled.div`
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 `;
 
 function downloadPng(dataUrl: string, filename: string): void {
@@ -103,7 +112,7 @@ export function ChartCard({
           {isLoading ? 'Exportando…' : 'PNG'}
         </Button>
       </Header>
-      {children(ref)}
+      <Body>{children(ref)}</Body>
     </Panel>
   );
 }

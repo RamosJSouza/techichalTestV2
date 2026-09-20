@@ -94,13 +94,9 @@ const refreshingOpacity = css<{ $refreshing?: boolean }>`
 
 const DonutGrid = styled.div<{ $refreshing?: boolean }>`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: ${({ theme }) => theme.spacing.lg};
   ${refreshingOpacity}
-
-  @media (max-width: ${({ theme }) => theme.breakpoints.tabletMax}) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   @media (max-width: ${({ theme }) => theme.breakpoints.mobileMax}) {
     grid-template-columns: 1fr;
@@ -425,7 +421,7 @@ export function DashboardPage(): React.JSX.Element {
       <Section>
         <SectionLabel>Distribuições</SectionLabel>
         <DonutGrid $refreshing={isRefreshing}>
-          <ChartCard title="Uso do Solo" filename="uso-do-solo.png" span="third">
+          <ChartCard title="Uso do Solo" filename="uso-do-solo.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}
@@ -437,7 +433,7 @@ export function DashboardPage(): React.JSX.Element {
             )}
           </ChartCard>
 
-          <ChartCard title="Culturas" filename="culturas.png" span="third">
+          <ChartCard title="Culturas" filename="culturas.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}
@@ -455,7 +451,7 @@ export function DashboardPage(): React.JSX.Element {
           <ChartCard
             title="Fazendas por UF"
             filename="fazendas-por-uf.png"
-            span="third"
+            span="half"
           >
             {(ref) => (
               <DonutChartRecharts
@@ -474,7 +470,7 @@ export function DashboardPage(): React.JSX.Element {
             )}
           </ChartCard>
 
-          <ChartCard title="Status CAR" filename="status-car.png" span="third">
+          <ChartCard title="Status CAR" filename="status-car.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}
@@ -490,7 +486,7 @@ export function DashboardPage(): React.JSX.Element {
             )}
           </ChartCard>
 
-          <ChartCard title="Status ESG" filename="status-esg.png" span="third">
+          <ChartCard title="Status ESG" filename="status-esg.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}

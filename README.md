@@ -113,6 +113,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Health: `GET /api/v1/health/live` (liveness), `GET /api/v1/health/ready` (Postgres), `GET /api/v1/metrics` (Prometheus).
 
+Benchmark (10k/100k/1M farms): ver [`docs/bench/README.md`](docs/bench/README.md) (`pnpm bench:run -- --scale=S`).
+
 ## Testes e Jest
 
 ```bash

@@ -11,8 +11,10 @@ import styled from 'styled-components';
 
 const Wrap = styled.div<{ $compact?: boolean }>`
   width: 100%;
-  height: ${({ $compact }) => ($compact ? '200px' : '240px')};
+  height: ${({ $compact }) => ($compact ? '240px' : '280px')};
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 `;
 
 const Center = styled.div`
@@ -22,6 +24,7 @@ const Center = styled.div`
   place-content: center;
   text-align: center;
   pointer-events: none;
+  padding-bottom: 28px;
 `;
 
 const CenterValue = styled.strong<{ $compact?: boolean }>`
@@ -63,7 +66,7 @@ export const DonutChartRecharts = forwardRef<
             dataKey="value"
             nameKey="name"
             cx="50%"
-            cy="50%"
+            cy="42%"
             innerRadius={compact ? 42 : 55}
             outerRadius={compact ? 68 : 80}
             paddingAngle={2}
@@ -79,7 +82,16 @@ export const DonutChartRecharts = forwardRef<
                 : String(value)
             }
           />
-          <Legend />
+          <Legend
+            verticalAlign="bottom"
+            wrapperStyle={{
+              maxHeight: 72,
+              overflowY: 'auto',
+              fontSize: 11,
+              lineHeight: '16px',
+              paddingTop: 4,
+            }}
+          />
         </PieChart>
       </ResponsiveContainer>
       {(centerLabel || centerValue) && (

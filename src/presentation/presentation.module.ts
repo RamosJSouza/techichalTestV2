@@ -12,7 +12,9 @@ import { CreateFarmUseCase } from '../application/use-cases/create-farm.use-case
 import { CreateProducerUseCase } from '../application/use-cases/create-producer.use-case.js';
 import { DeleteFarmUseCase } from '../application/use-cases/delete-farm.use-case.js';
 import { DeleteProducerUseCase } from '../application/use-cases/delete-producer.use-case.js';
+import { GetDashboardAnalyticsUseCase } from '../application/use-cases/get-dashboard-analytics.use-case.js';
 import { GetDashboardStatsUseCase } from '../application/use-cases/get-dashboard-stats.use-case.js';
+import { GetDashboardSummaryUseCase } from '../application/use-cases/get-dashboard-summary.use-case.js';
 import { GetProducerByIdUseCase } from '../application/use-cases/get-producer-by-id.use-case.js';
 import { GetProducerEsgComplianceUseCase } from '../application/use-cases/get-producer-esg-compliance.use-case.js';
 import { ListCitiesByStateUseCase } from '../application/use-cases/list-cities-by-state.use-case.js';
@@ -173,6 +175,22 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
       useFactory: (
         dashboard: IDashboardRepository,
       ): GetDashboardStatsUseCase => new GetDashboardStatsUseCase(dashboard),
+      inject: [DASHBOARD_REPOSITORY],
+    },
+    {
+      provide: GetDashboardSummaryUseCase,
+      useFactory: (
+        dashboard: IDashboardRepository,
+      ): GetDashboardSummaryUseCase =>
+        new GetDashboardSummaryUseCase(dashboard),
+      inject: [DASHBOARD_REPOSITORY],
+    },
+    {
+      provide: GetDashboardAnalyticsUseCase,
+      useFactory: (
+        dashboard: IDashboardRepository,
+      ): GetDashboardAnalyticsUseCase =>
+        new GetDashboardAnalyticsUseCase(dashboard),
       inject: [DASHBOARD_REPOSITORY],
     },
     {

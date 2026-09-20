@@ -168,7 +168,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Lista paginada de produtores"
+            "description": "Lista paginada resumida de produtores (sem harvests/crops)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProducerListPageResponse"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -498,7 +505,191 @@
         ],
         "responses": {
           "200": {
-            "description": "Métricas agregadas do dashboard"
+            "description": "Métricas agregadas completas do dashboard"
+          }
+        },
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "operationId": "DashboardController_summary",
+        "parameters": [
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "crop",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 50,
+              "type": "string"
+            }
+          },
+          {
+            "name": "harvestYear",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 10,
+              "type": "string"
+            }
+          },
+          {
+            "name": "esgStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "APPROVED",
+                "WARNING",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "carStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "PENDING",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "minClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "KPIs e distribuições principais (first paint)"
+          }
+        },
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/api/v1/dashboard/analytics": {
+      "get": {
+        "operationId": "DashboardController_analytics",
+        "parameters": [
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[A-Za-z]{2}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "crop",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 50,
+              "type": "string"
+            }
+          },
+          {
+            "name": "harvestYear",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 10,
+              "type": "string"
+            }
+          },
+          {
+            "name": "esgStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "APPROVED",
+                "WARNING",
+                "BLOCKED"
+              ]
+            }
+          },
+          {
+            "name": "carStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "PENDING",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "minClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "maxClimateRisk",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 0,
+              "maximum": 100,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Séries temporais, ranking e risco detalhado"
           }
         },
         "tags": [
@@ -673,6 +864,59 @@
           "name",
           "document"
         ]
+      },
+      "ProducerListItem": {
+        "type": "object",
+        "description": "Item resumido da listagem (sem farms/harvests/crops)",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "document": {
+            "type": "string",
+            "description": "CPF/CNPJ mascarado"
+          },
+          "esgStatus": {
+            "type": "string",
+            "enum": ["APPROVED", "WARNING", "BLOCKED"]
+          },
+          "esgCheckedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "farmsCount": { "type": "integer", "minimum": 0 },
+          "farmStates": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 2, "maxLength": 2 }
+          },
+          "totalAreaHa": { "type": "number" },
+          "arableAreaHa": { "type": "number" },
+          "vegetationAreaHa": { "type": "number" }
+        },
+        "required": [
+          "id",
+          "name",
+          "document",
+          "esgStatus",
+          "esgCheckedAt",
+          "farmsCount",
+          "farmStates",
+          "totalAreaHa",
+          "arableAreaHa",
+          "vegetationAreaHa"
+        ]
+      },
+      "ProducerListPageResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ProducerListItem" }
+          },
+          "total": { "type": "integer", "minimum": 0 },
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1 }
+        },
+        "required": ["items", "total", "page", "pageSize"]
       },
       "UpdateProducerDto": {
         "type": "object",

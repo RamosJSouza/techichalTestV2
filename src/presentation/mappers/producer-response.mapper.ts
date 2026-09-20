@@ -1,5 +1,7 @@
 import { Farm } from '../../domain/entities/farm.js';
 import { Producer } from '../../domain/entities/producer.js';
+import type { ProducerListItem } from '../../domain/repositories/producer.repository.js';
+import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 
 export interface FarmResponse {
   id: string;
@@ -30,6 +32,19 @@ export interface ProducerResponse {
   farms: FarmResponse[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProducerListItemResponse {
+  id: string;
+  name: string;
+  document: string;
+  esgStatus: string;
+  esgCheckedAt: string | null;
+  farmsCount: number;
+  farmStates: string[];
+  totalAreaHa: number;
+  arableAreaHa: number;
+  vegetationAreaHa: number;
 }
 
 export function toFarmResponse(farm: Farm): FarmResponse {
@@ -64,5 +79,46 @@ export function toProducerResponse(producer: Producer): ProducerResponse {
     farms: producer.farms.map(toFarmResponse),
     createdAt: producer.createdAt.toISOString(),
     updatedAt: producer.updatedAt.toISOString(),
+  };
+}
+
+export function toProducerListItem(
+  item: ProducerListItem,
+): ProducerListItemResponse {
+  return {
+    id: item.id,
+    name: item.name,
+    document: CpfCnpj.create(item.documentDigits).masked(),
+    esgStatus: item.esgStatus,
+    esgCheckedAt: item.esgCheckedAt?.toISOString() ?? null,
+    farmsCount: item.farmsCount,
+    farmStates: item.farmStates,
+    totalAreaHa: item.totalAreaHa,
+    arableAreaHa: item.arableAreaHa,
+    vegetationAreaHa: item.vegetationAreaHa,
+  };
+}
+
+/** Projeta detalhe completo para o shape da listagem (ex.: merge de /search). */
+export function producerResponseToListItem(
+  producer: ProducerResponse,
+): ProducerListItemResponse {
+  const states = [
+    ...new Set(producer.farms.map((farm) => farm.state)),
+  ].sort();
+  return {
+    id: producer.id,
+    name: producer.name,
+    document: producer.document,
+    esgStatus: producer.esgStatus,
+    esgCheckedAt: producer.esgCheckedAt,
+    farmsCount: producer.farms.length,
+    farmStates: states,
+    totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),
+    arableAreaHa: producer.farms.reduce((acc, f) => acc + f.arableArea, 0),
+    vegetationAreaHa: producer.farms.reduce(
+      (acc, f) => acc + f.vegetationArea,
+      0,
+    ),
   };
 }

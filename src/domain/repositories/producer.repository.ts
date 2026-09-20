@@ -13,8 +13,23 @@ export interface ProducerListQuery {
   name?: string;
 }
 
+/** Item leve para listagem paginada (sem farms/harvests/crops). */
+export interface ProducerListItem {
+  id: string;
+  name: string;
+  /** Dígitos do documento (sem máscara); a presentation aplica mask. */
+  documentDigits: string;
+  esgStatus: string;
+  esgCheckedAt: Date | null;
+  farmsCount: number;
+  farmStates: string[];
+  totalAreaHa: number;
+  arableAreaHa: number;
+  vegetationAreaHa: number;
+}
+
 export interface ProducerListResult {
-  items: Producer[];
+  items: ProducerListItem[];
   total: number;
   page: number;
   pageSize: number;

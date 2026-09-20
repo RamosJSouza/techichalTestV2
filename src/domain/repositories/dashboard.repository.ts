@@ -95,6 +95,32 @@ export interface DashboardStats {
   topCities: TopCityItem[];
 }
 
+export type DashboardSummary = Pick<
+  DashboardStats,
+  | 'totalFarms'
+  | 'totalHectares'
+  | 'averageFarmSize'
+  | 'carComplianceRate'
+  | 'esgComplianceRate'
+  | 'byState'
+  | 'byCrop'
+  | 'byLandUse'
+  | 'regionalClimateRisk'
+  | 'byCarStatus'
+  | 'byEsgStatus'
+>;
+
+export type DashboardAnalytics = Pick<
+  DashboardStats,
+  | 'climateRiskByState'
+  | 'climateRiskByCrop'
+  | 'cropsByYear'
+  | 'farmsByMonth'
+  | 'topCities'
+>;
+
 export interface IDashboardRepository {
   getStats(filters?: DashboardFilters): Promise<DashboardStats>;
+  getSummary(filters?: DashboardFilters): Promise<DashboardSummary>;
+  getAnalytics(filters?: DashboardFilters): Promise<DashboardAnalytics>;
 }

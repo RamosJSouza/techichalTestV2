@@ -14,8 +14,8 @@ module.exports = {
       },
     ],
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: ['**/*.(t|j)s', '!**/openapi-export.ts'],
+  coverageDirectory: '../coverage/api',
   testEnvironment: 'node',
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',

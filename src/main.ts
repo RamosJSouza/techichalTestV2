@@ -4,14 +4,14 @@ import { join } from 'node:path';
 import { json } from 'express';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { isTrustProxyEnabled, parseEnv } from './config/env.schema.js';
 import { MetricsService } from './infrastructure/observability/metrics.service.js';
+import { buildOpenApiDocument } from './openapi/build-openapi-document.js';
 
 async function bootstrap(): Promise<void> {
   const env = parseEnv();
@@ -66,17 +66,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api/v1');
 
   if (env.NODE_ENV !== 'production') {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('Brain Agriculture API')
-      .setDescription(
-        'API de gestão de produtores rurais, fazendas, safras e dashboard analítico. Sem autenticação no escopo atual — proteja a rede e use rate limit/CORS em produção.',
-      )
-      .setVersion('1.0.0')
-      .build();
-
-    const document = cleanupOpenApiDoc(
-      SwaggerModule.createDocument(app, swaggerConfig),
-    );
+    const document = buildOpenApiDocument(app);
     SwaggerModule.setup('api/docs', app, document);
   }
 

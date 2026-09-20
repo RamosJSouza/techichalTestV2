@@ -4,7 +4,7 @@ API REST NestJS e SPA React no mesmo processo em produção (`/`).
 
 **Stack:** NestJS 12 · React 18 · Vite · RTK Query · Styled Components · Drizzle · PostgreSQL 16 · Zod  
 
-**Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `packageManager`, `engine-strict`)
+**Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `packageManager`, `pnpm preflight`)
 
 Validação limpa executada em **2026-09-20** — ver [`docs/evaluator-checklist.md`](docs/evaluator-checklist.md).
 
@@ -12,11 +12,13 @@ Validação limpa executada em **2026-09-20** — ver [`docs/evaluator-checklist
 
 ## Quickstart verificado (do zero)
 
+Os comandos abaixo são **os mesmos** do CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
 ### Pré-requisitos
 
 - Node.js **22.22.3** (`node -v`)
 - pnpm **10.32.1** via Corepack: `corepack enable && corepack prepare pnpm@10.32.1 --activate`
-- Docker Desktop (serviço Postgres)
+- Docker Desktop (Postgres efêmero)
 
 ### 1) Ambiente
 
@@ -28,7 +30,44 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Confirme que `DATABASE_URL` e `POSTGRES_HOST_PORT` usam a **mesma** porta no host (padrão do exemplo: **5433**).
 
-### 2a) Docker completo (API + Postgres + SPA)
+### 2) Postgres efêmero + pipeline (réplica do CI)
+
+```bash
+docker compose up -d postgres   # só o banco — não suba o serviço api
+pnpm preflight
+pnpm install --frozen-lockfile
+pnpm ci:migrate
+pnpm lint
+pnpm test:api
+pnpm test:client
+pnpm test:cov:ci
+pnpm openapi:export
+git diff --exit-code docs/openapi.json   # falha se o contrato commitado divergir
+pnpm test:contract
+pnpm test:e2e
+pnpm audit:ci          # falha em vulnerabilidades high+ de runtime (--prod)
+pnpm build
+pnpm bench:bundle      # falha se gzip > budget
+pnpm bench:ci          # seed S + load HTTP; falha se SLO estourar
+```
+
+Artefatos gerados: `docs/openapi.json`, `coverage/`, `docs/bench/artifacts/bundle-size.json`, `docs/bench/artifacts/bench-ci-S.json`.
+
+> **Nota:** o gate HTTP do bench escala S pode falhar com os SLOs atuais (ver [`docs/bench/reports/`](docs/bench/reports/)) — o CI propaga essa falha de propósito.
+
+### 3) Desenvolvimento local (Swagger)
+
+```bash
+docker compose up -d postgres
+pnpm install --frozen-lockfile
+pnpm ci:migrate
+pnpm dev                        # Nest :3000 + Vite :5173 (proxy /api)
+```
+
+- Swagger UI: http://localhost:3000/api/docs  
+- Contrato: [`docs/openapi.json`](docs/openapi.json) (`pnpm openapi:export`)
+
+### 4) Docker completo (API + Postgres + SPA)
 
 ```bash
 pnpm docker:up
@@ -37,34 +76,6 @@ pnpm docker:up
 - SPA / API: http://localhost:3000/
 - Health: `GET http://localhost:3000/api/v1/health/live`
 - Swagger: **desligado** (Compose força `NODE_ENV=production`)
-
-### 2b) Desenvolvimento local (recomendado para Swagger)
-
-```bash
-docker compose up -d postgres   # só o banco — não suba o serviço api
-pnpm install --frozen-lockfile
-pnpm db:migrate
-pnpm dev                        # Nest :3000 + Vite :5173 (proxy /api)
-```
-
-- Swagger UI: http://localhost:3000/api/docs  
-- Contrato commitado: [`docs/openapi.json`](docs/openapi.json)
-
-### 3) Checklist de comandos validados (2026-09-20)
-
-```bash
-pnpm install --frozen-lockfile
-pnpm lint
-pnpm test:api
-pnpm test:client
-pnpm db:migrate
-pnpm test:e2e
-pnpm audit:ci          # falha em vulnerabilidades high+
-pnpm build
-# opcional: pnpm verify   # lint && test && test:e2e && build
-```
-
-CI GitHub Actions replica a mesma ordem (`.github/workflows/ci.yml`).
 
 ---
 
@@ -88,7 +99,7 @@ O enunciado permite **zero culturas** por safra. O contrato HTTP exige `crops.mi
 | `EADDRINUSE :::3000` | Container `brain_ag_api` ocupando a porta. `docker stop brain_ag_api` ou `pnpm docker:down`; mantenha só `postgres` para `pnpm dev`. |
 | Migrations / API não conectam | Shell env (`DATABASE_URL`, `POSTGRES_*`) **sobrescreve** `.env`. Confira `echo $env:DATABASE_URL` (PowerShell) / `echo $DATABASE_URL`. Alinhe porta host ↔ `DATABASE_URL`. |
 | Compose rejeita secrets | Em production o schema rejeita `ENCRYPTION_KEY` de exemplo, `PEPPER_SECRET` com menos de 32 chars / `change-me-…`, e senhas fracas tipo `postgrespassword`. Use valores do `.env_example` ou gere novos. |
-| `engine-strict` / versão errada | Instale exatamente Node 22.22.3 e pnpm 10.32.1. |
+| `engine-strict` / versão errada | Rode `pnpm preflight`; instale exatamente Node 22.22.3 e pnpm 10.32.1 via Corepack. |
 | HTTP 429 em carga / bench | Suba `THROTTLE_LIMIT` (ex.: `10000`) só no ambiente de bench; default é 100/min por IP. |
 | Volume Postgres “password authentication failed” | Senha do volume antigo ≠ `.env` atual → `docker compose down -v` (apaga dados) e suba de novo. |
 
@@ -210,7 +221,7 @@ Campos: `producers.document_validation_status`, `farms.territorial_validation_st
 - `CHECK` constraints de área/UF no Postgres.
 - Violação de unique (`23505`) mapeada para HTTP **409**.
 
-Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página. Bundle frontend com code-split (gates gzip no CI via `pnpm bench:bundle`; ver `docs/bench`). Scripts `pnpm bench:*` de carga/SQL são opcionais e **não** fazem parte do caminho mínimo do avaliador.
+Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página. Bundle gzip e bench HTTP S são **gates bloqueantes** no CI (`pnpm bench:bundle`, `pnpm bench:ci`); o relatório S atual pode falhar em p95 D0/L0/L1 — ver `docs/bench`. Scripts `pnpm bench:run` locais de carga/SQL permanecem disponíveis fora do caminho mínimo do avaliador.
 
 ---
 
@@ -239,6 +250,6 @@ Outras limitações operacionais: rate limit só por IP; listagem hidrata fazend
 - Soft delete + unique parcial; logs Pino com redact de `document`.
 - Helmet, rate limit, CORS restrito em production, body limit.
 - 5xx genéricos com `errorId` / `traceId`.
-- **Dependências:** `pnpm audit:ci` (= `pnpm audit --audit-level=high`) falha a CI em vulnerabilidades **high** ou superiores. **Não** há allowlist/silenciamento. Export do dashboard é CSV nativo (sem `xlsx`; não há upload/leitura de planilhas). Se no futuro for inevitável uma exceção temporária, documentar em `docs/security/audit-exceptions.md` com CVE, justificativa e **data de expiração** — o arquivo só deve existir enquanto a exceção estiver vigente.
+- **Dependências:** `pnpm audit:ci` (= `pnpm audit --prod --audit-level=high`) falha a CI em vulnerabilidades **high** ou superiores nas deps de **runtime**. **Não** há allowlist/silenciamento. Export do dashboard é CSV nativo (sem `xlsx`; não há upload/leitura de planilhas). Se no futuro for inevitável uma exceção temporária, documentar em `docs/security/audit-exceptions.md` com CVE, justificativa e **data de expiração** — o arquivo só deve existir enquanto a exceção estiver vigente.
 
 Frontend: [`client/README.md`](client/README.md). Spec técnica: [`docs/backend-technical-spec.md`](docs/backend-technical-spec.md).

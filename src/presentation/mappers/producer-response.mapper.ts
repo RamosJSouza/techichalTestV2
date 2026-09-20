@@ -3,7 +3,7 @@ import { Producer } from '../../domain/entities/producer.js';
 import type { ProducerListItem } from '../../domain/repositories/producer.repository.js';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 
-export interface FarmResponse {
+interface FarmResponse {
   id: string;
   producerId: string;
   name: string;
@@ -24,7 +24,7 @@ export interface FarmResponse {
   }>;
 }
 
-export interface ProducerResponse {
+interface ProducerResponse {
   id: string;
   name: string;
   document: string;
@@ -36,7 +36,7 @@ export interface ProducerResponse {
   updatedAt: string;
 }
 
-export interface ProducerListItemResponse {
+interface ProducerListItemResponse {
   id: string;
   name: string;
   document: string;
@@ -102,30 +102,5 @@ export function toProducerListItem(
     totalAreaHa: item.totalAreaHa,
     arableAreaHa: item.arableAreaHa,
     vegetationAreaHa: item.vegetationAreaHa,
-  };
-}
-
-/** Projeta detalhe completo para o shape da listagem (ex.: merge de /search). */
-export function producerResponseToListItem(
-  producer: ProducerResponse,
-): ProducerListItemResponse {
-  const states = [
-    ...new Set(producer.farms.map((farm) => farm.state)),
-  ].sort();
-  return {
-    id: producer.id,
-    name: producer.name,
-    document: producer.document,
-    esgStatus: producer.esgStatus,
-    esgCheckedAt: producer.esgCheckedAt,
-    documentValidationStatus: producer.documentValidationStatus,
-    farmsCount: producer.farms.length,
-    farmStates: states,
-    totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),
-    arableAreaHa: producer.farms.reduce((acc, f) => acc + f.arableArea, 0),
-    vegetationAreaHa: producer.farms.reduce(
-      (acc, f) => acc + f.vegetationArea,
-      0,
-    ),
   };
 }

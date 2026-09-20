@@ -6,5 +6,3 @@ export const clientTimingSchema = z
     durationSeconds: z.number().positive().max(120),
   })
   .strict();
-
-export type ClientTimingInput = z.infer<typeof clientTimingSchema>;

@@ -82,5 +82,7 @@ Ordem fixa em `bench:run`: seed → ANALYZE → verify-aggregates → warm-up �
 
 ## CI
 
-- Job opcional nightly `bench-s` (não bloqueia PR por padrão).
-- Unitários de correção (soft-delete / ARCHIVED / hydrate) rodam no `pnpm test` normal.
+- Job `build-test` em `.github/workflows/ci.yml` (bloqueia PR).
+- Ordem: preflight → install frozen → migrate → lint → unit → coverage → openapi → contract → e2e → audit `--prod` high → build → `bench:bundle` → `bench:ci` (seed S + load HTTP).
+- Artefatos: OpenAPI, coverage, `bundle-size.json`, `bench-ci-S.json`.
+- `bench:ci` **falha** o job se qualquer gate SLO de `load-http.mjs` falhar (transparência; relatório S atual pode estar vermelho em D0/L0/L1 p95).

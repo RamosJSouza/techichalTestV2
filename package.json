@@ -22,6 +22,7 @@
     ]
   },
   "scripts": {
+    "preflight": "node scripts/preflight.mjs",
     "dev": "concurrently -n api,web -c blue,green \"pnpm start:dev\" \"pnpm --filter @brain-ag/client dev\"",
     "dev:api": "pnpm start:dev",
     "dev:client": "pnpm --filter @brain-ag/client dev",
@@ -39,10 +40,14 @@
     "test:api": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:client": "pnpm --filter @brain-ag/client test",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --coverageDirectory=coverage/api",
+    "test:cov:ci": "pnpm test:cov && pnpm --filter @brain-ag/client test -- --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
-    "audit:ci": "pnpm audit --audit-level=high",
+    "test:contract": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-contract.json",
+    "openapi:export": "node scripts/openapi-export.mjs",
+    "ci:migrate": "node scripts/migrate.mjs",
+    "audit:ci": "pnpm audit --prod --audit-level=high",
     "verify": "pnpm lint && pnpm test && pnpm test:e2e && pnpm build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -57,7 +62,8 @@
     "bench:load": "node --env-file=.env scripts/bench/load-http.mjs",
     "bench:bundle": "node scripts/bench/bundle-size.mjs",
     "bench:list-compare": "node --env-file=.env scripts/bench/list-producers-compare.mjs",
-    "bench:run": "node --env-file=.env scripts/bench/run.mjs"
+    "bench:run": "node --env-file=.env scripts/bench/run.mjs",
+    "bench:ci": "node scripts/bench/ci.mjs"
   },
   "dependencies": {
     "@nestjs/axios": "^12.0.1",

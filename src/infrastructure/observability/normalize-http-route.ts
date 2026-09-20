@@ -17,7 +17,7 @@ const KNOWN_ROUTE_PREFIXES = [
   '/api/v1/observability',
 ] as const;
 
-export type HttpStatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'other';
+type HttpStatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'other';
 
 export function statusClassFromCode(statusCode: number): HttpStatusClass {
   if (statusCode >= 200 && statusCode < 300) {

@@ -1,20 +1,26 @@
-# Checklist de validação limpa (avaliador)
+# Checklist do avaliador — Brain Agriculture
 
-**Host:** Windows · **Data:** 2026-09-20 · **Node:** v22.22.3 · **pnpm:** 10.32.1
+Comandos idênticos ao CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml) / README quickstart).
 
-Pré-condição: Postgres via `docker compose up -d postgres` (porta host alinhada a `DATABASE_URL`, tipicamente `5433`).
+Pré-requisito local: `docker compose up -d postgres` + `.env` alinhado a `DATABASE_URL`.
 
-| # | Comando | Resultado (Staff hardening P0/P1) |
-|---|---------|-----------------------------------|
+| # | Comando | Esperado |
+|---|---------|----------|
+| 0 | `pnpm preflight` | PASS (Node 22.22.3 + pnpm 10.32.1) |
 | 1 | `pnpm install --frozen-lockfile` | PASS |
-| 2 | `pnpm lint` | PASS |
-| 3 | `pnpm test:api` | PASS (29 suites / 81 tests) |
-| 4 | `pnpm test:client` | PASS (19 suites / 52 tests) |
-| 5 | `pnpm db:migrate` | PASS (inclui `0006`/`0007` CHECK areas+UF+status) |
-| 6 | `pnpm test:e2e` | PASS (1 suite / 8 tests) |
-| 7 | `pnpm audit:ci` (`--audit-level=high`) | PASS |
-| 8 | `pnpm build` | PASS |
+| 2 | `pnpm ci:migrate` | PASS |
+| 3 | `pnpm lint` | PASS |
+| 4 | `pnpm test:api` | PASS |
+| 5 | `pnpm test:client` | PASS |
+| 6 | `pnpm test:cov:ci` | PASS → `coverage/api`, `coverage/client` |
+| 7 | `pnpm openapi:export` + `git diff --exit-code docs/openapi.json` | PASS |
+| 8 | `pnpm test:contract` | PASS |
+| 9 | `pnpm test:e2e` | PASS |
+| 10 | `pnpm audit:ci` (`--prod --audit-level=high`) | PASS |
+| 11 | `pnpm build` | PASS |
+| 12 | `pnpm bench:bundle` | PASS (gzip ≤ budgets) |
+| 13 | `pnpm bench:ci` | **pode FAIL** se SLO S (D0/L0/L1 p95) estourar — gate intencional |
 
-Plano: [`docs/superpowers/plans/2026-09-20-staff-hardening-p0-p1.md`](superpowers/plans/2026-09-20-staff-hardening-p0-p1.md).
+Artefatos CI: OpenAPI, coverage, `bundle-size.json`, `bench-ci-S.json`.
 
-**Limitações remanescentes (não bloqueiam estes gates):** API sem auth (P0 produção); bench S HTTP FAIL; BrasilAPI fallback permissivo; ESG/CAR stub.
+**Limitações remanescentes:** API sem auth (P0 produção); bench S HTTP pode falhar nos SLOs; BrasilAPI fallback; ESG/CAR stub.

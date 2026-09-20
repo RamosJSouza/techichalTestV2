@@ -1,12 +1,12 @@
 /** Escalas e constantes do dataset de bench. */
 
-export const SCALES = {
+const SCALES = {
   S: 10_000,
   M: 100_000,
   L: 1_000_000,
 };
 
-export const SEED = 42;
+const SEED = 42;
 
 export const MAJOR_STATES = ['SP', 'MG', 'PR', 'RS', 'GO'];
 export const ALL_STATES = [

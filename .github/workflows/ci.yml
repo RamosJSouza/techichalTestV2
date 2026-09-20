@@ -8,6 +8,7 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     services:
       postgres:
         image: postgres:16-alpine
@@ -26,10 +27,13 @@ jobs:
     env:
       CI: "true"
       NODE_ENV: test
+      PORT: "3000"
       DATABASE_URL: postgres://postgres:ci_strong_password_9f3a@localhost:5432/brain_agriculture
       ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       PEPPER_SECRET: "ci-pepper-secret-min16"
       BRASIL_API_BASE_URL: https://brasilapi.com.br/api
+      THROTTLE_LIMIT: "10000"
+      BENCH_BASE_URL: http://localhost:3000
 
     steps:
       - uses: actions/checkout@v4
@@ -43,8 +47,14 @@ jobs:
           node-version: "22.22.3"
           cache: pnpm
 
+      - name: Preflight (Node + pnpm)
+        run: pnpm preflight
+
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Migrate
+        run: pnpm ci:migrate
 
       - name: Lint
         run: pnpm lint
@@ -55,13 +65,22 @@ jobs:
       - name: Unit tests (client)
         run: pnpm test:client
 
-      - name: Migrate
-        run: node scripts/migrate.mjs
+      - name: Coverage
+        run: pnpm test:cov:ci
+
+      - name: OpenAPI export
+        run: pnpm openapi:export
+
+      - name: OpenAPI drift check
+        run: git diff --exit-code docs/openapi.json
+
+      - name: Contract tests
+        run: pnpm test:contract
 
       - name: E2E
         run: pnpm test:e2e
 
-      - name: Audit (critical)
+      - name: Audit (prod high+)
         run: pnpm audit:ci
 
       - name: Build
@@ -69,3 +88,36 @@ jobs:
 
       - name: Bundle size gates (gzip)
         run: pnpm bench:bundle
+
+      - name: Bench HTTP gates (scale S)
+        run: pnpm bench:ci
+
+      - name: Upload OpenAPI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: docs/openapi.json
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+      - name: Upload bundle report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-size
+          path: docs/bench/artifacts/bundle-size.json
+
+      - name: Upload bench report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-ci
+          path: |
+            docs/bench/artifacts/bench-ci-S.json
+            docs/bench/reports/ci-S-*.md

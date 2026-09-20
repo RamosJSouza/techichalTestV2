@@ -8,7 +8,7 @@ import {
 } from 'prom-client';
 import { statusClassFromCode } from './normalize-http-route.js';
 
-export type CircuitBreakerName = 'cnpj' | 'city' | 'cities';
+type CircuitBreakerName = 'cnpj' | 'city' | 'cities';
 
 export type BrasilApiOperation = 'cnpj' | 'city' | 'cities';
 
@@ -34,9 +34,9 @@ export type DbOperation =
   | 'dashboard_summary'
   | 'dashboard_analytics';
 
-export type DbQueryResult = 'ok' | 'error';
+type DbQueryResult = 'ok' | 'error';
 
-export type ClientTimingEvent = 'dashboard_csv_export';
+type ClientTimingEvent = 'dashboard_csv_export';
 
 const DOMAIN_ERROR_CODES = new Set([
   'VALIDATION_ERROR',

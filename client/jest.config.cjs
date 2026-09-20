@@ -8,6 +8,13 @@ const config = {
     '\\.(css|less)$': 'identity-obj-proxy',
   },
   setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/**/*.(spec|test).{ts,tsx}',
+    '!src/test/**',
+    '!src/main.tsx',
+  ],
+  coverageDirectory: '<rootDir>/../coverage/client',
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',

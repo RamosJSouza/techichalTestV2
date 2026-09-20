@@ -29,9 +29,22 @@ export interface ProducerResponse {
   updatedAt: string;
 }
 
+export interface DashboardFilters {
+  state?: string;
+  crop?: string;
+  harvestYear?: string;
+  esgStatus?: string;
+  carStatus?: string;
+  minClimateRisk?: number;
+  maxClimateRisk?: number;
+}
+
 export interface DashboardStats {
   totalFarms: number;
   totalHectares: number;
+  averageFarmSize: number;
+  carComplianceRate: number;
+  esgComplianceRate: number;
   byState: Array<{
     state: string;
     count: number;
@@ -53,6 +66,42 @@ export interface DashboardStats {
     averageScore: number | null;
     farmsWithScore: number;
   };
+  byCarStatus: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+  byEsgStatus: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+  climateRiskByState: Array<{
+    state: string;
+    averageScore: number | null;
+    farmsWithScore: number;
+  }>;
+  climateRiskByCrop: Array<{
+    crop: string;
+    averageScore: number | null;
+    farmsWithScore: number;
+  }>;
+  cropsByYear: Array<{
+    year: string;
+    crop: string;
+    count: number;
+  }>;
+  farmsByMonth: Array<{
+    month: string;
+    farms: number;
+    hectares: number;
+  }>;
+  topCities: Array<{
+    city: string;
+    state: string;
+    farms: number;
+    hectares: number;
+  }>;
 }
 
 export interface CreateProducerInput {

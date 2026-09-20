@@ -6,6 +6,7 @@ import { mockDashboardStats, mockProducers } from '../../shared/mocks/fixtures';
 import type {
   CreateFarmInput,
   CreateProducerInput,
+  DashboardFilters,
   DashboardStats,
   EsgComplianceResult,
   ProducerResponse,
@@ -26,7 +27,7 @@ const mockBaseQuery: BaseQueryFn<
   AxiosBaseQueryError
 > = async ({ url, method = 'GET' }) => {
   await new Promise((r) => setTimeout(r, 50));
-  if (url === '/dashboard/stats') {
+  if (url === '/dashboard/stats' || url.startsWith('/dashboard/stats')) {
     return { data: mockDashboardStats };
   }
   if (url === '/producers' && method === 'GET') {
@@ -36,6 +37,19 @@ const mockBaseQuery: BaseQueryFn<
     const id = url.split('/')[2];
     const found = mockProducers.find((p) => p.id === id) ?? mockProducers[0];
     return { data: found };
+  }
+  if (url.startsWith('/ibge/states/') && method === 'GET') {
+    return {
+      data: {
+        cities: [
+          'Ribeirão Preto',
+          'São Paulo',
+          'Campinas',
+          'Santos',
+          'Piracicaba',
+        ],
+      },
+    };
   }
   return { data: mockProducers[0] };
 };
@@ -56,8 +70,14 @@ export const apiSlice = createApi({
   baseQuery: dynamicBaseQuery,
   tagTypes: ['Producers', 'Dashboard'],
   endpoints: (builder) => ({
-    getDashboardStats: builder.query<DashboardStats, void>({
-      query: () => ({ url: '/dashboard/stats' }),
+    getDashboardStats: builder.query<
+      DashboardStats,
+      DashboardFilters | void
+    >({
+      query: (filters) => ({
+        url: '/dashboard/stats',
+        params: filters ?? undefined,
+      }),
       providesTags: ['Dashboard'],
     }),
     listProducers: builder.query<ProducerResponse[], void>({
@@ -123,6 +143,11 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Producers'],
     }),
+    listCities: builder.query<string[], string>({
+      query: (uf) => ({ url: `/ibge/states/${uf}/cities` }),
+      transformResponse: (response: { cities: string[] }): string[] =>
+        response.cities,
+    }),
   }),
 });
 
@@ -139,4 +164,5 @@ export const {
   useUpdateFarmMutation,
   useDeleteFarmMutation,
   useValidateFarmCarMutation,
+  useLazyListCitiesQuery,
 } = apiSlice;

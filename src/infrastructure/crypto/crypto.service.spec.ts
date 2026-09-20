@@ -40,6 +40,15 @@ describe('CryptoService', () => {
     expect(rotated.decrypt(ciphertext)).toBe('11144477735');
   });
 
+  it('rejeita kid desconhecido sem fallback para active', () => {
+    const encrypted = crypto.encrypt('52998224725');
+    const parts = encrypted.split(':');
+    parts[0] = 'unknown-kid';
+    expect(() => crypto.decrypt(parts.join(':'))).toThrow(
+      /Unknown encryption key id/,
+    );
+  });
+
   it('gera blind index determinístico', () => {
     const hash1 = crypto.blindIndex('52998224725');
     const hash2 = crypto.blindIndex('52998224725');

@@ -14,6 +14,11 @@ function buildUseCase(
       reason: 'timeout_or_network',
     }),
     listCitiesByState,
+    getCircuitStats: () => ({
+      cnpjOpen: false,
+      cityOpen: false,
+      citiesOpen: false,
+    }),
   };
   return new ListCitiesByStateUseCase(stub);
 }

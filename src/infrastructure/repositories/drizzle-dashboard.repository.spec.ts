@@ -1,7 +1,10 @@
 import type { DashboardFilters } from '../../domain/repositories/dashboard.repository.js';
+import { NoopMetrics } from '../../testing/noop-metrics.js';
 import { DrizzleDashboardRepository } from './drizzle-dashboard.repository.js';
 
 describe('DrizzleDashboardRepository', () => {
+  const metrics = new NoopMetrics();
+
   function mockDb(handlers: {
     farms?: Record<string, unknown>;
     crops?: Record<string, unknown>;
@@ -62,7 +65,7 @@ describe('DrizzleDashboardRepository', () => {
   }
 
   it('executa getStats e devolve shape completo', async () => {
-    const repo = new DrizzleDashboardRepository(mockDb({}) as never);
+    const repo = new DrizzleDashboardRepository(mockDb({}) as never, metrics);
     const stats = await repo.getStats();
 
     expect(stats.totalFarms).toBe(2);
@@ -100,6 +103,7 @@ describe('DrizzleDashboardRepository', () => {
         crops: { by_crop: [], climate_by_crop: [], crops_by_year: [] },
         esg: [],
       }) as never,
+      metrics,
     );
     const stats = await repo.getStats();
     expect(Object.keys(stats).sort()).toEqual(
@@ -143,6 +147,7 @@ describe('DrizzleDashboardRepository', () => {
         crops: { by_crop: [], climate_by_crop: [], crops_by_year: [] },
         esg: [],
       }) as never,
+      metrics,
     );
     const filters: DashboardFilters = {
       state: 'SP',
@@ -162,11 +167,13 @@ describe('DrizzleDashboardRepository', () => {
   it('getSummary e getAnalytics devolvem subconjuntos', async () => {
     const summary = await new DrizzleDashboardRepository(
       mockDb({}) as never,
+      metrics,
     ).getSummary();
     expect(summary.totalFarms).toBe(2);
     expect(summary).not.toHaveProperty('topCities');
     const analytics = await new DrizzleDashboardRepository(
       mockDb({}) as never,
+      metrics,
     ).getAnalytics();
     expect(analytics.topCities[0]?.city).toBe('Ribeirão Preto');
     expect(analytics).not.toHaveProperty('totalFarms');

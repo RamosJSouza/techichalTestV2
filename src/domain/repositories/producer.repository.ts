@@ -11,6 +11,8 @@ export interface ProducerListQuery {
   sortBy: ProducerSortBy;
   sortOrder: ProducerSortOrder;
   name?: string;
+  /** Cursor opaco keyset; se presente, `page` é ignorado. */
+  cursor?: string;
 }
 
 /** Item leve para listagem paginada (sem farms/harvests/crops). */
@@ -36,6 +38,8 @@ export interface ProducerListResult {
   total: number;
   page: number;
   pageSize: number;
+  /** Próxima página keyset; null se não há mais itens. */
+  nextCursor: string | null;
 }
 
 export interface IProducerRepository {

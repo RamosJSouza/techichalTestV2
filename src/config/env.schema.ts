@@ -74,6 +74,56 @@ const envSchema = z
           'ENCRYPTION_KEY_PREVIOUS_ID is required when ENCRYPTION_KEY_PREVIOUS is set',
       });
     }
+    if (data.ENCRYPTION_KEY_PREVIOUS_ID && !data.ENCRYPTION_KEY_PREVIOUS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY_PREVIOUS'],
+        message:
+          'ENCRYPTION_KEY_PREVIOUS is required when ENCRYPTION_KEY_PREVIOUS_ID is set',
+      });
+    }
+    if (
+      data.ENCRYPTION_KEY_PREVIOUS_ID &&
+      data.ENCRYPTION_KEY_PREVIOUS_ID === data.ENCRYPTION_KEY_ID
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY_PREVIOUS_ID'],
+        message:
+          'ENCRYPTION_KEY_PREVIOUS_ID must differ from ENCRYPTION_KEY_ID',
+      });
+    }
+
+    try {
+      const brasilUrl = new URL(data.BRASIL_API_BASE_URL);
+      const host = brasilUrl.hostname.toLowerCase();
+      const allowedProd = host === 'brasilapi.com.br';
+      const allowedDev =
+        data.NODE_ENV !== 'production' &&
+        (host === 'localhost' || host === '127.0.0.1');
+      if (brasilUrl.protocol !== 'https:' && !(allowedDev && brasilUrl.protocol === 'http:')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['BRASIL_API_BASE_URL'],
+          message: 'BRASIL_API_BASE_URL must use https (http only for localhost outside production)',
+        });
+      }
+      if (!allowedProd && !allowedDev) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['BRASIL_API_BASE_URL'],
+          message:
+            'BRASIL_API_BASE_URL host must be brasilapi.com.br (or localhost outside production)',
+        });
+      }
+    } catch {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['BRASIL_API_BASE_URL'],
+        message: 'BRASIL_API_BASE_URL is not a valid URL',
+      });
+    }
+
     if (data.NODE_ENV !== 'production') {
       return;
     }

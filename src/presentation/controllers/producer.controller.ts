@@ -91,6 +91,7 @@ export class ProducerController {
       total: result.total,
       page: result.page,
       pageSize: result.pageSize,
+      nextCursor: result.nextCursor,
     };
   }
 

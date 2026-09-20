@@ -8,7 +8,7 @@ import type { IFarmRepository } from '../../domain/repositories/farm.repository.
 import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import { CityStateMismatchException } from '../../domain/exceptions/city-state-mismatch.exception.js';
 
-interface RevalidateFarmResult {
+export interface RevalidateFarmResult {
   id: string;
   previousStatus: ExternalValidationStatus;
   newStatus: ExternalValidationStatus;

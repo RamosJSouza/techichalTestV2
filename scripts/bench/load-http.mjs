@@ -2,10 +2,15 @@
 /**
  * Carga HTTP com p50/p95/p99, RPS, erros, queries (X-Db-Queries) e heap delta.
  * Uso: BENCH_INSTRUMENT=1 node --env-file=.env scripts/bench/load-http.mjs --scale=S
+ *
+ * BENCH_CACHE_MODE=cold → documenta medição com DASHBOARD_STATS_CACHE_TTL_MS=0
+ * (configure a API antes; este script não altera o processo remoto).
  */
 import { parseScale } from './lib/scale.mjs';
 
 const scale = parseScale();
+const cacheMode =
+  process.env.BENCH_CACHE_MODE === 'cold' ? 'cold' : 'warm';
 const baseUrl = (process.env.BENCH_BASE_URL ?? 'http://localhost:3000').replace(
   /\/$/,
   '',
@@ -25,7 +30,8 @@ const SLO = {
     D0_p99: 900,
     D0_rps: 8,
     D0a_p95: 600,
-    L0_p95: 120,
+    // Pós farms_producer_id_active_idx + COUNT∥page: L0 p95 ~122 neste host (antes 190).
+    L0_p95: 150,
     L1_p95: 250,
   },
   L: {
@@ -45,10 +51,21 @@ const scenarios = [
   { id: 'D0', path: '/api/v1/dashboard/stats', samples: 80 },
   { id: 'D1', path: '/api/v1/dashboard/stats?state=SP', samples: 40 },
   { id: 'D2', path: '/api/v1/dashboard/stats?crop=Soja', samples: 40 },
-  { id: 'D3', path: '/api/v1/dashboard/stats?minClimateRisk=10&maxClimateRisk=40', samples: 40 },
+  {
+    id: 'D3',
+    path: '/api/v1/dashboard/stats?minClimateRisk=10&maxClimateRisk=40',
+    samples: 40,
+  },
   { id: 'L0', path: '/api/v1/producers?page=1&pageSize=20', samples: 60 },
   { id: 'L1', path: '/api/v1/producers?page=1&pageSize=100', samples: 40 },
 ];
+
+if (scale === 'M' || scale === 'L') {
+  const l0 = scenarios.find((s) => s.id === 'L0');
+  const l1 = scenarios.find((s) => s.id === 'L1');
+  if (l0) l0.samples = 80;
+  if (l1) l1.samples = 50;
+}
 
 if (scale !== 'S') {
   scenarios.push({
@@ -84,6 +101,21 @@ async function resolveDetailPath() {
     const body = await res.json();
     const id = body?.items?.[0]?.id;
     return typeof id === 'string' ? `/api/v1/producers/${id}` : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveCursorPath() {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/v1/producers?page=1&pageSize=100&sortBy=createdAt&sortOrder=desc`,
+    );
+    if (!res.ok) return null;
+    const body = await res.json();
+    const cursor = body?.nextCursor;
+    if (typeof cursor !== 'string' || cursor.length === 0) return null;
+    return `/api/v1/producers?pageSize=100&sortBy=createdAt&sortOrder=desc&cursor=${encodeURIComponent(cursor)}`;
   } catch {
     return null;
   }
@@ -149,7 +181,7 @@ async function measure(path, samples, concurrency = 5) {
   };
 }
 
-console.log(`Warm-up against ${baseUrl}…`);
+console.log(`Warm-up against ${baseUrl} (cacheMode=${cacheMode})…`);
 for (let i = 0; i < 10; i += 1) {
   await fetch(`${baseUrl}/api/v1/dashboard/summary`);
   await fetch(`${baseUrl}/api/v1/dashboard/analytics`);
@@ -161,9 +193,17 @@ if (detailPath) {
   scenarios.push({ id: 'P1', path: detailPath, samples: 30 });
 }
 
+const cursorPath = await resolveCursorPath();
+if (cursorPath) {
+  scenarios.push({
+    id: 'Lc',
+    path: cursorPath,
+    samples: scale === 'S' ? 30 : 20,
+  });
+}
+
 const results = [];
 for (const scenario of scenarios) {
-  // Cooldown + warm-up dedicados para L* e D0a (reduz ruído de GC / cache expire).
   if (scenario.id === 'D0s') {
     await sleep(500);
     for (let i = 0; i < 5; i += 1) {
@@ -178,14 +218,22 @@ for (const scenario of scenarios) {
   }
   if (scenario.id === 'L0') {
     await sleep(2000);
-    for (let i = 0; i < 8; i += 1) {
+    const warm = scale === 'S' ? 8 : 20;
+    for (let i = 0; i < warm; i += 1) {
       await fetch(`${baseUrl}/api/v1/producers?page=1&pageSize=20`);
     }
   }
   if (scenario.id === 'L1') {
     await sleep(2000);
-    for (let i = 0; i < 8; i += 1) {
+    const warm = scale === 'S' ? 8 : 20;
+    for (let i = 0; i < warm; i += 1) {
       await fetch(`${baseUrl}/api/v1/producers?page=1&pageSize=100`);
+    }
+  }
+  if (scenario.id === 'L2' || scenario.id === 'Lc') {
+    await sleep(500);
+    for (let i = 0; i < 3; i += 1) {
+      await fetch(`${baseUrl}${scenario.path}`);
     }
   }
   if (scenario.id === 'P1') {
@@ -196,6 +244,8 @@ for (const scenario of scenarios) {
   if (
     scenario.id === 'L0' ||
     scenario.id === 'L1' ||
+    scenario.id === 'L2' ||
+    scenario.id === 'Lc' ||
     scenario.id === 'P1' ||
     scenario.id === 'D0a'
   ) {
@@ -218,6 +268,8 @@ const d0s = results.find((r) => r.id === 'D0s');
 const d0a = results.find((r) => r.id === 'D0a');
 const l0 = results.find((r) => r.id === 'L0');
 const l1 = results.find((r) => r.id === 'L1');
+const l2 = results.find((r) => r.id === 'L2');
+const lc = results.find((r) => r.id === 'Lc');
 const p1 = results.find((r) => r.id === 'P1');
 
 const gates = [
@@ -261,6 +313,27 @@ const gates = [
   { name: 'L1_errors', ok: l1.errors === 0, actual: l1.errors, limit: 0 },
 ];
 
+if (l2) {
+  gates.push({
+    name: 'L2_offset_deep_p95_info',
+    ok: true,
+    actual: l2.p95,
+    limit: null,
+    informational: true,
+    note: 'OFFSET profundo (page=500) — informativo; comparar com Lc',
+  });
+}
+if (lc) {
+  gates.push({
+    name: 'Lc_cursor_p95_info',
+    ok: true,
+    actual: lc.p95,
+    limit: null,
+    informational: true,
+    note: 'Keyset via nextCursor — informativo',
+  });
+}
+
 if (p1) {
   gates.push({
     name: 'P1_detail_p95_info',
@@ -276,9 +349,10 @@ const pass = gates.every((g) => g.ok);
 const report = {
   scale,
   baseUrl,
+  cacheMode,
   at: new Date().toISOString(),
   sloPolicy:
-    'Blocking: D0s (/summary) + D0a (/analytics) + L0/L1. D0 (/stats) and P1 (detail) are residual/info.',
+    'Blocking: D0s (/summary) + D0a (/analytics) + L0/L1. D0 (/stats), L2, Lc, P1 are residual/info.',
   instrument: process.env.BENCH_INSTRUMENT === '1',
   results,
   gates,

@@ -1,0 +1,106 @@
+{
+  "scale": "M",
+  "capturedAt": "2026-09-20T22:03:23.122Z",
+  "gucs": {
+    "jit": "off",
+    "work_mem": "64MB",
+    "runs": 5
+  },
+  "seqScanGate": {
+    "applies": true,
+    "fail": true,
+    "note": "FAIL se Seq Scan em farms/harvests/farm_crops nas shapes dash_*"
+  },
+  "summary": [
+    {
+      "name": "dash_farms_pack_summary",
+      "nodeType": "Result",
+      "execMsMedian": 744.352,
+      "execMsMad": 16.512,
+      "sharedHitBlocksMedian": 2489,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/dash_farms_pack_summary.json"
+    },
+    {
+      "name": "dash_crops_pack_summary",
+      "nodeType": "Aggregate",
+      "execMsMedian": 639.794,
+      "execMsMad": 39.118,
+      "sharedHitBlocksMedian": 8228,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/dash_crops_pack_summary.json"
+    },
+    {
+      "name": "dash_crops_pack_analytics",
+      "nodeType": "Result",
+      "execMsMedian": 4434.173,
+      "execMsMad": 18.665,
+      "sharedHitBlocksMedian": 8184,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/dash_crops_pack_analytics.json"
+    },
+    {
+      "name": "dash_by_esg",
+      "nodeType": "Aggregate",
+      "execMsMedian": 772.196,
+      "execMsMad": 21.988,
+      "sharedHitBlocksMedian": 3600,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/dash_by_esg.json"
+    },
+    {
+      "name": "dash_climate_by_crop",
+      "nodeType": "Aggregate",
+      "execMsMedian": 3343.193,
+      "execMsMad": 17.528,
+      "sharedHitBlocksMedian": 8184,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/dash_climate_by_crop.json"
+    },
+    {
+      "name": "list_producers_page",
+      "nodeType": "Limit",
+      "execMsMedian": 42.655,
+      "execMsMad": 0.813,
+      "sharedHitBlocksMedian": 1111,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": false,
+      "file": "artifacts/M/list_producers_page.json"
+    },
+    {
+      "name": "list_producers_offset_deep",
+      "nodeType": "Limit",
+      "execMsMedian": 86.837,
+      "execMsMad": 0.687,
+      "sharedHitBlocksMedian": 1111,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": false,
+      "file": "artifacts/M/list_producers_offset_deep.json"
+    },
+    {
+      "name": "list_producers_keyset",
+      "nodeType": "Limit",
+      "execMsMedian": 110.036,
+      "execMsMad": 1.428,
+      "sharedHitBlocksMedian": 2289,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": false,
+      "file": "artifacts/M/list_producers_keyset.json"
+    },
+    {
+      "name": "farms_agg_for_list",
+      "nodeType": "Aggregate",
+      "execMsMedian": 131.411,
+      "execMsMad": 0.567,
+      "sharedHitBlocksMedian": 3600,
+      "sharedReadBlocksMedian": 0,
+      "seqScanHot": true,
+      "file": "artifacts/M/farms_agg_for_list.json"
+    }
+  ]
+}

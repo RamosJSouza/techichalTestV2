@@ -6,6 +6,10 @@ import type {
   ProducerListResult,
 } from '../../domain/repositories/producer.repository.js';
 import { CryptoService } from '../../infrastructure/crypto/crypto.service.js';
+import {
+  decodeProducerListCursor,
+  encodeProducerListCursor,
+} from '../domain/list-producers-cursor.js';
 
 function toListItem(producer: Producer): ProducerListItem {
   const states = [
@@ -88,16 +92,82 @@ export class InMemoryProducerRepository implements IProducerRepository {
     items.sort((a, b) => {
       const av = query.sortBy === 'name' ? a.name : a.createdAt.toISOString();
       const bv = query.sortBy === 'name' ? b.name : b.createdAt.toISOString();
-      const cmp = av < bv ? -1 : av > bv ? 1 : a.id.localeCompare(b.id);
+      const cmp =
+        av < bv ? -1 : av > bv ? 1 : a.id.localeCompare(b.id);
       return query.sortOrder === 'asc' ? cmp : -cmp;
     });
     const total = items.length;
+
+    if (query.cursor) {
+      const cursor = decodeProducerListCursor(query.cursor);
+      if (
+        cursor.sortBy !== query.sortBy ||
+        cursor.sortOrder !== query.sortOrder
+      ) {
+        throw new Error('List cursor sortBy/sortOrder mismatch with query');
+      }
+      const cursorVal =
+        query.sortBy === 'name' ? cursor.sortValue : cursor.sortValue;
+      items = items.filter((p) => {
+        const val =
+          query.sortBy === 'name' ? p.name : p.createdAt.toISOString();
+        if (query.sortOrder === 'desc') {
+          return (
+            val < cursorVal ||
+            (val === cursorVal && p.id.localeCompare(cursor.id) < 0)
+          );
+        }
+        return (
+          val > cursorVal ||
+          (val === cursorVal && p.id.localeCompare(cursor.id) > 0)
+        );
+      });
+      const pageItems = items.slice(0, query.pageSize);
+      const last = pageItems[pageItems.length - 1];
+      const nextCursor =
+        last && pageItems.length === query.pageSize
+          ? encodeProducerListCursor({
+              v: 1,
+              sortBy: query.sortBy,
+              sortOrder: query.sortOrder,
+              sortValue:
+                query.sortBy === 'name'
+                  ? last.name
+                  : last.createdAt.toISOString(),
+              id: last.id,
+            })
+          : null;
+      return {
+        items: pageItems.map(toListItem),
+        total,
+        page: 0,
+        pageSize: query.pageSize,
+        nextCursor,
+      };
+    }
+
     const start = (query.page - 1) * query.pageSize;
+    const pageItems = items.slice(start, start + query.pageSize);
+    const last = pageItems[pageItems.length - 1];
+    const nextCursor =
+      last && pageItems.length === query.pageSize
+        ? encodeProducerListCursor({
+            v: 1,
+            sortBy: query.sortBy,
+            sortOrder: query.sortOrder,
+            sortValue:
+              query.sortBy === 'name'
+                ? last.name
+                : last.createdAt.toISOString(),
+            id: last.id,
+          })
+        : null;
     return {
-      items: items.slice(start, start + query.pageSize).map(toListItem),
+      items: pageItems.map(toListItem),
       total,
       page: query.page,
       pageSize: query.pageSize,
+      nextCursor,
     };
   }
 

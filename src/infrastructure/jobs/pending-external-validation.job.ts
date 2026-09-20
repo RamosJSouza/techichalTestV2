@@ -1,11 +1,13 @@
 import {
   Injectable,
+  Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.schema.js';
 import type { LoggerPort } from '../../application/services/logger.port.js';
+import type { MetricsPort } from '../../application/services/metrics.port.js';
 import { RevalidateFarmTerritorialUseCase } from '../../application/use-cases/revalidate-farm-territorial.use-case.js';
 import { RevalidateProducerDocumentUseCase } from '../../application/use-cases/revalidate-producer-document.use-case.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
@@ -15,6 +17,7 @@ import type { IProducerRepository } from '../../domain/repositories/producer.rep
 export class PendingExternalValidationJob
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly nestLogger = new Logger(PendingExternalValidationJob.name);
   private timer: ReturnType<typeof setInterval> | null = null;
   private running = false;
 
@@ -25,12 +28,14 @@ export class PendingExternalValidationJob
     private readonly revalidateProducer: RevalidateProducerDocumentUseCase,
     private readonly revalidateFarm: RevalidateFarmTerritorialUseCase,
     private readonly logger: LoggerPort,
+    private readonly metrics: MetricsPort,
   ) {}
 
   public onModuleInit(): void {
     const flag = this.config.get('REVALIDATE_PENDING_ENABLED', { infer: true });
     const enabled = flag !== '0' && flag !== 'false';
     if (!enabled) {
+      this.metrics.recordPendingRevalidateRun('disabled');
       this.logger.log('Pending external validation job disabled');
       return;
     }
@@ -60,6 +65,10 @@ export class PendingExternalValidationJob
       return;
     }
     this.running = true;
+    let producerOk = 0;
+    let producerErr = 0;
+    let farmOk = 0;
+    let farmErr = 0;
     try {
       const batchSize = this.config.get('REVALIDATE_PENDING_BATCH_SIZE', {
         infer: true,
@@ -69,9 +78,13 @@ export class PendingExternalValidationJob
       for (const id of producerIds) {
         try {
           await this.revalidateProducer.execute(id, 'job');
+          producerOk += 1;
+          this.metrics.recordPendingRevalidateItem('producer', 'ok');
         } catch (err) {
-          this.logger.error(
-            `Job revalidate producer ${id} failed: ${err instanceof Error ? err.message : String(err)}`,
+          producerErr += 1;
+          this.metrics.recordPendingRevalidateItem('producer', 'error');
+          this.logger.warn(
+            `Job revalidate producer item failed: ${err instanceof Error ? err.name : 'unknown'}`,
           );
         }
       }
@@ -79,12 +92,31 @@ export class PendingExternalValidationJob
       for (const id of farmIds) {
         try {
           await this.revalidateFarm.execute(id, 'job');
+          farmOk += 1;
+          this.metrics.recordPendingRevalidateItem('farm', 'ok');
         } catch (err) {
-          this.logger.error(
-            `Job revalidate farm ${id} failed: ${err instanceof Error ? err.message : String(err)}`,
+          farmErr += 1;
+          this.metrics.recordPendingRevalidateItem('farm', 'error');
+          this.logger.warn(
+            `Job revalidate farm item failed: ${err instanceof Error ? err.name : 'unknown'}`,
           );
         }
       }
+      const errors = producerErr + farmErr;
+      this.metrics.recordPendingRevalidateRun(errors > 0 ? 'error' : 'ok');
+      this.nestLogger.log({
+        job: 'pending_external_validation',
+        producers: producerOk + producerErr,
+        farms: farmOk + farmErr,
+        producerOk,
+        farmOk,
+        errors,
+      });
+    } catch (err) {
+      this.metrics.recordPendingRevalidateRun('error');
+      this.logger.error(
+        `Pending external validation job tick failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       this.running = false;
     }

@@ -74,7 +74,7 @@ export class CryptoService {
       throw new Error('Invalid encrypted payload format');
     }
 
-    const key = this.keys.get(keyId) ?? this.keys.get(this.activeKeyId);
+    const key = this.keys.get(keyId);
     if (!key) {
       throw new Error(`Unknown encryption key id: ${keyId}`);
     }

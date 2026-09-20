@@ -98,6 +98,9 @@ export const farms = pgTable(
   (table) => [
     index('farms_deleted_state_idx').on(table.deletedAt, table.state),
     index('farms_deleted_car_status_idx').on(table.deletedAt, table.carStatus),
+    index('farms_producer_id_active_idx')
+      .on(table.producerId)
+      .where(sql`${table.deletedAt} is null`),
     index('farms_climate_risk_idx')
       .on(table.climateRiskScore)
       .where(

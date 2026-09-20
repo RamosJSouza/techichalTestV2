@@ -105,6 +105,24 @@ describe('OpenAPI contract', () => {
     expect(item.properties).toHaveProperty('totalAreaHa');
     expect(item.properties).not.toHaveProperty('farms');
 
+    expect(page?.properties).toHaveProperty('nextCursor');
+    const nextCursor = page?.properties?.nextCursor as {
+      type?: string;
+      nullable?: boolean;
+    };
+    expect(nextCursor?.type).toBe('string');
+    expect(nextCursor?.nullable).toBe(true);
+
+    const listParams = (
+      doc.paths?.['/api/v1/producers']?.get as {
+        parameters?: Array<{ name?: string; in?: string }>;
+      }
+    )?.parameters;
+    const queryNames = (listParams ?? [])
+      .filter((p) => p.in === 'query')
+      .map((p) => p.name);
+    expect(queryNames).toContain('cursor');
+
     const detailGet = doc.paths?.['/api/v1/producers/{id}']?.get as {
       responses?: {
         '200'?: {

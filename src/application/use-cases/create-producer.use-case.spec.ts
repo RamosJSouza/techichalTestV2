@@ -55,6 +55,11 @@ describe('Producer use cases', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
 
     await expect(
@@ -73,6 +78,11 @@ describe('Producer use cases', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
 
     await expect(
@@ -117,6 +127,11 @@ describe('Producer use cases', () => {
       listCitiesByState: async () => ({
         outcome: 'PENDING_EXTERNAL_VALIDATION',
         reason: 'timeout_or_network',
+      }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
       }),
     };
     const producer = await buildCreateProducer(

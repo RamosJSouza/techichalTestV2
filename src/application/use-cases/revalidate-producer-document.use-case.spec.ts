@@ -27,6 +27,11 @@ describe('RevalidateProducerDocumentUseCase', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
 
     const producer = await buildCreateProducer(
@@ -53,6 +58,11 @@ describe('RevalidateProducerDocumentUseCase', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
 
     const result = await new RevalidateProducerDocumentUseCase(
@@ -86,6 +96,11 @@ describe('RevalidateProducerDocumentUseCase', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
     const producer = await buildCreateProducer(
       repo,
@@ -104,6 +119,11 @@ describe('RevalidateProducerDocumentUseCase', () => {
       }),
       isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
       listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     };
 
     const result = await new RevalidateProducerDocumentUseCase(

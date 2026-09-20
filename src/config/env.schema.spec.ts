@@ -78,6 +78,48 @@ describe('parseEnv', () => {
     ).toThrow(/ENCRYPTION_KEY_PREVIOUS_ID/);
   });
 
+  it('exige ENCRYPTION_KEY_PREVIOUS quando há PREVIOUS_ID', () => {
+    expect(() =>
+      parseEnv({
+        ...base,
+        NODE_ENV: 'development',
+        ENCRYPTION_KEY_PREVIOUS_ID: 'v0',
+      }),
+    ).toThrow(/ENCRYPTION_KEY_PREVIOUS/);
+  });
+
+  it('rejeita PREVIOUS_ID igual ao ENCRYPTION_KEY_ID', () => {
+    expect(() =>
+      parseEnv({
+        ...base,
+        NODE_ENV: 'development',
+        ENCRYPTION_KEY_ID: 'v1',
+        ENCRYPTION_KEY_PREVIOUS_ID: 'v1',
+        ENCRYPTION_KEY_PREVIOUS:
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      }),
+    ).toThrow(/must differ/);
+  });
+
+  it('rejeita BRASIL_API_BASE_URL com host não allowlisted', () => {
+    expect(() =>
+      parseEnv({
+        ...base,
+        NODE_ENV: 'development',
+        BRASIL_API_BASE_URL: 'https://evil.example/api',
+      }),
+    ).toThrow(/BRASIL_API_BASE_URL/);
+  });
+
+  it('aceita BRASIL_API_BASE_URL oficial', () => {
+    const env = parseEnv({
+      ...base,
+      NODE_ENV: 'development',
+      BRASIL_API_BASE_URL: 'https://brasilapi.com.br/api',
+    });
+    expect(env.BRASIL_API_BASE_URL).toContain('brasilapi.com.br');
+  });
+
   it('rejeita senha trivial no DATABASE_URL em production', () => {
     expect(() =>
       parseEnv({

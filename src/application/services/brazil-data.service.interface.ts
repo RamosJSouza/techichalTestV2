@@ -24,4 +24,10 @@ export interface BrazilDataServiceInterface {
     state: string,
   ): Promise<BrazilLookupResult<boolean>>;
   listCitiesByState(uf: string): Promise<BrazilLookupResult<string[]>>;
+  /** Estado dos circuit breakers (sem PII). */
+  getCircuitStats(): {
+    cnpjOpen: boolean;
+    cityOpen: boolean;
+    citiesOpen: boolean;
+  };
 }

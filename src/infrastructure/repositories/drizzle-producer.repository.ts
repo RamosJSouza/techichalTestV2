@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
   asc,
@@ -10,6 +10,10 @@ import {
   isNull,
   sql,
 } from 'drizzle-orm';
+import {
+  decodeProducerListCursor,
+  encodeProducerListCursor,
+} from '../../domain/list-producers-cursor.js';
 import { Producer } from '../../domain/entities/producer.js';
 import type {
   IProducerRepository,
@@ -17,6 +21,10 @@ import type {
   ProducerListQuery,
   ProducerListResult,
 } from '../../domain/repositories/producer.repository.js';
+import type {
+  MetricsDbOperation,
+  MetricsPort,
+} from '../../application/services/metrics.port.js';
 import type { CryptoService } from '../crypto/crypto.service.js';
 import type { DrizzleDb } from '../database/database.module.js';
 import { CRYPTO_SERVICE, DRIZZLE } from '../database/database.tokens.js';
@@ -32,10 +40,7 @@ import {
   harvests,
   producers,
 } from '../database/schema/index.js';
-import {
-  MetricsService,
-  type DbOperation,
-} from '../observability/metrics.service.js';
+import { MetricsService } from '../observability/metrics.service.js';
 
 type ProducerRow = typeof producers.$inferSelect;
 
@@ -44,7 +49,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
   public constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @Inject(CRYPTO_SERVICE) private readonly crypto: CryptoService,
-    @Optional() private readonly metrics?: MetricsService,
+    @Inject(MetricsService) private readonly metrics: MetricsPort,
   ) {}
 
   public async save(producer: Producer): Promise<Producer> {
@@ -185,36 +190,97 @@ export class DrizzleProducerRepository implements IProducerRepository {
           .replace(/_/g, '\\_');
         conditions.push(ilike(producers.name, `%${escaped}%`));
       }
-      const whereClause = and(...conditions);
 
       const sortColumn =
         query.sortBy === 'name' ? producers.name : producers.createdAt;
       const primaryOrder =
         query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
-      const offset = (query.page - 1) * query.pageSize;
+      let cursorPayload: ReturnType<typeof decodeProducerListCursor> | null =
+        null;
+      if (query.cursor) {
+        cursorPayload = decodeProducerListCursor(query.cursor);
+        if (
+          cursorPayload.sortBy !== query.sortBy ||
+          cursorPayload.sortOrder !== query.sortOrder
+        ) {
+          throw new Error(
+            'List cursor sortBy/sortOrder mismatch with query',
+          );
+        }
+        const cmp =
+          query.sortOrder === 'desc'
+            ? sql` < `
+            : sql` > `;
+        if (query.sortBy === 'name') {
+          conditions.push(
+            sql`(${producers.name}, ${producers.id})${cmp}(${cursorPayload.sortValue}, ${cursorPayload.id}::uuid)`,
+          );
+        } else {
+          conditions.push(
+            sql`(${producers.createdAt}, ${producers.id})${cmp}(${cursorPayload.sortValue}::timestamptz, ${cursorPayload.id}::uuid)`,
+          );
+        }
+      }
+
+      const whereClause = and(...conditions);
+      const useCursor = Boolean(query.cursor);
+      const offset = useCursor ? 0 : (query.page - 1) * query.pageSize;
+
+      const countConditions = [isNull(producers.deletedAt)];
+      if (query.name) {
+        const escaped = query.name
+          .replace(/\\/g, '\\\\')
+          .replace(/%/g, '\\%')
+          .replace(/_/g, '\\_');
+        countConditions.push(ilike(producers.name, `%${escaped}%`));
+      }
 
       trackDbRoundTrip();
-      const [totalRow] = await this.db
-        .select({ value: count() })
-        .from(producers)
-        .where(whereClause);
-
       trackDbRoundTrip();
-      const rows = await this.db
-        .select()
-        .from(producers)
-        .where(whereClause)
-        .orderBy(primaryOrder, asc(producers.id))
-        .limit(query.pageSize)
-        .offset(offset);
+      const [[totalRow], rows] = await Promise.all([
+        this.db
+          .select({ value: count() })
+          .from(producers)
+          .where(and(...countConditions)),
+        useCursor
+          ? this.db
+              .select()
+              .from(producers)
+              .where(whereClause)
+              .orderBy(primaryOrder, asc(producers.id))
+              .limit(query.pageSize)
+          : this.db
+              .select()
+              .from(producers)
+              .where(whereClause)
+              .orderBy(primaryOrder, asc(producers.id))
+              .limit(query.pageSize)
+              .offset(offset),
+      ]);
 
       const items = await this.toListItems(rows);
+      const last = rows[rows.length - 1];
+      const nextCursor =
+        last && rows.length === query.pageSize
+          ? encodeProducerListCursor({
+              v: 1,
+              sortBy: query.sortBy,
+              sortOrder: query.sortOrder,
+              sortValue:
+                query.sortBy === 'name'
+                  ? last.name
+                  : last.createdAt.toISOString(),
+              id: last.id,
+            })
+          : null;
+
       return {
         items,
         total: Number(totalRow?.value ?? 0),
-        page: query.page,
+        page: useCursor ? 0 : query.page,
         pageSize: query.pageSize,
+        nextCursor,
       };
     });
   }
@@ -260,12 +326,9 @@ export class DrizzleProducerRepository implements IProducerRepository {
   }
 
   private async timed<T>(
-    operation: DbOperation,
+    operation: MetricsDbOperation,
     fn: () => Promise<T>,
   ): Promise<T> {
-    if (!this.metrics) {
-      return fn();
-    }
     return this.metrics.timeDbOperation(operation, fn);
   }
 

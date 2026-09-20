@@ -76,7 +76,7 @@ async function bootstrap(): Promise<void> {
       legacyHeaders: false,
       skip: (req) => {
         const path = req.path ?? '';
-        return path.includes('/health');
+        return path.includes('/health') || path.includes('/metrics');
       },
       handler: (_req, res, _next, options) => {
         metrics.recordRateLimitRejected();
@@ -102,6 +102,7 @@ async function bootstrap(): Promise<void> {
   }
 
   app.setGlobalPrefix('api/v1');
+  app.enableShutdownHooks();
 
   if (env.NODE_ENV !== 'production') {
     const document = buildOpenApiDocument(app);

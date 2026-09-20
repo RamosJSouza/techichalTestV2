@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   and,
   eq,
@@ -9,6 +9,10 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import type {
+  MetricsDbOperation,
+  MetricsPort,
+} from '../../application/services/metrics.port.js';
 import type {
   DashboardAnalytics,
   DashboardFilters,
@@ -24,11 +28,8 @@ import {
   harvests,
   producers,
 } from '../database/schema/index.js';
-import {
-  MetricsService,
-  type DbOperation,
-} from '../observability/metrics.service.js';
 import { trackDbRoundTrip } from '../database/request-query-context.js';
+import { MetricsService } from '../observability/metrics.service.js';
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
@@ -83,7 +84,7 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
 
   public constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
-    @Optional() private readonly metrics?: MetricsService,
+    @Inject(MetricsService) private readonly metrics: MetricsPort,
   ) {}
 
   public async getStats(
@@ -150,12 +151,9 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
   }
 
   private async timed<T>(
-    operation: DbOperation,
+    operation: MetricsDbOperation,
     fn: () => Promise<T>,
   ): Promise<T> {
-    if (!this.metrics) {
-      return fn();
-    }
     return this.metrics.timeDbOperation(operation, fn);
   }
 

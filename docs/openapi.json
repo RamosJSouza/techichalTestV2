@@ -188,6 +188,16 @@
               "maxLength": 255,
               "type": "string"
             }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minLength": 1,
+              "maxLength": 512,
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1114,18 +1124,26 @@
           },
           "page": {
             "type": "number",
-            "example": 1
+            "example": 1,
+            "description": "Página OFFSET; 0 quando a listagem usa `cursor`"
           },
           "pageSize": {
             "type": "number",
             "example": 20
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor keyset para a próxima página (opaco). Null se não há mais itens.",
+            "example": null
           }
         },
         "required": [
           "items",
           "total",
           "page",
-          "pageSize"
+          "pageSize",
+          "nextCursor"
         ]
       },
       "HarvestResponseDto": {

@@ -12,12 +12,28 @@ const KNOWN_ROUTE_PREFIXES = [
   '/api/v1/farms',
   '/api/v1/dashboard',
   '/api/v1/ibge',
+  '/api/v1/admin',
   '/api/v1/health',
   '/api/v1/metrics',
   '/api/v1/observability',
 ] as const;
 
+const ALLOWED_HTTP_METHODS = new Set([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+]);
+
 type HttpStatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'other';
+
+export function normalizeHttpMethod(method: string): string {
+  const upper = method.toUpperCase();
+  return ALLOWED_HTTP_METHODS.has(upper) ? upper : 'OTHER';
+}
 
 export function statusClassFromCode(statusCode: number): HttpStatusClass {
   if (statusCode >= 200 && statusCode < 300) {

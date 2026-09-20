@@ -95,7 +95,50 @@ describe('BrasilApiAdapter', () => {
     expect(result.outcome).toBe('REJECTED');
     if (result.outcome === 'REJECTED') {
       expect(result.reason).toMatch(/não encontrado/i);
+      expect(result.reason).not.toMatch(/\d{11,}/);
+      expect(result.reason).not.toContain('11222333000181');
     }
+  });
+
+  it('buildUrl encodeia segmentos e remove trailing slash da base', async () => {
+    const urls: string[] = [];
+    const http = {
+      get: (url: string) => {
+        urls.push(url);
+        return of(
+          okResponse({
+            cnpj: '11222333000181',
+            razao_social: 'Empresa Teste',
+            descricao_situacao_cadastral: 'ATIVA',
+          }),
+        );
+      },
+    } as unknown as HttpService;
+
+    const configWithSlash = {
+      get: () => 'https://brasilapi.com.br/api/',
+    } as unknown as ConfigService;
+
+    const adapter = new BrasilApiAdapter(http, configWithSlash, metrics);
+    await adapter.getCnpjData('11222333000181');
+
+    expect(urls[0]).toBe(
+      'https://brasilapi.com.br/api/cnpj/v1/11222333000181',
+    );
+    expect(urls[0]).not.toContain('//cnpj');
+  });
+
+  it('rejeita UF inválida antes do HTTP', async () => {
+    const http = {
+      get: () => {
+        throw new Error('HTTP não deveria ser chamado');
+      },
+    } as unknown as HttpService;
+
+    const adapter = new BrasilApiAdapter(http, config, metrics);
+    await expect(adapter.listCitiesByState('../SP')).rejects.toThrow(
+      /Invalid UF/,
+    );
   });
 
   it('circuit open → PENDING (sem positivo silencioso)', async () => {

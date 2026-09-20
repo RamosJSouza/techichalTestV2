@@ -20,12 +20,20 @@ Dataset: ~N/3 producers, ~2N harvests, ~4N crops; seed determinístico (`SEED=42
 
 Backlog de hipóteses (pool, índices, cache, listagem, BrasilAPI, bundle): ver plano; **não** implementar preventivamente.
 
+### EXPLAIN determinístico
+
+`bench:explain` aplica `jit=off`, `work_mem=64MB`, **N=5** runs (mediana + MAD) por shape. Packs dashboard alinhados ao CTE do repositório. Em **M/L**, Seq Scan dominante em `farms`/`harvests`/`farm_crops` nas shapes `dash_*` = FAIL.
+
+Load: cenários **Lc** (`?cursor=`) e **L2** (OFFSET profundo, M/L) são **informativos**. `BENCH_CACHE_MODE=cold` documenta rodada com API em `DASHBOARD_STATS_CACHE_TTL_MS=0`.
+
+Listagem: `GET /producers` aceita `cursor` aditivo + `nextCursor` na resposta; `page`/`pageSize` permanecem (client React usa OFFSET).
+
 ## SLOs (HTTP end-to-end, API aquecida)
 
 | Scale | D0s p95 | D0s p99 | D0s min req/s | D0a p95 | L0 p95 | L1 p95 |
 |-------|---------|---------|---------------|---------|--------|--------|
 | S | ≤200 ms | ≤400 ms | ≥15 | ≤300 ms | ≤80 ms | ≤150 ms |
-| M | ≤500 ms | ≤900 ms | ≥8 | ≤600 ms | ≤120 ms | ≤250 ms |
+| M | ≤500 ms | ≤900 ms | ≥8 | ≤600 ms | ≤150 ms | ≤250 ms |
 | L | ≤1500 ms | ≤3000 ms | ≥2 | ≤1800 ms | ≤200 ms | ≤400 ms |
 
 - **D0s (bloqueante / first paint)** = `GET /api/v1/dashboard/summary`

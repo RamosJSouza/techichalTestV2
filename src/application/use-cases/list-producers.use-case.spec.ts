@@ -25,6 +25,18 @@ describe('ListProducersUseCase', () => {
     expect(page1.items).toHaveLength(2);
     expect(page1.items[0]?.name).toBe('Alpha');
     expect(page1.items[1]?.name).toBe('Beta');
+    expect(page1.nextCursor).toBeTruthy();
+
+    const page2 = await useCase.execute({
+      page: 1,
+      pageSize: 2,
+      sortBy: 'name',
+      sortOrder: 'asc',
+      cursor: page1.nextCursor!,
+    });
+    expect(page2.page).toBe(0);
+    expect(page2.items.map((p) => p.name)).toEqual(['Gamma']);
+    expect(page2.nextCursor).toBeNull();
 
     const filtered = await useCase.execute({
       page: 1,

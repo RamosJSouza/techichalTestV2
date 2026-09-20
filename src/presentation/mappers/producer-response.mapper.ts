@@ -3,7 +3,7 @@ import { Producer } from '../../domain/entities/producer.js';
 import type { ProducerListItem } from '../../domain/repositories/producer.repository.js';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 
-interface FarmResponse {
+export interface FarmResponse {
   id: string;
   producerId: string;
   name: string;
@@ -26,7 +26,7 @@ interface FarmResponse {
   }>;
 }
 
-interface ProducerResponse {
+export interface ProducerResponse {
   id: string;
   name: string;
   document: string;
@@ -40,7 +40,7 @@ interface ProducerResponse {
   updatedAt: string;
 }
 
-interface ProducerListItemResponse {
+export interface ProducerListItemResponse {
   id: string;
   name: string;
   document: string;

@@ -65,7 +65,13 @@ try {
   console.error('verify-aggregates FAILED', err.message);
 }
 
-await runNode('scripts/bench/explain-capture.mjs');
+let explainFailed = false;
+try {
+  await runNode('scripts/bench/explain-capture.mjs');
+} catch (err) {
+  explainFailed = true;
+  console.error('explain-capture FAILED', err.message);
+}
 
 let loadReport = null;
 let loadOut = '';
@@ -85,29 +91,65 @@ if (jsonStart >= 0) {
   }
 }
 
-const pass = verifyOk && loadReport?.pass === true;
-const reportPath = join(reportsDir, `${scale}-${date}.md`);
+const pass = verifyOk && loadReport?.pass === true && !explainFailed;
+const reportPath = join(reportsDir, `${scale}-${date}-perf-review.md`);
 
 const gatesTable = (loadReport?.gates ?? [])
   .map(
     (g) =>
-      `| ${g.name} | ${g.actual} | ${g.limit} | ${g.ok ? 'PASS' : 'FAIL'} |`,
+      `| ${g.name} | ${g.actual} | ${g.limit ?? '—'} | ${g.informational ? 'info' : g.ok ? 'PASS' : 'FAIL'} |`,
   )
   .join('\n');
 
 const resultsTable = (loadReport?.results ?? [])
   .map(
     (r) =>
-      `| ${r.id} | ${r.p50} | ${r.p95} | ${r.p99} | ${r.rps} | ${r.errors} |`,
+      `| ${r.id} | ${r.p50} | ${r.p95} | ${r.p99} | ${r.rps} | ${r.errors} | ${r.dbQueriesMedian ?? '—'} | ${r.heapDeltaMbMedian ?? '—'} |`,
   )
   .join('\n');
 
-const md = `# Bench report ${scale} — ${date}
+let explainSummary = '';
+try {
+  const summaryPath = join(
+    process.cwd(),
+    'docs',
+    'bench',
+    'artifacts',
+    scale,
+    'summary.json',
+  );
+  const { readFile } = await import('node:fs/promises');
+  const explain = JSON.parse(await readFile(summaryPath, 'utf8'));
+  const top = [...(explain.summary ?? [])]
+    .sort((a, b) => (b.execMsMedian ?? 0) - (a.execMsMedian ?? 0))
+    .slice(0, 5)
+    .map(
+      (s) =>
+        `| ${s.name} | ${s.execMsMedian} | ${s.execMsMad ?? '—'} | ${s.seqScanHot ? 'yes' : 'no'} |`,
+    )
+    .join('\n');
+  explainSummary = `
+## EXPLAIN (mediana N runs)
+
+- GUCs: \`${JSON.stringify(explain.gucs ?? {})}\`
+- Seq Scan gate: ${explain.seqScanGate?.fail ? 'FAIL' : 'OK'} (${explain.seqScanGate?.note ?? ''})
+
+| Shape | median ms | MAD | seqScanHot |
+|-------|-----------|-----|------------|
+${top || '| — | — | — | — |'}
+`;
+} catch {
+  explainSummary = '\n## EXPLAIN\n\n(artefato summary.json ausente)\n';
+}
+
+const md = `# Perf review ${scale} — ${date}
 
 - **PASS:** ${pass}
 - **Base URL:** ${loadReport?.baseUrl ?? process.env.BENCH_BASE_URL ?? 'http://localhost:3000'}
+- **Cache mode (load):** ${loadReport?.cacheMode ?? 'warm'}
 - **Verify aggregates:** ${verifyOk ? 'PASS' : 'FAIL'}
 - **EXPLAIN artifacts:** \`docs/bench/artifacts/${scale}/\`
+- **Remediações de produto:** nenhuma preventiva — só sob gate FAIL + EXPLAIN before/after.
 
 ## Gates
 
@@ -115,19 +157,19 @@ const md = `# Bench report ${scale} — ${date}
 |------|--------|-------|--------|
 ${gatesTable || '| — | — | — | — |'}
 
-## Latency / throughput
+## Latency / throughput (p50/p95/p99)
 
-| ID | p50 (ms) | p95 (ms) | p99 (ms) | rps | errors |
-|----|----------|----------|----------|-----|--------|
-${resultsTable || '| — | — | — | — | — | — |'}
-
+| ID | p50 (ms) | p95 (ms) | p99 (ms) | rps | errors | dbQueries med | heapΔ MB |
+|----|----------|----------|----------|-----|--------|---------------|----------|
+${resultsTable || '| — | — | — | — | — | — | — | — |'}
+${explainSummary}
 ## Remediação
 
-${pass ? 'Nenhuma — gates OK. Não abrir PR de otimização preventivo.' : 'Abrir item do backlog (pool / índices / cache / listagem) **somente** com EXPLAIN before/after.'}
+${pass ? 'Nenhuma — gates OK. Cursor aditivo disponível (\`nextCursor\` / \`?cursor=\`); client React permanece em OFFSET.' : 'Abrir remediação **somente** com EXPLAIN before/after no scale correspondente.'}
 
 ## Ambiente
 
-Documentar manualmente: CPU/RAM host, limites do container Postgres, \`NODE_ENV\` da API.
+Documentar: CPU/RAM host, limites do container Postgres, \`NODE_ENV\` da API, \`BENCH_INSTRUMENT\`.
 `;
 
 await writeFile(reportPath, md, 'utf8');

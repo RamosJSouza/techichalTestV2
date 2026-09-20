@@ -1,4 +1,5 @@
 import {
+  normalizeHttpMethod,
   normalizeHttpRoute,
   statusClassFromCode,
 } from './normalize-http-route.js';
@@ -45,6 +46,17 @@ describe('normalizeHttpRoute', () => {
     ).toBe('/api/v1/health/live');
   });
 
+  it('reconhece prefixo /api/v1/admin no fallback', () => {
+    expect(
+      normalizeHttpRoute({
+        baseUrl: '',
+        route: undefined,
+        path: '/api/v1/admin/revalidate/producers/:id',
+        originalUrl: '/api/v1/admin/revalidate/producers/:id',
+      }),
+    ).toBe('/api/v1/admin/revalidate/producers/:id');
+  });
+
   it('retorna unmatched para path vazio', () => {
     expect(
       normalizeHttpRoute({
@@ -54,6 +66,14 @@ describe('normalizeHttpRoute', () => {
         originalUrl: '/',
       }),
     ).toBe('unmatched');
+  });
+});
+
+describe('normalizeHttpMethod', () => {
+  it('allowlist de métodos HTTP', () => {
+    expect(normalizeHttpMethod('get')).toBe('GET');
+    expect(normalizeHttpMethod('POST')).toBe('POST');
+    expect(normalizeHttpMethod('TRACE')).toBe('OTHER');
   });
 });
 

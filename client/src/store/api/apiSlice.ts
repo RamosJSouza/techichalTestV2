@@ -69,6 +69,7 @@ export const apiSlice = createApi({
         total: number;
         page: number;
         pageSize: number;
+        nextCursor?: string | null;
       },
       { page?: number; pageSize?: number; name?: string } | void
     >({

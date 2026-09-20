@@ -145,6 +145,18 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "title": "Pending revalidate items",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "targets": [
+        {
+          "expr": "sum(rate(pending_revalidate_items_total[5m])) by (resource, result)",
+          "legendFormat": "{{resource}} {{result}}",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "schemaVersion": 39,

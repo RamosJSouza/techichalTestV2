@@ -73,11 +73,23 @@ export class ProducerListPageResponseDto {
   @ApiProperty({ example: 3334 })
   public total!: number;
 
-  @ApiProperty({ example: 1 })
+  @ApiProperty({
+    example: 1,
+    description: 'Página OFFSET; 0 quando a listagem usa `cursor`',
+  })
   public page!: number;
 
   @ApiProperty({ example: 20 })
   public pageSize!: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Cursor keyset para a próxima página (opaco). Null se não há mais itens.',
+    example: null,
+  })
+  public nextCursor!: string | null;
 }
 
 /** Safra no detalhe hidratado. */

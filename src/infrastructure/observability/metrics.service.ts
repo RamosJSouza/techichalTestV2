@@ -6,39 +6,29 @@ import {
   Registry,
   collectDefaultMetrics,
 } from 'prom-client';
-import { statusClassFromCode } from './normalize-http-route.js';
+import type {
+  MetricsBrasilApiCacheResult,
+  MetricsBrasilApiOperation,
+  MetricsBrasilApiResultLabel,
+  MetricsCircuitBreakerName,
+  MetricsDbOperation,
+  MetricsPort,
+} from '../../application/services/metrics.port.js';
+import { statusClassFromCode, normalizeHttpMethod } from './normalize-http-route.js';
 
-type CircuitBreakerName = 'cnpj' | 'city' | 'cities';
+export type BrasilApiOperation = MetricsBrasilApiOperation;
+export type BrasilApiResultLabel = MetricsBrasilApiResultLabel;
+export type DbOperation = MetricsDbOperation;
 
-export type BrasilApiOperation = 'cnpj' | 'city' | 'cities';
-
-export type BrasilApiResultLabel =
-  | 'success'
-  | 'fallback'
-  | 'rejected'
-  | 'error';
-
-type BrasilApiCacheResult = 'hit' | 'miss' | 'expired';
-
-export type DbOperation =
-  | 'producer_save'
-  | 'producer_update'
-  | 'producer_find_by_id'
-  | 'producer_find_by_document_hash'
-  | 'producer_find_many'
-  | 'producer_find_all'
-  | 'producer_soft_delete'
-  | 'farm_save'
-  | 'farm_update'
-  | 'farm_find_by_id'
-  | 'farm_soft_delete'
-  | 'dashboard_stats'
-  | 'dashboard_summary'
-  | 'dashboard_analytics';
-
+type BrasilApiCacheResult = MetricsBrasilApiCacheResult;
+type CircuitBreakerName = MetricsCircuitBreakerName;
 type DbQueryResult = 'ok' | 'error';
 
 type ClientTimingEvent = 'dashboard_csv_export';
+
+type PendingRevalidateRunResult = 'ok' | 'error' | 'disabled';
+type PendingRevalidateResource = 'producer' | 'farm';
+type PendingRevalidateItemResult = 'ok' | 'error';
 
 const DOMAIN_ERROR_CODES = new Set([
   'VALIDATION_ERROR',
@@ -61,7 +51,7 @@ const CLIENT_TIMING_EVENTS = new Set<ClientTimingEvent>([
 ]);
 
 @Injectable()
-export class MetricsService {
+export class MetricsService implements MetricsPort {
   public readonly registry = new Registry();
   public readonly httpRequestsTotal: Counter<string>;
   public readonly httpRequestDurationSeconds: Histogram<string>;
@@ -75,6 +65,8 @@ export class MetricsService {
   public readonly rateLimitRejectedTotal: Counter<string>;
   public readonly domainErrorsTotal: Counter<string>;
   public readonly clientTimingSeconds: Histogram<string>;
+  public readonly pendingRevalidateRunsTotal: Counter<string>;
+  public readonly pendingRevalidateItemsTotal: Counter<string>;
 
   public constructor() {
     collectDefaultMetrics({ register: this.registry });
@@ -153,6 +145,18 @@ export class MetricsService {
       buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
       registers: [this.registry],
     });
+    this.pendingRevalidateRunsTotal = new Counter({
+      name: 'pending_revalidate_runs_total',
+      help: 'Pending external validation job ticks by result',
+      labelNames: ['result'],
+      registers: [this.registry],
+    });
+    this.pendingRevalidateItemsTotal = new Counter({
+      name: 'pending_revalidate_items_total',
+      help: 'Pending revalidation items by resource and result (no IDs)',
+      labelNames: ['resource', 'result'],
+      registers: [this.registry],
+    });
   }
 
   public recordHttp(
@@ -162,12 +166,16 @@ export class MetricsService {
     durationSeconds: number,
   ): void {
     const statusClass = statusClassFromCode(statusCode);
+    const safeMethod = normalizeHttpMethod(method);
     this.httpRequestsTotal.inc({
-      method,
+      method: safeMethod,
       route,
       status_class: statusClass,
     });
-    this.httpRequestDurationSeconds.observe({ method, route }, durationSeconds);
+    this.httpRequestDurationSeconds.observe(
+      { method: safeMethod, route },
+      durationSeconds,
+    );
   }
 
   public setDbUp(up: boolean): void {
@@ -243,6 +251,28 @@ export class MetricsService {
       Math.min(Math.max(durationSeconds, 0), 120),
     );
     return true;
+  }
+
+  public recordPendingRevalidateRun(result: string): void {
+    const safe: PendingRevalidateRunResult =
+      result === 'ok' || result === 'error' || result === 'disabled'
+        ? result
+        : 'error';
+    this.pendingRevalidateRunsTotal.inc({ result: safe });
+  }
+
+  public recordPendingRevalidateItem(
+    resource: string,
+    result: string,
+  ): void {
+    const safeResource: PendingRevalidateResource =
+      resource === 'producer' || resource === 'farm' ? resource : 'producer';
+    const safeResult: PendingRevalidateItemResult =
+      result === 'ok' || result === 'error' ? result : 'error';
+    this.pendingRevalidateItemsTotal.inc({
+      resource: safeResource,
+      result: safeResult,
+    });
   }
 
   public async scrape(): Promise<string> {

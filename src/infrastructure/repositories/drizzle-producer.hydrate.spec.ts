@@ -1,3 +1,4 @@
+import { NoopMetrics } from '../../testing/noop-metrics.js';
 import { CryptoService } from '../crypto/crypto.service.js';
 import { DrizzleProducerRepository } from './drizzle-producer.repository.js';
 
@@ -86,7 +87,11 @@ describe('DrizzleProducerRepository findMany summary', () => {
       },
     };
 
-    const repo = new DrizzleProducerRepository(db as never, crypto);
+    const repo = new DrizzleProducerRepository(
+      db as never,
+      crypto,
+      new NoopMetrics(),
+    );
     const result = await repo.findMany({
       page: 1,
       pageSize: 20,

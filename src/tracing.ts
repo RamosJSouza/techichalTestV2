@@ -3,6 +3,9 @@
  * Com OTEL_EXPORTER_OTLP_ENDPOINT: exporta traces via OTLP/HTTP.
  * Sem endpoint: SDK sobe sem exporter (no-op de export).
  * OTEL_SERVICE_NAME (opcional) é lido pelo SDK via Resource detectors / env.
+ *
+ * Headers sensíveis (authorization, cookie, x-admin-token) não entram em
+ * span attributes — headersToSpanAttributes vazio.
  */
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { NodeSDK } from '@opentelemetry/sdk-node';
@@ -19,6 +22,12 @@ try {
     instrumentations: [
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-fs': { enabled: false },
+        '@opentelemetry/instrumentation-http': {
+          headersToSpanAttributes: {
+            client: { requestHeaders: [], responseHeaders: [] },
+            server: { requestHeaders: [], responseHeaders: [] },
+          },
+        },
       }),
     ],
     ...(otlpEndpoint

@@ -6,7 +6,7 @@ API REST NestJS e SPA React no mesmo processo em produção (`/`).
 
 **Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `.tool-versions`, `packageManager`, `pnpm preflight`)
 
-Validação limpa executada em **2026-09-20** — ver [`docs/evaluator-checklist.md`](docs/evaluator-checklist.md).
+Validação limpa executada em **2026-09-20** — ver [`docs/release-checklist.md`](docs/release-checklist.md).
 
 ---
 
@@ -119,7 +119,7 @@ pnpm docker:up
 ```
 
 - SPA / API: http://localhost:3000/
-- Health: `GET http://localhost:3000/api/v1/health/live`
+- Health: `GET http://localhost:3000/api/v1/health/ready` (DB); liveness: `/health/live`
 - Swagger: **desligado** (Compose força `NODE_ENV=production`)
 
 ---
@@ -171,7 +171,7 @@ Alinhadas a [`.env_example`](.env_example):
 | `REVALIDATE_PENDING_INTERVAL_MS` | Intervalo do job (default 300000) |
 | `REVALIDATE_PENDING_BATCH_SIZE` | Batch por tick (default 50) |
 | `CORS_ORIGINS` | CSV de origens em production (vazio = sem CORS aberto) |
-| `THROTTLE_TTL_MS` / `THROTTLE_LIMIT` | Rate limit por IP (default 60000 ms / 100). Skip só em `/health*` |
+| `THROTTLE_TTL_MS` / `THROTTLE_LIMIT` | Rate limit por IP (default 60000 ms / 100). Skip em `/health*` e `/metrics` |
 | `TRUST_PROXY` | `true`/`1` atrás de proxy confiável |
 | `BODY_LIMIT` | Limite JSON body Express (default `100kb`) |
 | `API_HOST_PORT` | Mapeamento host da API no Compose |
@@ -221,7 +221,7 @@ Smoke dos mesmos endpoints verificado em 2026-09-20 contra API local (`NODE_ENV=
 | Artefato | Onde |
 |----------|------|
 | Swagger UI | http://localhost:3000/api/docs — **somente** se `NODE_ENV !== production` |
-| Spec JSON | [`docs/openapi.json`](docs/openapi.json) (gerado via `GET /api/docs-json`, OpenAPI 3.0.0) |
+| Spec JSON | [`docs/openapi.json`](docs/openapi.json) (gerado via `pnpm openapi:export` → boot Nest/`docs-json`, OpenAPI 3.0.0) |
 
 No Docker Compose (production) o Swagger **não** é montado.
 
@@ -264,6 +264,25 @@ Auditoria append-only: tabela `external_validation_audit` (sem PII em claro).
 
 ---
 
+## Known limitations and trade-offs
+
+Limitações deliberadas do desafio / ops (detalhe operacional também em [Limitações conhecidas / Production blockers](#limitações-conhecidas--production-blockers)):
+
+| Tema | Trade-off |
+|------|-----------|
+| Auth de usuário / IDOR | **Fora do escopo do desafio.** API aberta exceto `POST /admin/revalidate/*` (`X-Admin-Token`). Não expor na internet sem VPN/mTLS ou OIDC+RBAC. |
+| `/api/v1/metrics` | Público por desenho AppSec do desafio; restringir por rede (ver [`docs/observability/RUNBOOK.md`](docs/observability/RUNBOOK.md)). |
+| BrasilAPI fora | Persistência `PENDING_EXTERNAL_VALIDATION` — **nunca** compliance positivo silencioso. |
+| ESG / CAR | Stubs determinísticos locais — não usar para compliance real. |
+| Listagem de produtores | Agregados (`farmsCount`/áreas/UFs) **sem** safras/culturas; detalhe em `GET /producers/:id`. |
+| Dashboard | Multi-query; first paint do frontend = `/dashboard/summary`; `/stats` residual. |
+| Bench HTTP S no CI | Gate **bloqueante**; latência do runner GHA pode falhar SLO — transparência, não soft-fail. |
+| Migrations `0000–0003` | Aplicadas once pelo journal Drizzle; SQL antigo **não** é reaplicável à mão (sem `IF NOT EXISTS`). |
+| Artefatos `docs/bench/artifacts/` | Baseline commitada de propósito (bundle/SLO); dumps locais regeneráveis via `pnpm bench:*`. |
+| Compose `api` | Força `NODE_ENV=production` (Swagger off); secrets fracos são rejeitados pelo schema. |
+
+---
+
 ## Limitações conhecidas / Production blockers
 
 **Bloqueadores para exposição pública (P0/P1):**
@@ -283,7 +302,7 @@ Auditoria append-only: tabela `external_validation_audit` (sem PII em claro).
 - `CHECK` constraints de área/UF no Postgres.
 - Violação de unique (`23505`) mapeada para HTTP **409**.
 
-Outras limitações operacionais: rate limit só por IP; listagem paginada retorna agregados (`farmsCount`/áreas/UFs) **sem** hidratar safras/culturas (`GET /producers/:id` hidrata o detalhe). Bundle gzip e bench HTTP S são **gates bloqueantes** no CI (`pnpm bench:bundle`, `pnpm bench:ci`); o SLO de first paint do dashboard usa `/summary` — `/stats` é residual — ver `docs/bench` e [`docs/matriz-riscos-staff-2026-09-20.md`](docs/matriz-riscos-staff-2026-09-20.md). Scripts `pnpm bench:run` locais de carga/SQL permanecem disponíveis fora do caminho mínimo do avaliador.
+Outras limitações operacionais: rate limit só por IP; listagem paginada retorna agregados (`farmsCount`/áreas/UFs) **sem** hidratar safras/culturas (`GET /producers/:id` hidrata o detalhe). Bundle gzip e bench HTTP S são **gates bloqueantes** no CI (`pnpm bench:bundle`, `pnpm bench:ci`); o SLO de first paint do dashboard usa `/summary` — `/stats` é residual — ver [`docs/bench/`](docs/bench/) e [`docs/release-checklist.md`](docs/release-checklist.md). Scripts `pnpm bench:run` locais de carga/SQL permanecem disponíveis fora do caminho mínimo do avaliador.
 
 ---
 
@@ -292,15 +311,21 @@ Outras limitações operacionais: rate limit só por IP; listagem paginada retor
 | Método | Path | Descrição |
 |--------|------|-----------|
 | POST | `/api/v1/producers` | Cria produtor (+ fazendas/safras opcionais) |
-| GET | `/api/v1/producers` | Lista paginada |
-| GET | `/api/v1/producers/:id` | Detalhe |
+| GET | `/api/v1/producers` | Lista paginada (OFFSET e/ou `cursor` keyset) |
+| GET | `/api/v1/producers/:id` | Detalhe (com safras/culturas) |
 | GET | `/api/v1/producers/search?document=` | Busca por blind index |
 | PUT / DELETE | `/api/v1/producers/:id` | Atualiza / soft delete |
 | GET | `/api/v1/producers/:id/esg-compliance` | Parecer socioambiental |
 | POST / PUT / DELETE | `/api/v1/farms`… | CRUD fazenda |
 | POST | `/api/v1/farms/:id/car/validate` | Auditoria CAR (stub) |
-| GET | `/api/v1/dashboard/stats` | Agregações |
-| GET | `/api/v1/health/live` · `/ready` | Health |
+| GET | `/api/v1/dashboard/stats` | Agregações completas (residual) |
+| GET | `/api/v1/dashboard/summary` | First paint (KPIs leves) |
+| GET | `/api/v1/dashboard/analytics` | Séries / top cities |
+| GET | `/api/v1/ibge/states/:uf/cities` | Cidades por UF (BrasilAPI) |
+| POST | `/api/v1/admin/revalidate/producers/:id` | Revalida CNPJ (`X-Admin-Token`) |
+| POST | `/api/v1/admin/revalidate/farms/:id` | Revalida território (`X-Admin-Token`) |
+| GET | `/api/v1/health` · `/health/live` | Liveness |
+| GET | `/api/v1/health/ready` | Readiness (Postgres) |
 | GET | `/api/v1/metrics` | Prometheus (não expor publicamente) |
 | POST | `/api/v1/observability/client-timings` | Timing allowlisted (ex.: export CSV) |
 
@@ -311,7 +336,7 @@ Outras limitações operacionais: rate limit só por IP; listagem paginada retor
 - Documento criptografado em repouso; busca via hash; máscara `@MaskPII()` nas respostas.
 - Soft delete + unique parcial; logs Pino com redact de `document`.
 - Helmet, rate limit, CORS restrito em production, body limit.
-- 5xx genéricos com `errorId` / `traceId`.
+- 5xx genéricos com `errorId` / `requestId` / `traceId`.
 - **Dependências:** `pnpm audit:ci` (= `pnpm audit --prod --audit-level=high`) falha a CI em vulnerabilidades **high** ou superiores nas deps de **runtime**. **Não** há allowlist/silenciamento. Export do dashboard é CSV nativo (sem `xlsx`; não há upload/leitura de planilhas). Se no futuro for inevitável uma exceção temporária, documentar em `docs/security/audit-exceptions.md` com CVE, justificativa e **data de expiração** — o arquivo só deve existir enquanto a exceção estiver vigente.
 
-Frontend: [`client/README.md`](client/README.md). Spec técnica: [`docs/backend-technical-spec.md`](docs/backend-technical-spec.md).
+Frontend: [`client/README.md`](client/README.md). Checklist de release: [`docs/release-checklist.md`](docs/release-checklist.md). Threat model: [`docs/security/threat-model-api.md`](docs/security/threat-model-api.md).

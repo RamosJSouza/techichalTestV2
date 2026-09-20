@@ -2,11 +2,12 @@ import type { ExternalValidationAuditPort } from '../services/external-validatio
 import type { ExternalValidationAuditTrigger } from '../services/external-validation-audit.port.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import type { LoggerPort } from '../services/logger.port.js';
+import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 
-interface RevalidateResult {
+export interface RevalidateResult {
   id: string;
   previousStatus: ExternalValidationStatus;
   newStatus: ExternalValidationStatus;
@@ -55,42 +56,21 @@ export class RevalidateProducerDocumentUseCase {
       };
     }
 
-    const lookup = await this.brazil.getCnpjData(producer.document.value);
-    let newStatus: ExternalValidationStatus = previousStatus;
-    let reason: string | null = null;
+    const resolved = await resolveCnpjDocumentValidation({
+      mode: 'revalidate',
+      brazilData: this.brazil,
+      document: producer.document,
+    });
 
-    switch (lookup.outcome) {
-      case 'VALIDATED':
-        if (!lookup.data.isActive) {
-          newStatus = 'REJECTED';
-          reason = 'cnpj_inactive';
-          producer.setDocumentValidationStatus('REJECTED', reason);
-        } else {
-          newStatus = 'VALIDATED';
-          reason = null;
-          producer.setDocumentValidationStatus('VALIDATED');
-          if (lookup.data.razaoSocial) {
-            producer.updateName(lookup.data.razaoSocial);
-          }
-        }
-        break;
-      case 'PENDING_EXTERNAL_VALIDATION':
-        newStatus = 'PENDING_EXTERNAL_VALIDATION';
-        reason = lookup.reason;
-        producer.setDocumentValidationStatus(
-          'PENDING_EXTERNAL_VALIDATION',
-          lookup.reason,
-        );
-        break;
-      case 'REJECTED':
-        newStatus = 'REJECTED';
-        reason = lookup.reason;
-        producer.setDocumentValidationStatus('REJECTED', lookup.reason);
-        break;
-      default: {
-        const _exhaustive: never = lookup;
-        throw new Error(`Unexpected CNPJ lookup: ${JSON.stringify(_exhaustive)}`);
-      }
+    const newStatus = resolved.status;
+    const reason = resolved.reason;
+
+    producer.setDocumentValidationStatus(
+      newStatus,
+      newStatus === 'VALIDATED' ? null : reason,
+    );
+    if (newStatus === 'VALIDATED' && resolved.razaoSocial) {
+      producer.updateName(resolved.razaoSocial);
     }
 
     await this.producers.update(producer);

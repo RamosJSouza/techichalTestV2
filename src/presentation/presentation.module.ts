@@ -296,6 +296,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         revalidateProducer: RevalidateProducerDocumentUseCase,
         revalidateFarm: RevalidateFarmTerritorialUseCase,
         logger: LoggerPort,
+        metrics: MetricsService,
       ): PendingExternalValidationJob =>
         new PendingExternalValidationJob(
           config,
@@ -304,6 +305,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
           revalidateProducer,
           revalidateFarm,
           logger,
+          metrics,
         ),
       inject: [
         ConfigService,
@@ -312,6 +314,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         RevalidateProducerDocumentUseCase,
         RevalidateFarmTerritorialUseCase,
         LOGGER_PORT,
+        MetricsService,
       ],
     },
     {

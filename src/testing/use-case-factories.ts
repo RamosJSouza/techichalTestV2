@@ -15,6 +15,11 @@ export const defaultBrazil: BrazilDataServiceInterface = {
   }),
   isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
   listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+  getCircuitStats: () => ({
+    cnpjOpen: false,
+    cityOpen: false,
+    citiesOpen: false,
+  }),
 };
 
 export function noopAudit(): ExternalValidationAuditPort {

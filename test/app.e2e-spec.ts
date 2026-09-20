@@ -11,6 +11,7 @@ import { BRAZIL_DATA_SERVICE } from '../src/application/services/brazil-data.ser
 import type { BrazilDataServiceInterface } from '../src/application/services/brazil-data.service.interface.js';
 import { GlobalExceptionFilter } from '../src/presentation/filters/global-exception.filter.js';
 import { ZodValidationPipe } from '../src/presentation/pipes/zod-validation.pipe.js';
+import { NoopMetrics } from '../src/testing/noop-metrics.js';
 import { E2eAppModule } from './e2e-app.module.js';
 
 loadEnv();
@@ -31,6 +32,11 @@ const offlineBrazil: BrazilDataServiceInterface = {
   listCitiesByState: async () => ({
     outcome: 'VALIDATED',
     data: ['Ribeirão Preto', 'Campinas'],
+  }),
+  getCircuitStats: () => ({
+    cnpjOpen: false,
+    cityOpen: false,
+    citiesOpen: false,
   }),
 };
 
@@ -64,7 +70,7 @@ const offlineBrazil: BrazilDataServiceInterface = {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ZodValidationPipe());
-    app.useGlobalFilters(new GlobalExceptionFilter());
+    app.useGlobalFilters(new GlobalExceptionFilter(new NoopMetrics()));
     await app.init();
   });
 

@@ -72,6 +72,11 @@ describe('CreateFarmUseCase', () => {
         outcome: 'PENDING_EXTERNAL_VALIDATION',
         reason: 'circuit_open',
       }),
+      getCircuitStats: () => ({
+        cnpjOpen: false,
+        cityOpen: false,
+        citiesOpen: false,
+      }),
     }).execute({
       producerId: producer.id,
       name: 'Santa Maria',
@@ -110,6 +115,11 @@ describe('CreateFarmUseCase', () => {
         }),
         isCityInState: async () => ({ outcome: 'VALIDATED', data: false }),
         listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
+        getCircuitStats: () => ({
+          cnpjOpen: false,
+          cityOpen: false,
+          citiesOpen: false,
+        }),
       }).execute({
         producerId: producer.id,
         name: 'Fazenda',

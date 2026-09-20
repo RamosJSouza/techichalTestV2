@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError } from 'axios';
 import CircuitBreaker from 'opossum';
@@ -9,6 +9,7 @@ import type {
   BrazilLookupResult,
   CnpjCompanyData,
 } from '../../../application/services/brazil-data.service.interface.js';
+import type { MetricsPort } from '../../../application/services/metrics.port.js';
 import type { Env } from '../../../config/env.schema.js';
 import {
   MetricsService,
@@ -58,9 +59,11 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   public constructor(
     private readonly http: HttpService,
     config: ConfigService<Env, true>,
-    @Optional() private readonly metrics?: MetricsService,
+    @Inject(MetricsService) private readonly metrics: MetricsPort,
   ) {
-    this.baseUrl = config.get('BRASIL_API_BASE_URL', { infer: true });
+    this.baseUrl = config
+      .get('BRASIL_API_BASE_URL', { infer: true })
+      .replace(/\/+$/, '');
 
     const breakerOptions: CircuitBreaker.Options = {
       timeout: HTTP_TIMEOUT_MS,
@@ -167,7 +170,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     uf: string,
   ): Promise<BrazilLookupResult<string[]>> {
     return this.instrumented('cities', async () => {
-      const key = uf.toUpperCase();
+      const key = this.assertUf(uf);
       const cached = this.getCache(this.citiesCache, key, 'cities');
       if (cached !== undefined) {
         return { outcome: 'VALIDATED', data: cached };
@@ -224,7 +227,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
       const response = await this.withRetry(() =>
         firstValueFrom(
           this.http.get<BrasilApiCnpjResponse>(
-            `${this.baseUrl}/cnpj/v1/${cnpj}`,
+            this.buildUrl('cnpj', 'v1', cnpj),
             { timeout: HTTP_TIMEOUT_MS },
           ),
         ),
@@ -244,7 +247,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
       if (error instanceof AxiosError && error.response?.status === 404) {
         return {
           outcome: 'REJECTED',
-          reason: `CNPJ ${cnpj} não encontrado na Receita Federal.`,
+          reason: 'CNPJ não encontrado na Receita Federal.',
         };
       }
       throw error;
@@ -262,7 +265,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     city: string,
     state: string,
   ): Promise<BrazilLookupResult<boolean>> {
-    const uf = state.toUpperCase();
+    const uf = this.assertUf(state);
     const cached = this.getCache(this.citiesCache, uf, 'city');
     const cities =
       cached !== undefined ? cached : await this.loadCities(uf);
@@ -277,15 +280,29 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   }
 
   private async loadCities(uf: string): Promise<string[]> {
+    const safeUf = this.assertUf(uf);
     const response = await this.withRetry(() =>
       firstValueFrom(
         this.http.get<BrasilApiMunicipio[]>(
-          `${this.baseUrl}/ibge/municipios/v1/${uf.toUpperCase()}`,
+          this.buildUrl('ibge', 'municipios', 'v1', safeUf),
           { timeout: HTTP_TIMEOUT_MS },
         ),
       ),
     );
     return response.data.map((municipio) => municipio.nome);
+  }
+
+  private buildUrl(...segments: string[]): string {
+    const path = segments.map((s) => encodeURIComponent(s)).join('/');
+    return `${this.baseUrl}/${path}`;
+  }
+
+  private assertUf(state: string): string {
+    const uf = state.toUpperCase().trim();
+    if (!/^[A-Z]{2}$/.test(uf)) {
+      throw new Error('Invalid UF for BrasilAPI lookup');
+    }
+    return uf;
   }
 
   private normalize(value: string): string {
@@ -337,15 +354,15 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   ): T | undefined {
     const entry = cache.get(key);
     if (!entry) {
-      this.metrics?.recordBrasilApiCache(operation, 'miss');
+      this.metrics.recordBrasilApiCache(operation, 'miss');
       return undefined;
     }
     if (Date.now() > entry.expiresAt) {
       cache.delete(key);
-      this.metrics?.recordBrasilApiCache(operation, 'expired');
+      this.metrics.recordBrasilApiCache(operation, 'expired');
       return undefined;
     }
-    this.metrics?.recordBrasilApiCache(operation, 'hit');
+    this.metrics.recordBrasilApiCache(operation, 'hit');
     return entry.value;
   }
 
@@ -395,13 +412,13 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     started: bigint,
   ): void {
     const durationSeconds = Number(process.hrtime.bigint() - started) / 1e9;
-    this.metrics?.recordBrasilApiRequest(operation, result, durationSeconds);
+    this.metrics.recordBrasilApiRequest(operation, result, durationSeconds);
   }
 
   private syncCircuitGauge(
     name: 'cnpj' | 'city' | 'cities',
     open: boolean,
   ): void {
-    this.metrics?.setCircuitOpen(name, open);
+    this.metrics.setCircuitOpen(name, open);
   }
 }

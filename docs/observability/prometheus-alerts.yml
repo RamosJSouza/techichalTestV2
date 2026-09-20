@@ -25,7 +25,7 @@ groups:
           severity: critical
         annotations:
           summary: "Taxa de 5xx > 2%"
-          description: "Erro interno elevado. Correlacionar logs por trace_id. Ver docs/observability/RUNBOOK.md."
+          description: "Erro interno elevado. Correlacionar logs por requestId / errorId / trace_id. Ver docs/observability/RUNBOOK.md."
 
       - alert: DbDown
         expr: db_up == 0
@@ -47,3 +47,13 @@ groups:
         annotations:
           summary: "BrasilAPI degradada"
           description: "Circuit open e/ou fallback PENDING elevado. Cadastros podem ficar PENDING_EXTERNAL_VALIDATION. Ver docs/observability/RUNBOOK.md."
+
+      - alert: PendingRevalidateErrors
+        expr: |
+          sum(rate(pending_revalidate_items_total{result="error"}[15m])) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job PENDING com erros"
+          description: "Taxa de falha do job de revalidação externa. Ver logs job=pending_external_validation e BrasilAPI. docs/observability/RUNBOOK.md."

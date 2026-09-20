@@ -12,7 +12,10 @@ import {
   isBenchInstrumentEnabled,
 } from '../../infrastructure/database/request-query-context.js';
 import { MetricsService } from '../../infrastructure/observability/metrics.service.js';
-import { normalizeHttpRoute } from '../../infrastructure/observability/normalize-http-route.js';
+import {
+  normalizeHttpMethod,
+  normalizeHttpRoute,
+} from '../../infrastructure/observability/normalize-http-route.js';
 
 @Injectable()
 export class HttpMetricsInterceptor implements NestInterceptor {
@@ -26,7 +29,7 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
     const route = normalizeHttpRoute(req);
-    const method = req.method;
+    const method = normalizeHttpMethod(req.method);
     const started = process.hrtime.bigint();
     const bench = isBenchInstrumentEnabled();
 

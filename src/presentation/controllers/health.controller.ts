@@ -10,8 +10,10 @@ import {
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { sql } from 'drizzle-orm';
 import type { Response } from 'express';
-import { BRAZIL_DATA_SERVICE } from '../../application/services/brazil-data.service.interface.js';
-import { BrasilApiAdapter } from '../../infrastructure/adapters/brasil-api/brasil-api.adapter.js';
+import {
+  BRAZIL_DATA_SERVICE,
+  type BrazilDataServiceInterface,
+} from '../../application/services/brazil-data.service.interface.js';
 import type { DrizzleDb } from '../../infrastructure/database/database.module.js';
 import { DRIZZLE } from '../../infrastructure/database/database.tokens.js';
 import { MetricsService } from '../../infrastructure/observability/metrics.service.js';
@@ -23,7 +25,7 @@ export class HealthController {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     private readonly metrics: MetricsService,
     @Inject(BRAZIL_DATA_SERVICE)
-    private readonly brazilData: BrasilApiAdapter,
+    private readonly brazilData: BrazilDataServiceInterface,
   ) {}
 
   @Get('health')
@@ -70,7 +72,24 @@ export class HealthController {
     this.metrics.setCircuitOpen('cnpj', stats.cnpjOpen);
     this.metrics.setCircuitOpen('city', stats.cityOpen);
     this.metrics.setCircuitOpen('cities', stats.citiesOpen);
+    await this.refreshDbUpGauge();
     const body = await this.metrics.scrape();
     res.status(HttpStatus.OK).send(body);
+  }
+
+  /** Probe curto: nunca bloqueia o scrape Prometheus por DB pendurado. */
+  private async refreshDbUpGauge(): Promise<void> {
+    const timeoutMs = 1500;
+    try {
+      await Promise.race([
+        this.db.execute(sql`SELECT 1`),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('db_up_probe_timeout')), timeoutMs);
+        }),
+      ]);
+      this.metrics.setDbUp(true);
+    } catch {
+      this.metrics.setDbUp(false);
+    }
   }
 }

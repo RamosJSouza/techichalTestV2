@@ -53,6 +53,7 @@ export const listProducersQuerySchema = z
     sortBy: z.enum(['createdAt', 'name']).default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
     name: z.string().trim().min(1).max(255).optional(),
+    cursor: z.string().min(1).max(512).optional(),
   })
   .strict();
 

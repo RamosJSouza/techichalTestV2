@@ -1,6 +1,5 @@
 import { Producer } from '../../domain/entities/producer.js';
 import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
-import { InactiveCnpjException } from '../../domain/exceptions/inactive-cnpj.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
@@ -9,6 +8,7 @@ import type { BrazilDataServiceInterface } from '../services/brazil-data.service
 import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
 import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
+import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
 
 interface UpdateProducerInput {
   name?: string;
@@ -51,37 +51,17 @@ export class UpdateProducerUseCase {
       let nextName: string | undefined;
 
       if (document.isCnpj()) {
-        const lookup = await this.brazilData.getCnpjData(document.value);
-        switch (lookup.outcome) {
-          case 'REJECTED':
-            throw new InactiveCnpjException(
-              lookup.reason ||
-                `CNPJ ${document.masked()} não está com situação cadastral ATIVA.`,
-            );
-          case 'PENDING_EXTERNAL_VALIDATION':
-            documentValidationStatus = 'PENDING_EXTERNAL_VALIDATION';
-            documentValidationPendingReason = lookup.reason;
-            this.logger.warn(
-              `CNPJ ${document.masked()} pending external validation on update (BrasilAPI unavailable): ${lookup.reason}`,
-            );
-            break;
-          case 'VALIDATED':
-            if (!lookup.data.isActive) {
-              throw new InactiveCnpjException(
-                `CNPJ ${document.masked()} não está com situação cadastral ATIVA.`,
-              );
-            }
-            if (lookup.data.razaoSocial) {
-              nextName = lookup.data.razaoSocial;
-            }
-            documentValidationStatus = 'VALIDATED';
-            break;
-          default: {
-            const _exhaustive: never = lookup;
-            throw new Error(
-              `Unexpected CNPJ lookup: ${JSON.stringify(_exhaustive)}`,
-            );
-          }
+        const resolved = await resolveCnpjDocumentValidation({
+          mode: 'strict',
+          brazilData: this.brazilData,
+          document,
+          logger: this.logger,
+          pendingLogContext: 'update',
+        });
+        documentValidationStatus = resolved.status;
+        documentValidationPendingReason = resolved.pendingReason;
+        if (resolved.razaoSocial) {
+          nextName = resolved.razaoSocial;
         }
       }
 

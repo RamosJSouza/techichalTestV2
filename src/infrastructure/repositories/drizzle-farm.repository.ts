@@ -1,5 +1,9 @@
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import type {
+  MetricsDbOperation,
+  MetricsPort,
+} from '../../application/services/metrics.port.js';
 import { Farm } from '../../domain/entities/farm.js';
 import type {
   FarmUpdateOptions,
@@ -10,10 +14,7 @@ import { DRIZZLE } from '../database/database.tokens.js';
 import { FarmMapper } from '../database/mappers/producer.mapper.js';
 import { mapPgIntegrityError } from '../database/pg-error.js';
 import { farmCrops, farms, harvests } from '../database/schema/index.js';
-import {
-  MetricsService,
-  type DbOperation,
-} from '../observability/metrics.service.js';
+import { MetricsService } from '../observability/metrics.service.js';
 
 type FarmRow = typeof farms.$inferSelect;
 type DbTransaction = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0];
@@ -22,7 +23,7 @@ type DbTransaction = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0];
 export class DrizzleFarmRepository implements IFarmRepository {
   public constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
-    @Optional() private readonly metrics?: MetricsService,
+    @Inject(MetricsService) private readonly metrics: MetricsPort,
   ) {}
 
   public async save(farm: Farm): Promise<Farm> {
@@ -146,12 +147,9 @@ export class DrizzleFarmRepository implements IFarmRepository {
   }
 
   private async timed<T>(
-    operation: DbOperation,
+    operation: MetricsDbOperation,
     fn: () => Promise<T>,
   ): Promise<T> {
-    if (!this.metrics) {
-      return fn();
-    }
     return this.metrics.timeDbOperation(operation, fn);
   }
 

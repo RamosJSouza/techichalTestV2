@@ -57,18 +57,6 @@ Variáveis importantes no `.env`:
 | `DATABASE_URL` | Connection string PostgreSQL |
 | `ENCRYPTION_KEY` | 64 hex chars (32 bytes) para AES-256-GCM |
 | `PEPPER_SECRET` | Pepper do blind index HMAC-SHA256 (≥16 chars) |
-| `ENABLE_CAR_VALIDATION` | `false` = Mock CAR; `true` = stub SICAR (NotImplemented) |
-| `ENABLE_ESG_COMPLIANCE` | `false` = Mock ESG; `true` = stub SERPRO (NotImplemented) |
-| `ESG_STRICT_MODE` | `true` = bloqueia (403) restrições ESG; `false` = `WARNING` |
-| `ENABLE_PROAGRO_RISK` | `false` = Mock PROAGRO; `true` = stub BCB (NotImplemented) |
-
-### Regras dos MockAdapters (offline)
-
-- **CAR:** formato válido → `ACTIVE` se `vegetationArea >= 20%` da área total; senão `PENDING`
-- **ESG:** documento (só dígitos) terminado em `0` → restrição (strict = 403 / senão `WARNING`)
-- **PROAGRO:** score `0–100` determinístico (hash de `city|UF|crops`)
-
-Com flags `true` sem credenciais oficiais, os stubs lançam `NotImplementedException` (sem rede).
 
 ## Endpoints
 
@@ -108,8 +96,10 @@ Safras (`harvests`) têm `status` `ACTIVE` | `ARCHIVED` (novas = `ACTIVE`). O gr
 ```bash
 pnpm test          # unitários
 pnpm test:e2e      # requer DATABASE_URL + migrations
-pnpm build
+pnpm build         # client + API em paralelo (Vite SWC + Nest SWC)
 ```
+
+Builds Docker usam BuildKit (`DOCKER_BUILDKIT=1`, padrão no Docker moderno) com cache do store pnpm e compilação paralela client/API.
 
 ## Scripts úteis
 

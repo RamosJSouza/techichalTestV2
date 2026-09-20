@@ -69,6 +69,8 @@ export class Farm {
     private _climateRiskScore: number | null,
     private _carStatus: CarStatus | null,
     private _territorialValidationStatus: ExternalValidationStatus,
+    private _territorialValidationPendingAt: Date | null,
+    private _territorialValidationPendingReason: string | null,
     private _deletedAt: Date | null,
     public readonly createdAt: Date,
     private _updatedAt: Date,
@@ -85,6 +87,7 @@ export class Farm {
     harvests?: Array<{ year: string; crops: string[] }>;
     carNumber?: string;
     territorialValidationStatus?: ExternalValidationStatus;
+    territorialValidationPendingReason?: string | null;
   }): Farm {
     const area = FarmArea.create(
       props.totalArea,
@@ -97,6 +100,14 @@ export class Farm {
     );
     const carNumber =
       props.carNumber !== undefined ? CarNumber.create(props.carNumber) : null;
+    const status = props.territorialValidationStatus ?? 'VALIDATED';
+    const pending =
+      status === 'PENDING_EXTERNAL_VALIDATION'
+        ? {
+            at: now,
+            reason: props.territorialValidationPendingReason ?? 'unknown',
+          }
+        : { at: null, reason: null };
 
     return new Farm(
       randomUUID(),
@@ -109,7 +120,9 @@ export class Farm {
       carNumber,
       null,
       null,
-      props.territorialValidationStatus ?? 'VALIDATED',
+      status,
+      pending.at,
+      pending.reason,
       null,
       now,
       now,
@@ -130,6 +143,8 @@ export class Farm {
     carStatus: CarStatus | null;
     climateRiskScore: number | null;
     territorialValidationStatus: ExternalValidationStatus;
+    territorialValidationPendingAt?: Date | null;
+    territorialValidationPendingReason?: string | null;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -151,6 +166,8 @@ export class Farm {
       props.climateRiskScore,
       props.carStatus,
       props.territorialValidationStatus,
+      props.territorialValidationPendingAt ?? null,
+      props.territorialValidationPendingReason ?? null,
       props.deletedAt,
       props.createdAt,
       props.updatedAt,
@@ -191,6 +208,14 @@ export class Farm {
 
   public get territorialValidationStatus(): ExternalValidationStatus {
     return this._territorialValidationStatus;
+  }
+
+  public get territorialValidationPendingAt(): Date | null {
+    return this._territorialValidationPendingAt;
+  }
+
+  public get territorialValidationPendingReason(): string | null {
+    return this._territorialValidationPendingReason;
   }
 
   public get deletedAt(): Date | null {
@@ -261,8 +286,19 @@ export class Farm {
 
   public setTerritorialValidationStatus(
     status: ExternalValidationStatus,
+    pendingReason: string | null = null,
   ): void {
     this._territorialValidationStatus = status;
+    if (status === 'PENDING_EXTERNAL_VALIDATION') {
+      this._territorialValidationPendingAt = new Date();
+      this._territorialValidationPendingReason = pendingReason ?? 'unknown';
+    } else if (status === 'REJECTED') {
+      this._territorialValidationPendingAt = new Date();
+      this._territorialValidationPendingReason = pendingReason ?? 'rejected';
+    } else {
+      this._territorialValidationPendingAt = null;
+      this._territorialValidationPendingReason = null;
+    }
     this.touch();
   }
 

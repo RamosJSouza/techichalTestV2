@@ -7,9 +7,10 @@ import { applyEsgCheck } from '../services/apply-esg-check.js';
 import { applyFarmCompliancePolicies } from '../services/apply-farm-compliance.js';
 import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
+import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 
-export interface CreateFarmInput {
+interface CreateFarmInput {
   producerId: string;
   name: string;
   city: string;
@@ -28,6 +29,7 @@ export class CreateFarmUseCase {
     private readonly brazilData: BrazilDataServiceInterface,
     private readonly config: AppConfigPort,
     private readonly logger: LoggerPort,
+    private readonly audit: ExternalValidationAuditPort,
   ) {}
 
   public async execute(input: CreateFarmInput): Promise<Farm> {
@@ -50,7 +52,7 @@ export class CreateFarmUseCase {
       );
     }
 
-    const territorialStatus = await assertCityBelongsToState(
+    const territorial = await assertCityBelongsToState(
       this.brazilData,
       input.city,
       input.state,
@@ -59,11 +61,21 @@ export class CreateFarmUseCase {
 
     const farm = Farm.create({
       ...input,
-      territorialValidationStatus: territorialStatus,
+      territorialValidationStatus: territorial.status,
+      territorialValidationPendingReason: territorial.pendingReason,
     });
     applyFarmCompliancePolicies(farm);
 
     await this.farmRepository.save(farm);
+    await this.audit.append({
+      resourceType: 'farm_territorial',
+      resourceId: farm.id,
+      previousStatus: 'VALIDATED',
+      newStatus: farm.territorialValidationStatus,
+      reason: farm.territorialValidationPendingReason,
+      trigger: 'write',
+      actor: 'system',
+    });
     this.logger.log(`Farm registered: ${farm.id}`);
     return farm;
   }

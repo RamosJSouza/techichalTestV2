@@ -4,7 +4,7 @@ API REST NestJS e SPA React no mesmo processo em produção (`/`).
 
 **Stack:** NestJS 12 · React 18 · Vite · RTK Query · Styled Components · Drizzle · PostgreSQL 16 · Zod  
 
-**Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `packageManager`, `pnpm preflight`)
+**Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `.tool-versions`, `packageManager`, `pnpm preflight`)
 
 Validação limpa executada em **2026-09-20** — ver [`docs/evaluator-checklist.md`](docs/evaluator-checklist.md).
 
@@ -18,22 +18,51 @@ Os comandos abaixo são **os mesmos** do CI ([`.github/workflows/ci.yml`](.githu
 
 - Node.js **22.22.3** (`node -v`)
 - pnpm **10.32.1** via Corepack: `corepack enable && corepack prepare pnpm@10.32.1 --activate`
-- Docker Desktop (Postgres efêmero)
+- Docker Desktop (Postgres efêmero na porta **5432** — libere a porta se houver outro Postgres local)
 
-### 1) Ambiente
+### 1) Réplica CI (atalho)
 
 ```bash
-cp .env_example .env
-# Gere secrets únicos se for usar Docker Compose (NODE_ENV=production no container api):
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+pnpm ci:local
+# Flags: --skip-docker (Postgres CI já no ar) · --keep-db (não derruba o container ao fim)
 ```
 
-Confirme que `DATABASE_URL` e `POSTGRES_HOST_PORT` usam a **mesma** porta no host (padrão do exemplo: **5433**).
+Sobe [`docker-compose.ci.yml`](docker-compose.ci.yml) (sem volume), aplica o mesmo `env` do job GHA e executa a sequência completa abaixo. Teardown padrão: `down -v`.
 
-### 2) Postgres efêmero + pipeline (réplica do CI)
+`pnpm verify` é só smoke de desenvolvimento (lint + test + e2e + build) — **não** substitui o CI.
+
+### 2) Env idêntico ao job GHA
+
+Bash:
 
 ```bash
-docker compose up -d postgres   # só o banco — não suba o serviço api
+export CI=true
+export NODE_ENV=test
+export PORT=3000
+export DATABASE_URL=postgres://postgres:ci_strong_password_9f3a@localhost:5432/brain_agriculture
+export ENCRYPTION_KEY=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+export PEPPER_SECRET=ci-pepper-secret-min16
+export BRASIL_API_BASE_URL=https://brasilapi.com.br/api
+export THROTTLE_LIMIT=10000
+export BENCH_BASE_URL=http://localhost:3000
+```
+
+PowerShell:
+
+```powershell
+$env:CI="true"; $env:NODE_ENV="test"; $env:PORT="3000"
+$env:DATABASE_URL="postgres://postgres:ci_strong_password_9f3a@localhost:5432/brain_agriculture"
+$env:ENCRYPTION_KEY="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+$env:PEPPER_SECRET="ci-pepper-secret-min16"
+$env:BRASIL_API_BASE_URL="https://brasilapi.com.br/api"
+$env:THROTTLE_LIMIT="10000"
+$env:BENCH_BASE_URL="http://localhost:3000"
+```
+
+### 3) Postgres efêmero + pipeline (lista expandida = steps do workflow)
+
+```bash
+docker compose -f docker-compose.ci.yml up -d --wait
 pnpm preflight
 pnpm install --frozen-lockfile
 pnpm ci:migrate
@@ -49,16 +78,32 @@ pnpm audit:ci          # falha em vulnerabilidades high+ de runtime (--prod)
 pnpm build
 pnpm bench:bundle      # falha se gzip > budget
 pnpm bench:ci          # seed S + load HTTP; falha se SLO estourar
+docker compose -f docker-compose.ci.yml down -v
 ```
 
-Artefatos gerados: `docs/openapi.json`, `coverage/`, `docs/bench/artifacts/bundle-size.json`, `docs/bench/artifacts/bench-ci-S.json`.
+**Gates que falham o pipeline de propósito:** audit high+, drift OpenAPI, bundle acima do budget, bench HTTP acima do SLO.
+
+Artefatos gerados (mesmos paths do `upload-artifact` no GHA):
+
+- `docs/openapi.json`
+- `coverage/` (`api` + `client`)
+- `docs/bench/artifacts/bundle-size.json`
+- `docs/bench/artifacts/bench-ci-S.json`
+- `docs/bench/reports/ci-S-*.md`
 
 > **Nota:** o gate HTTP do bench escala S pode falhar com os SLOs atuais (ver [`docs/bench/reports/`](docs/bench/reports/)) — o CI propaga essa falha de propósito.
 
-### 3) Desenvolvimento local (Swagger)
+### 4) Desenvolvimento local (Swagger) — distinto do CI
+
+Usa Compose **dev** com volume persistente na porta **5433** (não misturar com `docker-compose.ci.yml`):
 
 ```bash
-docker compose up -d postgres
+cp .env_example .env
+# Gere secrets únicos se for usar Docker Compose completo (NODE_ENV=production no container api):
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Confirme DATABASE_URL e POSTGRES_HOST_PORT na mesma porta (padrão: 5433).
+
+docker compose up -d postgres   # só o banco — não suba o serviço api
 pnpm install --frozen-lockfile
 pnpm ci:migrate
 pnpm dev                        # Nest :3000 + Vite :5173 (proxy /api)
@@ -67,7 +112,7 @@ pnpm dev                        # Nest :3000 + Vite :5173 (proxy /api)
 - Swagger UI: http://localhost:3000/api/docs  
 - Contrato: [`docs/openapi.json`](docs/openapi.json) (`pnpm openapi:export`)
 
-### 4) Docker completo (API + Postgres + SPA)
+### 5) Docker completo (API + Postgres + SPA)
 
 ```bash
 pnpm docker:up
@@ -99,7 +144,7 @@ O enunciado permite **zero culturas** por safra. O contrato HTTP exige `crops.mi
 | `EADDRINUSE :::3000` | Container `brain_ag_api` ocupando a porta. `docker stop brain_ag_api` ou `pnpm docker:down`; mantenha só `postgres` para `pnpm dev`. |
 | Migrations / API não conectam | Shell env (`DATABASE_URL`, `POSTGRES_*`) **sobrescreve** `.env`. Confira `echo $env:DATABASE_URL` (PowerShell) / `echo $DATABASE_URL`. Alinhe porta host ↔ `DATABASE_URL`. |
 | Compose rejeita secrets | Em production o schema rejeita `ENCRYPTION_KEY` de exemplo, `PEPPER_SECRET` com menos de 32 chars / `change-me-…`, e senhas fracas tipo `postgrespassword`. Use valores do `.env_example` ou gere novos. |
-| `engine-strict` / versão errada | Rode `pnpm preflight`; instale exatamente Node 22.22.3 e pnpm 10.32.1 via Corepack. |
+| `engine-strict` / versão errada | `.npmrc` tem `engine-strict=true`; rode `pnpm preflight` e Corepack `pnpm@10.32.1`. |
 | HTTP 429 em carga / bench | Suba `THROTTLE_LIMIT` (ex.: `10000`) só no ambiente de bench; default é 100/min por IP. |
 | Volume Postgres “password authentication failed” | Senha do volume antigo ≠ `.env` atual → `docker compose down -v` (apaga dados) e suba de novo. |
 
@@ -121,6 +166,10 @@ Alinhadas a [`.env_example`](.env_example):
 | `ENCRYPTION_KEY_PREVIOUS` / `_ID` | Rotação opcional (decrypt da chave anterior) |
 | `PEPPER_SECRET` | Pepper HMAC (≥16; em production ≥32 e ≠ exemplo) |
 | `BRASIL_API_BASE_URL` | Base BrasilAPI (default oficial) |
+| `ADMIN_API_TOKEN` | Token para `X-Admin-Token` em `/admin/revalidate/*` (opcional; sem ele → 401) |
+| `REVALIDATE_PENDING_ENABLED` | `1`/`0` — job de revalidação PENDING (default `1`) |
+| `REVALIDATE_PENDING_INTERVAL_MS` | Intervalo do job (default 300000) |
+| `REVALIDATE_PENDING_BATCH_SIZE` | Batch por tick (default 50) |
 | `CORS_ORIGINS` | CSV de origens em production (vazio = sem CORS aberto) |
 | `THROTTLE_TTL_MS` / `THROTTLE_LIMIT` | Rate limit por IP (default 60000 ms / 100). Skip só em `/health*` |
 | `TRUST_PROXY` | `true`/`1` atrás de proxy confiável |
@@ -191,14 +240,27 @@ No Docker Compose (production) o Swagger **não** é montado.
 |--------|-------------|
 | `VALIDATED` | BrasilAPI confirmou (CNPJ ativo / cidade ∈ UF) ou CPF validado só localmente |
 | `PENDING_EXTERNAL_VALIDATION` | Timeout, 5xx, rede ou circuit open — persistido, **não** é compliance OK |
-| `REJECTED` | Não persistido: CNPJ inativo/404 ou cidade ∉ UF (exceção de domínio) |
+| `REJECTED` | CNPJ inativo/404 ou cidade ∉ UF — bloqueia no write síncrono; na revalidação pode ser **persistido** |
 
-Campos: `producers.document_validation_status`, `farms.territorial_validation_status` (eixo distinto de ESG/CAR).
-- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter`. Outcomes explícitos (`VALIDATED` | `PENDING_EXTERNAL_VALIDATION` | `REJECTED`); outage **nunca** conta como validação positiva — cadastro pode seguir só marcado como `PENDING`. Timeout 5s, até 2 retries (erros transitórios), circuit breaker (opossum), cache in-memory TTL 15 min (CNPJ/UF), métricas `brasilapi_requests_total` / `brasilapi_request_duration_seconds` / `brasilapi_circuit_open`.
-- **Observabilidade:** scrape `GET /api/v1/metrics` (labels de baixa cardinalidade: `route` normalizado, `status_class`; sem ID/PII). Histogramas HTTP/DB/BrasilAPI/client CSV; `domain_errors_total`, `rate_limit_rejected_total`, `db_up`. OTLP opcional via `OTEL_EXPORTER_OTLP_ENDPOINT` ([`src/tracing.ts`](src/tracing.ts)); logs Pino com `trace_id`. Alertas/dashboard/runbook em [`docs/observability/`](docs/observability/).
+Campos públicos: `documentValidationStatus` / `territorialValidationStatus` + `*PendingAt` / `*PendingReason`.  
+Auditoria append-only: tabela `external_validation_audit` (sem PII em claro).
+
+#### Política de elegibilidade
+
+| Operação | Cadastro aceito com PENDING? | Cadastro validado? | Operação elegível (compliance)? |
+|----------|------------------------------|--------------------|---------------------------------|
+| Criar/atualizar produtor (CNPJ) | Sim — status PENDING + ESG efetivo WARNING se era APPROVED | Só com `VALIDATED` | Não enquanto PENDING |
+| Criar fazenda com doc PENDING | Sim (warn no log) | Território pode ser PENDING | Não usar para crédito/compliance |
+| Cidade ∈ UF REJECTED | Não — HTTP 4xx | — | — |
+| Listar cidades por UF | Degrada para `[]` | — | — |
+| `POST /admin/revalidate/*` | Entrada típica = PENDING | Objetivo = VALIDATED | Exige `X-Admin-Token` |
+
+**Revalidação:** job assíncrono (`REVALIDATE_PENDING_*`) + admin protegido por `ADMIN_API_TOKEN` (não JWT — opção C).
+- **ACL BrasilAPI:** CNPJ ativo + cidade ∈ UF via `BrazilDataServiceInterface` / `BrasilApiAdapter`. Outcomes explícitos (`VALIDATED` | `PENDING_EXTERNAL_VALIDATION` | `REJECTED`); outage **nunca** conta como validação positiva — cadastro pode seguir só marcado como `PENDING`. Timeout 5s, até 2 retries (erros transitórios), circuit breaker (opossum), cache in-memory TTL 15 min (CNPJ/UF), métricas `brasilapi_requests_total` / `brasilapi_request_duration_seconds` / `brasilapi_circuit_open` / `brasilapi_cache_total{operation,result}`.
+- **Observabilidade:** scrape `GET /api/v1/metrics` em rede confiável. Labels HTTP: `method`, `route` normalizada, `status_class` — nunca UUID/documento/URL crua. Inventário: `http_requests_total`, `http_request_duration_seconds`, `db_up`, `db_queries_total`, `db_query_duration_seconds`, `brasilapi_requests_total`, `brasilapi_request_duration_seconds`, `brasilapi_circuit_open`, `brasilapi_cache_total`, `rate_limit_rejected_total`, `domain_errors_total` (allowlist), `client_timing_seconds{event=dashboard_csv_export}`. OTLP só com `OTEL_EXPORTER_OTLP_ENDPOINT` ([`src/tracing.ts`](src/tracing.ts)); logs Pino com `trace_id`. Alertas/dashboard/runbook: [`docs/observability/`](docs/observability/).
 - **Dashboard:** agregações SQL nativas (~11 queries em paralelo); filtros Zod no query string. Plano/EXPLAIN em [`docs/bench/`](docs/bench/).
 - **Frontend:** SPA Vite servida pelo Nest em production; Atomic Design no `client/`; export do dashboard em **CSV** (sem `xlsx`).
-- **Auth:** **fora de escopo do desafio** — API aberta; **bloqueador de produção** (ver abaixo).
+- **Auth:** **fora de escopo do desafio** — API aberta exceto admin revalidate por token compartilhado; **bloqueador de produção** (ver abaixo).
 
 ---
 
@@ -208,11 +270,11 @@ Campos: `producers.document_validation_status`, `farms.territorial_validation_st
 
 | Item | Status | Notas |
 |------|--------|-------|
-| Autenticação / autorização / IDOR | **Ausente** | Qualquer cliente na rede muta/lê produtores e fazendas. Proteger com VPN/mTLS **ou** implementar OIDC+RBAC antes de internet. |
+| Autenticação / autorização / IDOR | **Ausente** (exceto admin token) | Qualquer cliente na rede muta/lê produtores e fazendas. Proteger com VPN/mTLS **ou** implementar OIDC+RBAC antes de internet. |
 | `/api/v1/metrics` e agregados | Públicos | Não expor sem rede restrita — ver [`docs/observability/RUNBOOK.md`](docs/observability/RUNBOOK.md). |
 | Busca por documento | Enumeração possível | `200` vs `404` revela existência de CPF/CNPJ (hash). |
-| Bench escala S | Gates HTTP **FAIL** | p95/RPS abaixo da meta — [`docs/bench/reports/S-2026-09-20.md`](docs/bench/reports/S-2026-09-20.md). |
-| BrasilAPI degradada | Cadastro com `PENDING_EXTERNAL_VALIDATION` | Outage/timeout/circuit open **não** valida positivamente; ESG efetivo `WARNING` enquanto pendente. Rejeição (CNPJ inativo/404, cidade∉UF) continua bloqueando. |
+| Bench escala S | Gates HTTP first paint | Ver `docs/bench/reports/`. |
+| BrasilAPI degradada | Cadastro com `PENDING_EXTERNAL_VALIDATION` | Outage/timeout/circuit open **não** valida positivamente; ESG efetivo `WARNING` enquanto pendente. Rejeição (CNPJ inativo/404, cidade∉UF) continua bloqueando no write. |
 | ESG / CAR | Stub local | `esgStatus` default `APPROVED`; CAR mock — não usar para compliance real. |
 
 **Já mitigado nesta entrega:**
@@ -221,7 +283,7 @@ Campos: `producers.document_validation_status`, `farms.territorial_validation_st
 - `CHECK` constraints de área/UF no Postgres.
 - Violação de unique (`23505`) mapeada para HTTP **409**.
 
-Outras limitações operacionais: rate limit só por IP; listagem hidrata fazendas/safras/culturas por página. Bundle gzip e bench HTTP S são **gates bloqueantes** no CI (`pnpm bench:bundle`, `pnpm bench:ci`); o relatório S atual pode falhar em p95 D0/L0/L1 — ver `docs/bench`. Scripts `pnpm bench:run` locais de carga/SQL permanecem disponíveis fora do caminho mínimo do avaliador.
+Outras limitações operacionais: rate limit só por IP; listagem paginada retorna agregados (`farmsCount`/áreas/UFs) **sem** hidratar safras/culturas (`GET /producers/:id` hidrata o detalhe). Bundle gzip e bench HTTP S são **gates bloqueantes** no CI (`pnpm bench:bundle`, `pnpm bench:ci`); o SLO de first paint do dashboard usa `/summary` — `/stats` é residual — ver `docs/bench` e [`docs/matriz-riscos-staff-2026-09-20.md`](docs/matriz-riscos-staff-2026-09-20.md). Scripts `pnpm bench:run` locais de carga/SQL permanecem disponíveis fora do caminho mínimo do avaliador.
 
 ---
 

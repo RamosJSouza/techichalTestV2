@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Compara listagem de produtores: latência, payload, queries estimadas, memória.
- * Uso: node --env-file=.env scripts/bench/list-producers-compare.mjs --label=before|after
+ * Compara listagem de produtores: latência, payload, queries, memória.
+ * Uso: BENCH_INSTRUMENT=1 node --env-file=.env scripts/bench/list-producers-compare.mjs --label=before|after
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -30,6 +30,12 @@ function percentile(sorted, p) {
   return sorted[Math.max(0, idx)];
 }
 
+function median(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return percentile(sorted, 50);
+}
+
 function estimateQueriesFromShape(body) {
   const items = Array.isArray(body?.items) ? body.items : [];
   if (items.length === 0) {
@@ -37,11 +43,9 @@ function estimateQueriesFromShape(body) {
   }
   const first = items[0];
   if (first && Array.isArray(first.farms)) {
-    // count + page + farms + harvests + crops
     return { mode: 'full_hydrate', estimatedQueries: 5 };
   }
   if (first && typeof first.farmsCount === 'number') {
-    // count + page + farms aggregate
     return { mode: 'summary', estimatedQueries: 3 };
   }
   return { mode: 'unknown', estimatedQueries: null };
@@ -51,6 +55,8 @@ async function measure(pageSize, samples) {
   const path = `/api/v1/producers?page=1&pageSize=${pageSize}`;
   const times = [];
   const payloads = [];
+  const queryCounts = [];
+  const heapDeltas = [];
   let lastBody = null;
   let errors = 0;
   const heapBefore = process.memoryUsage().heapUsed;
@@ -59,6 +65,14 @@ async function measure(pageSize, samples) {
     const t0 = performance.now();
     try {
       const res = await fetch(`${baseUrl}${path}`);
+      const q = res.headers.get('x-db-queries');
+      const h = res.headers.get('x-heap-delta-mb');
+      if (q !== null && q !== '') {
+        queryCounts.push(Number(q));
+      }
+      if (h !== null && h !== '') {
+        heapDeltas.push(Number(h));
+      }
       const buf = await res.arrayBuffer();
       times.push(performance.now() - t0);
       payloads.push(buf.byteLength);
@@ -79,6 +93,10 @@ async function measure(pageSize, samples) {
   const sortedT = [...times].sort((a, b) => a - b);
   const sortedP = [...payloads].sort((a, b) => a - b);
   const queryInfo = estimateQueriesFromShape(lastBody);
+  const dbQueriesMedian =
+    queryCounts.length > 0 ? Number(median(queryCounts).toFixed(1)) : null;
+  const heapDeltaMbMedian =
+    heapDeltas.length > 0 ? Number(median(heapDeltas).toFixed(3)) : null;
 
   return {
     path,
@@ -94,6 +112,10 @@ async function measure(pageSize, samples) {
       : 0,
     shapeMode: queryInfo.mode,
     estimatedQueries: queryInfo.estimatedQueries,
+    dbQueriesMedian,
+    queries:
+      dbQueriesMedian !== null ? dbQueriesMedian : queryInfo.estimatedQueries,
+    heapDeltaMbMedian,
     heapDeltaBytes: heapAfter - heapBefore,
     heapAfterBytes: heapAfter,
   };
@@ -109,7 +131,7 @@ for (const scenario of scenarios) {
   const result = await measure(scenario.pageSize, scenario.samples);
   results.push({ id: scenario.id, ...result });
   console.log(
-    `${scenario.id} p95=${result.p95Ms}ms payloadP50=${result.payloadP50Bytes}B queries~${result.estimatedQueries} shape=${result.shapeMode}`,
+    `${scenario.id} p95=${result.p95Ms}ms payloadP50=${result.payloadP50Bytes}B q=${result.queries} shape=${result.shapeMode} heapΔMb=${result.heapDeltaMbMedian}`,
   );
 }
 
@@ -118,6 +140,7 @@ const report = {
   scale: 'S',
   baseUrl,
   at: new Date().toISOString(),
+  instrument: process.env.BENCH_INSTRUMENT === '1',
   results,
 };
 

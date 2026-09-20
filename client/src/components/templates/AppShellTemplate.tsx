@@ -13,6 +13,22 @@ const Shell = styled.div`
   background: ${({ theme }) => theme.colors.canvas};
 `;
 
+const SkipLink = styled.a`
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 8px 12px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0 0 4px 0;
+
+  &:focus {
+    left: 0;
+  }
+`;
+
 const MainColumn = styled.div`
   flex: 1;
   min-width: 0;
@@ -63,16 +79,17 @@ export function AppShellTemplate(): React.JSX.Element {
 
   return (
     <Shell>
+      <SkipLink href="#conteudo-principal">Ir para o conteúdo</SkipLink>
       <AppSidebar />
       <MainColumn>
         <AppHeader />
-        <Canvas>
+        <Canvas id="conteudo-principal" tabIndex={-1}>
           <Outlet />
         </Canvas>
         <Footer />
       </MainColumn>
       {toast ? (
-        <Toast $variant={toast.variant} role="status">
+        <Toast $variant={toast.variant} role="status" aria-live="polite">
           {toast.message}
         </Toast>
       ) : null}

@@ -29,8 +29,10 @@ import { CropChip } from '../components/molecules/CropChip';
 import { ValidationBanner } from '../components/molecules/ValidationBanner';
 import { CityAutocomplete } from '../components/molecules/CityAutocomplete';
 import { ConfirmDialog } from '../components/molecules/ConfirmDialog';
+import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { Spinner } from '../components/atoms/Spinner';
 import { BRAZILIAN_STATES } from '../shared/lib/brazilian-states';
+import { httpStatusDetail } from '../shared/lib/http-error-detail';
 import type { FarmResponse } from '../shared/types/api';
 import {
   defaultFarm,
@@ -122,10 +124,13 @@ export function ProducerFormPage(): React.JSX.Element {
   } | null>(null);
   const loadedProducerId = useRef<string | null>(null);
 
-  const { data: existing, isLoading: loadingExisting } = useGetProducerQuery(
-    id ?? '',
-    { skip: !id },
-  );
+  const {
+    data: existing,
+    isLoading: loadingExisting,
+    isError: loadError,
+    error: loadQueryError,
+    refetch: refetchProducer,
+  } = useGetProducerQuery(id ?? '', { skip: !id });
   const [createProducer, { isLoading: creating }] = useCreateProducerMutation();
   const [updateProducer, { isLoading: updating }] = useUpdateProducerMutation();
   const [updateFarm, { isLoading: updatingFarm }] = useUpdateFarmMutation();
@@ -212,6 +217,18 @@ export function ProducerFormPage(): React.JSX.Element {
 
   if (isEdit && loadingExisting) {
     return <Spinner />;
+  }
+
+  if (isEdit && (loadError || !existing)) {
+    return (
+      <ErrorRetryPanel
+        message="Falha ao carregar produtor."
+        detail={httpStatusDetail(loadQueryError)}
+        onRetry={() => {
+          void refetchProducer();
+        }}
+      />
+    );
   }
 
   const loadFarmIntoForm = (farm: FarmResponse): void => {
@@ -559,6 +576,7 @@ export function ProducerFormPage(): React.JSX.Element {
               type="button"
               variant="secondary"
               disabled={validatingCar}
+              aria-busy={validatingCar}
               onClick={() => void handleValidateCar()}
             >
               {validatingCar ? 'Validando CAR…' : 'Validar CAR'}
@@ -635,7 +653,11 @@ export function ProducerFormPage(): React.JSX.Element {
                 Adicionar fazenda à fila
               </Button>
             ) : null}
-            <Button type="submit" disabled={!areaValid || saving}>
+            <Button
+              type="submit"
+              disabled={!areaValid || saving}
+              aria-busy={saving}
+            >
               {saving ? 'Salvando…' : isEdit ? 'Salvar fazenda' : 'Salvar tudo'}
             </Button>
           </Row>

@@ -14,7 +14,7 @@ export interface CnpjCompanyData {
  */
 export type BrazilLookupResult<T> =
   | { outcome: 'VALIDATED'; data: T }
-  | { outcome: 'PENDING_EXTERNAL_VALIDATION' }
+  | { outcome: 'PENDING_EXTERNAL_VALIDATION'; reason: string }
   | { outcome: 'REJECTED'; reason: string };
 
 export interface BrazilDataServiceInterface {

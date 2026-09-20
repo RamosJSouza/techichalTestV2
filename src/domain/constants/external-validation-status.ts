@@ -1,5 +1,5 @@
 /** Status de validação externa (BrasilAPI) — eixo distinto de ESG/CAR. */
-const EXTERNAL_VALIDATION_STATUSES = [
+export const EXTERNAL_VALIDATION_STATUSES = [
   'VALIDATED',
   'PENDING_EXTERNAL_VALIDATION',
   'REJECTED',
@@ -8,17 +8,24 @@ const EXTERNAL_VALIDATION_STATUSES = [
 export type ExternalValidationStatus =
   (typeof EXTERNAL_VALIDATION_STATUSES)[number];
 
-function isExternalValidationStatus(
+/** Motivo quando o valor persistido não é um status conhecido (nunca tratar como VALIDATED). */
+export const UNKNOWN_EXTERNAL_VALIDATION_REASON = 'unknown_status';
+
+export function isExternalValidationStatus(
   value: string,
 ): value is ExternalValidationStatus {
   return (EXTERNAL_VALIDATION_STATUSES as readonly string[]).includes(value);
 }
 
+/**
+ * Converte string do DB/API para status canônico.
+ * Valor desconhecido → PENDING_EXTERNAL_VALIDATION (nunca VALIDATED silencioso).
+ */
 export function parseExternalValidationStatus(
   value: string,
 ): ExternalValidationStatus {
   if (isExternalValidationStatus(value)) {
     return value;
   }
-  return 'VALIDATED';
+  return 'PENDING_EXTERNAL_VALIDATION';
 }

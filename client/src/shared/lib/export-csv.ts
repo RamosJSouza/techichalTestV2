@@ -58,7 +58,7 @@ export function exportToCsv(sheets: CsvSheet[], basename: string): void {
   const started = performance.now();
   const safeBase = basename.replace(/\.csv$/i, '').replace(/\.xlsx$/i, '');
   for (const sheet of sheets) {
-    const safeName = sheet.name.replace(/[^\w\-]+/g, '_').slice(0, 40) || 'sheet';
+    const safeName = sheet.name.replace(/[^\w-]+/g, '_').slice(0, 40) || 'sheet';
     const filename =
       sheets.length === 1
         ? `${safeBase}.csv`

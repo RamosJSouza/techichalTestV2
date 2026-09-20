@@ -52,8 +52,102 @@ describe('OpenAPI contract', () => {
     expect(summary?.get).toBeDefined();
   });
 
+  it('declara papéis summary / analytics / stats', () => {
+    const summaryDesc = (
+      doc.paths?.['/api/v1/dashboard/summary']?.get as {
+        responses?: { '200'?: { description?: string } };
+      }
+    )?.responses?.['200']?.description;
+    const analyticsDesc = (
+      doc.paths?.['/api/v1/dashboard/analytics']?.get as {
+        responses?: { '200'?: { description?: string } };
+      }
+    )?.responses?.['200']?.description;
+    const statsDesc = (
+      doc.paths?.['/api/v1/dashboard/stats']?.get as {
+        responses?: { '200'?: { description?: string } };
+      }
+    )?.responses?.['200']?.description;
+
+    expect(summaryDesc?.toLowerCase()).toContain('first paint');
+    expect(analyticsDesc?.toLowerCase()).toMatch(/secondary|séries/);
+    expect(statsDesc?.toLowerCase()).toMatch(/residual|legado|completo/);
+  });
+
+  it('listagem de produtores tipa ProducerListPageResponseDto sem farms', () => {
+    const listGet = doc.paths?.['/api/v1/producers']?.get as {
+      responses?: {
+        '200'?: {
+          content?: {
+            'application/json'?: { schema?: { $ref?: string } };
+          };
+        };
+      };
+    };
+    const ref =
+      listGet?.responses?.['200']?.content?.['application/json']?.schema?.$ref;
+    expect(ref).toMatch(/ProducerListPageResponseDto$/);
+
+    const schemas = doc.components?.schemas ?? {};
+    const page = schemas.ProducerListPageResponseDto as {
+      properties?: { items?: { items?: { $ref?: string } } };
+    };
+    const itemRef = page?.properties?.items?.items?.$ref;
+    expect(itemRef).toMatch(/ProducerListItemResponseDto$/);
+
+    const item = schemas.ProducerListItemResponseDto as {
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+    expect(item?.properties).toBeDefined();
+    expect(item.properties).toHaveProperty('farmsCount');
+    expect(item.properties).toHaveProperty('farmStates');
+    expect(item.properties).toHaveProperty('totalAreaHa');
+    expect(item.properties).not.toHaveProperty('farms');
+
+    const detailGet = doc.paths?.['/api/v1/producers/{id}']?.get as {
+      responses?: {
+        '200'?: {
+          content?: {
+            'application/json'?: { schema?: { $ref?: string } };
+          };
+        };
+      };
+    };
+    const detailRef =
+      detailGet?.responses?.['200']?.content?.['application/json']?.schema
+        ?.$ref;
+    expect(detailRef).toMatch(/ProducerDetailResponseDto$/);
+
+    const detail = schemas.ProducerDetailResponseDto as {
+      properties?: Record<string, unknown>;
+    };
+    expect(detail?.properties).toHaveProperty('farms');
+  });
+
   it('declara schemas de componentes', () => {
     const schemas = doc.components?.schemas ?? {};
     expect(Object.keys(schemas).length).toBeGreaterThan(0);
+  });
+
+  it('expõe admin revalidate e enums de validação externa', () => {
+    const paths = Object.keys(doc.paths ?? {});
+    expect(paths).toContain('/api/v1/admin/revalidate/producers/{id}');
+    expect(paths).toContain('/api/v1/admin/revalidate/farms/{id}');
+
+    const item = doc.components?.schemas?.ProducerListItemResponseDto as {
+      properties?: {
+        documentValidationStatus?: { enum?: string[] };
+        documentValidationPendingReason?: unknown;
+      };
+    };
+    expect(item?.properties?.documentValidationPendingReason).toBeDefined();
+    expect(item?.properties?.documentValidationStatus?.enum).toEqual(
+      expect.arrayContaining([
+        'VALIDATED',
+        'PENDING_EXTERNAL_VALIDATION',
+        'REJECTED',
+      ]),
+    );
   });
 });

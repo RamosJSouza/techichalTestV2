@@ -27,6 +27,10 @@ import {
   UpdateProducerDto,
   UuidParamDto,
 } from '../dtos/producer.dto.js';
+import {
+  ProducerDetailResponseDto,
+  ProducerListPageResponseDto,
+} from '../dtos/producer-response.dto.js';
 import { MaskPiiInterceptor } from '../interceptors/mask-pii.interceptor.js';
 import { toProducerListItem, toProducerResponse } from '../mappers/producer-response.mapper.js';
 
@@ -77,7 +81,8 @@ export class ProducerController {
   @Get()
   @ApiOkResponse({
     description:
-      'Lista paginada resumida de produtores (farmsCount/áreas; sem harvests/crops)',
+      'Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops). First paint da tabela.',
+    type: ProducerListPageResponseDto,
   })
   public async list(@Query() query: ListProducersQueryDto) {
     const result = await this.listProducers.execute(query);
@@ -90,7 +95,10 @@ export class ProducerController {
   }
 
   @Get('search')
-  @ApiOkResponse({ description: 'Busca por documento (blind index)' })
+  @ApiOkResponse({
+    description: 'Busca por documento (blind index) — retorno hidratado completo',
+    type: ProducerDetailResponseDto,
+  })
   public async search(@Query() query: SearchProducerQueryDto) {
     const producer = await this.searchProducerByDocument.execute(query.document);
     return toProducerResponse(producer);
@@ -103,14 +111,21 @@ export class ProducerController {
   }
 
   @Get(':id')
-  @ApiOkResponse({ description: 'Detalhe do produtor' })
+  @ApiOkResponse({
+    description:
+      'Detalhe do produtor com fazendas, safras e culturas (hidratação completa)',
+    type: ProducerDetailResponseDto,
+  })
   public async getById(@Param() params: UuidParamDto) {
     const producer = await this.getProducerById.execute(params.id);
     return toProducerResponse(producer);
   }
 
   @Put(':id')
-  @ApiOkResponse({ description: 'Produtor atualizado' })
+  @ApiOkResponse({
+    description: 'Produtor atualizado',
+    type: ProducerDetailResponseDto,
+  })
   public async update(
     @Param() params: UuidParamDto,
     @Body() body: UpdateProducerDto,

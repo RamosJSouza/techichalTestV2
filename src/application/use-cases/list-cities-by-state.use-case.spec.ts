@@ -5,8 +5,14 @@ function buildUseCase(
   listCitiesByState: BrazilDataServiceInterface['listCitiesByState'],
 ): ListCitiesByStateUseCase {
   const stub: BrazilDataServiceInterface = {
-    getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
-    isCityInState: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+    getCnpjData: async () => ({
+      outcome: 'PENDING_EXTERNAL_VALIDATION',
+      reason: 'timeout_or_network',
+    }),
+    isCityInState: async () => ({
+      outcome: 'PENDING_EXTERNAL_VALIDATION',
+      reason: 'timeout_or_network',
+    }),
     listCitiesByState,
   };
   return new ListCitiesByStateUseCase(stub);
@@ -25,6 +31,7 @@ describe('ListCitiesByStateUseCase', () => {
   it('retorna array vazio quando serviço está PENDING (API indisponível)', async () => {
     const useCase = buildUseCase(async () => ({
       outcome: 'PENDING_EXTERNAL_VALIDATION',
+      reason: 'timeout_or_network',
     }));
     const cities = await useCase.execute('SP');
     expect(cities).toEqual([]);

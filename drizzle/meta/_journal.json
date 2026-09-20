@@ -64,6 +64,27 @@
       "when": 1789940000000,
       "tag": "0008_external_validation_status",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789950000000,
+      "tag": "0009_external_validation_pending_meta",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789960000000,
+      "tag": "0010_crop_climate_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789970000000,
+      "tag": "0011_external_validation_audit",
+      "breakpoints": true
     }
   ]
 }

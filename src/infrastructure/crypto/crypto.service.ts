@@ -5,7 +5,7 @@ import {
   randomBytes,
 } from 'node:crypto';
 
-export interface CryptoKeyRing {
+interface CryptoKeyRing {
   keyId: string;
   keyHex: string;
   previousKeyId?: string;

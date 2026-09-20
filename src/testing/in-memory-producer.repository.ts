@@ -18,6 +18,9 @@ function toListItem(producer: Producer): ProducerListItem {
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt,
     documentValidationStatus: producer.documentValidationStatus,
+    documentValidationPendingAt: producer.documentValidationPendingAt,
+    documentValidationPendingReason:
+      producer.documentValidationPendingReason,
     farmsCount: producer.farms.length,
     farmStates: states,
     totalAreaHa: producer.farms.reduce(
@@ -100,5 +103,21 @@ export class InMemoryProducerRepository implements IProducerRepository {
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
     this.items.get(id)?.softDelete(deletedAt);
+  }
+
+  public async findPendingDocumentIds(limit: number): Promise<string[]> {
+    return [...this.items.values()]
+      .filter(
+        (p) =>
+          !p.isDeleted &&
+          p.documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION',
+      )
+      .sort(
+        (a, b) =>
+          (a.documentValidationPendingAt?.getTime() ?? 0) -
+          (b.documentValidationPendingAt?.getTime() ?? 0),
+      )
+      .slice(0, limit)
+      .map((p) => p.id);
   }
 }

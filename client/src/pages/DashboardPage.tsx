@@ -10,6 +10,7 @@ import { Button } from '../components/atoms/Button';
 import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { DashboardFiltersBar } from '../components/molecules/DashboardFiltersBar';
 import type { StackedBarDatum } from '../components/organisms/charts/StackedBarChartCard';
+import { httpStatusDetail } from '../shared/lib/http-error-detail';
 import { theme } from '../shared/theme/theme';
 import type {
   DashboardAnalytics,
@@ -324,14 +325,10 @@ export function DashboardPage(): React.JSX.Element {
   }
 
   if (summaryError || !summary) {
-    const statusDetail =
-      typeof error === 'object' && error && 'status' in error
-        ? `HTTP ${String(error.status)}`
-        : undefined;
     return (
       <ErrorRetryPanel
         message="Falha ao carregar dashboard."
-        detail={statusDetail}
+        detail={httpStatusDetail(error)}
         onRetry={handleRetry}
       />
     );
@@ -342,6 +339,7 @@ export function DashboardPage(): React.JSX.Element {
       <TitleRow>
         <TitleBlock>
           <Title>Dashboard Analítico</Title>
+          {/* Dados: GET /summary (first paint) + GET /analytics — nunca /stats. */}
           <Subtitle>
             Visão consolidada de fazendas, conformidade e risco climático
           </Subtitle>

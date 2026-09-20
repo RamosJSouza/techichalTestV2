@@ -53,6 +53,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   >;
   private readonly cnpjCache = new Map<string, CacheEntry<CnpjCompanyData>>();
   private readonly citiesCache = new Map<string, CacheEntry<string[]>>();
+  private cacheTtlMs = CACHE_TTL_MS;
 
   public constructor(
     private readonly http: HttpService,
@@ -85,19 +86,28 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
       this.logger.warn(
         'BrasilAPI CNPJ circuit open — PENDING_EXTERNAL_VALIDATION',
       );
-      return { outcome: 'PENDING_EXTERNAL_VALIDATION' as const };
+      return {
+        outcome: 'PENDING_EXTERNAL_VALIDATION' as const,
+        reason: 'circuit_open',
+      };
     });
     this.cityBreaker.fallback(() => {
       this.logger.warn(
         'BrasilAPI IBGE circuit open — PENDING_EXTERNAL_VALIDATION',
       );
-      return { outcome: 'PENDING_EXTERNAL_VALIDATION' as const };
+      return {
+        outcome: 'PENDING_EXTERNAL_VALIDATION' as const,
+        reason: 'circuit_open',
+      };
     });
     this.citiesBreaker.fallback(() => {
       this.logger.warn(
         'BrasilAPI IBGE cities circuit open — PENDING_EXTERNAL_VALIDATION',
       );
-      return { outcome: 'PENDING_EXTERNAL_VALIDATION' as const };
+      return {
+        outcome: 'PENDING_EXTERNAL_VALIDATION' as const,
+        reason: 'circuit_open',
+      };
     });
   }
 
@@ -106,7 +116,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   ): Promise<BrazilLookupResult<CnpjCompanyData>> {
     return this.instrumented('cnpj', async () => {
       const digits = cnpj.replace(/\D/g, '');
-      const cached = this.getCache(this.cnpjCache, digits);
+      const cached = this.getCache(this.cnpjCache, digits, 'cnpj');
       if (cached !== undefined) {
         return { outcome: 'VALIDATED', data: cached };
       }
@@ -123,7 +133,10 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
           `BrasilAPI CNPJ unavailable: ${error instanceof Error ? error.message : 'unknown'}`,
         );
         this.syncCircuitGauge('cnpj', this.cnpjBreaker.opened);
-        return { outcome: 'PENDING_EXTERNAL_VALIDATION' };
+        return {
+          outcome: 'PENDING_EXTERNAL_VALIDATION',
+          reason: 'timeout_or_network',
+        };
       }
     });
   }
@@ -142,7 +155,10 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
           `BrasilAPI IBGE unavailable: ${error instanceof Error ? error.message : 'unknown'}`,
         );
         this.syncCircuitGauge('city', this.cityBreaker.opened);
-        return { outcome: 'PENDING_EXTERNAL_VALIDATION' };
+        return {
+          outcome: 'PENDING_EXTERNAL_VALIDATION',
+          reason: 'timeout_or_network',
+        };
       }
     });
   }
@@ -152,7 +168,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   ): Promise<BrazilLookupResult<string[]>> {
     return this.instrumented('cities', async () => {
       const key = uf.toUpperCase();
-      const cached = this.getCache(this.citiesCache, key);
+      const cached = this.getCache(this.citiesCache, key, 'cities');
       if (cached !== undefined) {
         return { outcome: 'VALIDATED', data: cached };
       }
@@ -169,7 +185,10 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
           `BrasilAPI IBGE cities unavailable: ${error instanceof Error ? error.message : 'unknown'}`,
         );
         this.syncCircuitGauge('cities', this.citiesBreaker.opened);
-        return { outcome: 'PENDING_EXTERNAL_VALIDATION' };
+        return {
+          outcome: 'PENDING_EXTERNAL_VALIDATION',
+          reason: 'timeout_or_network',
+        };
       }
     });
   }
@@ -191,6 +210,11 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     this.cnpjBreaker.close();
     this.cityBreaker.close();
     this.citiesBreaker.close();
+  }
+
+  /** TTL curto para testes de expiração de cache. */
+  public setCacheTtlForTests(ttlMs: number): void {
+    this.cacheTtlMs = ttlMs;
   }
 
   private async fetchCnpj(
@@ -239,7 +263,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     state: string,
   ): Promise<BrazilLookupResult<boolean>> {
     const uf = state.toUpperCase();
-    const cached = this.getCache(this.citiesCache, uf);
+    const cached = this.getCache(this.citiesCache, uf, 'city');
     const cities =
       cached !== undefined ? cached : await this.loadCities(uf);
     if (cached === undefined) {
@@ -309,15 +333,19 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   private getCache<T>(
     cache: Map<string, CacheEntry<T>>,
     key: string,
+    operation: BrasilApiOperation,
   ): T | undefined {
     const entry = cache.get(key);
     if (!entry) {
+      this.metrics?.recordBrasilApiCache(operation, 'miss');
       return undefined;
     }
     if (Date.now() > entry.expiresAt) {
       cache.delete(key);
+      this.metrics?.recordBrasilApiCache(operation, 'expired');
       return undefined;
     }
+    this.metrics?.recordBrasilApiCache(operation, 'hit');
     return entry.value;
   }
 
@@ -326,7 +354,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     key: string,
     value: T,
   ): void {
-    cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+    cache.set(key, { value, expiresAt: Date.now() + this.cacheTtlMs });
   }
 
   private async instrumented<T>(

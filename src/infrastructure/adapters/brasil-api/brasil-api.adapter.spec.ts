@@ -77,9 +77,12 @@ describe('BrasilApiAdapter', () => {
     } as unknown as HttpService;
 
     const adapter = new BrasilApiAdapter(http, config, metrics);
-    await expect(adapter.getCnpjData('11222333000181')).resolves.toEqual({
-      outcome: 'PENDING_EXTERNAL_VALIDATION',
-    });
+    const result = await adapter.getCnpjData('11222333000181');
+    expect(result.outcome).toBe('PENDING_EXTERNAL_VALIDATION');
+    if (result.outcome === 'PENDING_EXTERNAL_VALIDATION') {
+      // opossum pode abrir o circuito no timeout e usar fallback (circuit_open)
+      expect(['timeout_or_network', 'circuit_open']).toContain(result.reason);
+    }
   });
 
   it('404 CNPJ → REJECTED', async () => {
@@ -113,6 +116,9 @@ describe('BrasilApiAdapter', () => {
     const beforeFallbackCalls = calls;
     const result = await adapter.getCnpjData('11222333000181');
     expect(result.outcome).toBe('PENDING_EXTERNAL_VALIDATION');
+    if (result.outcome === 'PENDING_EXTERNAL_VALIDATION') {
+      expect(result.reason).toMatch(/circuit_open|timeout_or_network/);
+    }
     expect(adapter.getCircuitStats().cnpjOpen).toBe(true);
     // Com circuit aberto o fallback evita novas tentativas HTTP (ou reduz).
     expect(calls).toBeLessThanOrEqual(beforeFallbackCalls + 1);
@@ -169,7 +175,8 @@ describe('BrasilApiAdapter', () => {
       },
     } as unknown as HttpService;
 
-    const adapter = new BrasilApiAdapter(http, config, metrics);
+    const localMetrics = new MetricsService();
+    const adapter = new BrasilApiAdapter(http, config, localMetrics);
 
     await adapter.getCnpjData('11222333000181');
     await adapter.getCnpjData('11222333000181');
@@ -178,5 +185,59 @@ describe('BrasilApiAdapter', () => {
     await adapter.isCityInState('Campinas', 'SP');
     await adapter.isCityInState('Campinas', 'SP');
     expect(cityCalls).toBe(1);
+
+    const scraped = await localMetrics.scrape();
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="cnpj",result="miss"\} 1/,
+    );
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="cnpj",result="hit"\} 1/,
+    );
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="city",result="miss"\} 1/,
+    );
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="city",result="hit"\} 1/,
+    );
+    expect(scraped).not.toMatch(/11222333000181/);
+    expect(scraped).not.toMatch(/Campinas/);
+    expect(scraped).not.toMatch(/cnpj\/v1/);
+  });
+
+  it('cache expired registra result=expired e refetch HTTP', async () => {
+    let cnpjCalls = 0;
+    const http = {
+      get: () => {
+        cnpjCalls += 1;
+        return of(
+          okResponse({
+            cnpj: '11222333000181',
+            razao_social: 'TTL',
+            descricao_situacao_cadastral: 'ATIVA',
+          }),
+        );
+      },
+    } as unknown as HttpService;
+
+    const localMetrics = new MetricsService();
+    const adapter = new BrasilApiAdapter(http, config, localMetrics);
+    adapter.setCacheTtlForTests(20);
+
+    await adapter.getCnpjData('11222333000181');
+    expect(cnpjCalls).toBe(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    await adapter.getCnpjData('11222333000181');
+    expect(cnpjCalls).toBe(2);
+
+    const scraped = await localMetrics.scrape();
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="cnpj",result="expired"\} 1/,
+    );
+    expect(scraped).toMatch(
+      /brasilapi_cache_total\{operation="cnpj",result="miss"\} 1/,
+    );
+    expect(scraped).not.toMatch(/11222333000181/);
   });
 });

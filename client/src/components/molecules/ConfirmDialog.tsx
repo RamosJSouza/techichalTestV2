@@ -46,7 +46,7 @@ const Actions = styled.div`
   gap: 8px;
 `;
 
-type ConfirmVariant = 'danger' | 'primary';
+type ConfirmVariant = 'danger';
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -58,6 +58,32 @@ export interface ConfirmDialogProps {
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+}
+
+const FOCUSABLE =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function trapTabKey(event: KeyboardEvent, container: HTMLElement): void {
+  if (event.key !== 'Tab') {
+    return;
+  }
+  const nodes = Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE),
+  );
+  if (nodes.length === 0) {
+    return;
+  }
+  const first = nodes[0]!;
+  const last = nodes[nodes.length - 1]!;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+    return;
+  }
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 export function ConfirmDialog({
@@ -72,6 +98,7 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps): React.JSX.Element | null {
   const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -83,6 +110,10 @@ export function ConfirmDialog({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && !busy) {
         onCancel();
+        return;
+      }
+      if (panelRef.current) {
+        trapTabKey(event, panelRef.current);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -103,6 +134,7 @@ export function ConfirmDialog({
       }}
     >
       <Panel
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -122,6 +154,7 @@ export function ConfirmDialog({
           <Button
             variant={confirmVariant}
             disabled={busy}
+            aria-busy={busy}
             onClick={onConfirm}
           >
             {confirmLabel}

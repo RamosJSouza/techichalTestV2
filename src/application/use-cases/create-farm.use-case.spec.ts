@@ -60,10 +60,17 @@ describe('CreateFarmUseCase', () => {
     });
 
     const farm = await buildCreateFarm(farmRepo, producerRepo, {
-      getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
-      isCityInState: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      getCnpjData: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'circuit_open',
+      }),
+      isCityInState: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'circuit_open',
+      }),
       listCitiesByState: async () => ({
         outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'circuit_open',
       }),
     }).execute({
       producerId: producer.id,
@@ -78,6 +85,8 @@ describe('CreateFarmUseCase', () => {
     expect(farm.territorialValidationStatus).toBe(
       'PENDING_EXTERNAL_VALIDATION',
     );
+    expect(farm.territorialValidationPendingReason).toBe('circuit_open');
+    expect(farm.territorialValidationPendingAt).not.toBeNull();
   });
 
   it('rejeita cidade fora do estado', async () => {
@@ -95,7 +104,10 @@ describe('CreateFarmUseCase', () => {
 
     await expect(
       buildCreateFarm(farmRepo, producerRepo, {
-        getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+        getCnpjData: async () => ({
+          outcome: 'PENDING_EXTERNAL_VALIDATION',
+          reason: 'timeout_or_network',
+        }),
         isCityInState: async () => ({ outcome: 'VALIDATED', data: false }),
         listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
       }).execute({

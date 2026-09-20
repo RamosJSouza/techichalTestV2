@@ -133,6 +133,18 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "title": "BrasilAPI cache hit ratio",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "targets": [
+        {
+          "expr": "sum(rate(brasilapi_cache_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(brasilapi_cache_total[5m])), 1e-9)",
+          "legendFormat": "hit_ratio",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "schemaVersion": 39,

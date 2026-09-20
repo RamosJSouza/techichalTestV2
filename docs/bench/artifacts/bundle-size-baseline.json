@@ -1,5 +1,9 @@
-﻿{
-  "at": "2026-09-20T17:55:00.000Z",
-  "byKind": { "vendor": 131387, "recharts": 110058, "entry": 63357 },
-  "note": "Post code-split baseline. Before: entry gzip 167335 (gate fail). After: 63357."
+{
+  "at": "2026-09-20T20:28:00.000Z",
+  "byKind": {
+    "vendor": 167968,
+    "recharts": 110057,
+    "entry": 27460
+  },
+  "note": "Baseline pós Frontend QA: vendor inclui styled-components + axios; entry ~27 KB gzip (antes ~51–63 KB). Rotas lazy inalteradas."
 }

@@ -28,6 +28,7 @@ import {
   MetricsService,
   type DbOperation,
 } from '../observability/metrics.service.js';
+import { trackDbRoundTrip } from '../database/request-query-context.js';
 
 function round2(value: number): number {
   return Number(value.toFixed(2));
@@ -56,7 +57,7 @@ function asRows(result: unknown): Record<string, unknown>[] {
 @Injectable()
 export class DrizzleDashboardRepository implements IDashboardRepository {
   private readonly cacheTtlMs = Number(
-    process.env.DASHBOARD_STATS_CACHE_TTL_MS ?? '1500',
+    process.env.DASHBOARD_STATS_CACHE_TTL_MS ?? '5000',
   );
   private readonly statsCache = new Map<
     string,
@@ -290,6 +291,7 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
     const wantSummaryCore = mode === 'full' || mode === 'summary';
     const wantAnalytics = mode === 'full' || mode === 'analytics';
 
+    trackDbRoundTrip();
     const result = await this.db.execute(sql`
       WITH f AS (
         SELECT
@@ -444,6 +446,7 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
     const wantByCrop = mode === 'full' || mode === 'summary';
     const wantAnalytics = mode === 'full' || mode === 'analytics';
 
+    trackDbRoundTrip();
     const result = await this.db.execute(sql`
       WITH f AS (
         SELECT id, climate_risk_score
@@ -531,6 +534,7 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
     filters: DashboardFilters,
   ): Promise<{ status: string; count: number }[]> {
     const farmWhere = this.buildFarmWhere(filters);
+    trackDbRoundTrip();
     const result = await this.db.execute(sql`
       WITH f AS (
         SELECT producer_id

@@ -44,6 +44,26 @@ const envSchema = z
         typeof value === 'string' && value.trim() === '' ? undefined : value,
       z.string().min(1).max(128).optional(),
     ),
+    ADMIN_API_TOKEN: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.string().min(8).max(256).optional(),
+    ),
+    REVALIDATE_PENDING_ENABLED: z
+      .enum(['0', '1', 'true', 'false'])
+      .optional()
+      .default('1'),
+    REVALIDATE_PENDING_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(300_000),
+    REVALIDATE_PENDING_BATCH_SIZE: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(500)
+      .default(50),
   })
   .superRefine((data, ctx) => {
     if (data.ENCRYPTION_KEY_PREVIOUS && !data.ENCRYPTION_KEY_PREVIOUS_ID) {

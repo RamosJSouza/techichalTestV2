@@ -4,7 +4,9 @@ import { useGetProducerEsgQuery, useGetProducerQuery } from '../store/api/apiSli
 import { Badge } from '../components/atoms/Badge';
 import { Button } from '../components/atoms/Button';
 import { Spinner } from '../components/atoms/Spinner';
+import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { ValidationBanner } from '../components/molecules/ValidationBanner';
+import { httpStatusDetail } from '../shared/lib/http-error-detail';
 
 const Card = styled.section`
   background: ${({ theme }) => theme.colors.surface};
@@ -23,19 +25,16 @@ const List = styled.ul`
   padding-left: 1.25rem;
 `;
 
+const ESG_TONE: Record<string, 'success' | 'secondary' | 'danger'> = {
+  BLOCKED: 'danger',
+  WARNING: 'secondary',
+  APPROVED: 'success',
+};
+
 function toneForStatus(
   status: string,
 ): 'success' | 'secondary' | 'danger' | 'neutral' {
-  switch (status) {
-    case 'BLOCKED':
-      return 'danger';
-    case 'WARNING':
-      return 'secondary';
-    case 'APPROVED':
-      return 'success';
-    default:
-      return 'neutral';
-  }
+  return ESG_TONE[status] ?? 'neutral';
 }
 
 export function ProducerEsgPage(): React.JSX.Element {
@@ -52,13 +51,13 @@ export function ProducerEsgPage(): React.JSX.Element {
     return (
       <Card>
         <h1>Parecer ESG</h1>
-        <p role="alert">
-          Falha ao carregar compliance
-          {typeof error === 'object' && error && 'status' in error
-            ? ` (HTTP ${String(error.status)})`
-            : ''}
-          .
-        </p>
+        <ErrorRetryPanel
+          message="Falha ao carregar compliance."
+          detail={httpStatusDetail(error)}
+          onRetry={() => {
+            void refetch();
+          }}
+        />
         <Link to="/producers">
           <Button variant="secondary">Voltar à listagem</Button>
         </Link>
@@ -94,10 +93,7 @@ export function ProducerEsgPage(): React.JSX.Element {
       <div>
         <strong>Indicadores</strong>
         <List>
-          <li>
-            Embargo IBAMA:{' '}
-            {data.hasIbamaEmbargo ? 'Sim' : 'Não'}
-          </li>
+          <li>Embargo IBAMA: {data.hasIbamaEmbargo ? 'Sim' : 'Não'}</li>
           <li>
             Trabalho análogo à escravidão:{' '}
             {data.hasSlaveLaborFlag ? 'Sim' : 'Não'}
@@ -121,6 +117,7 @@ export function ProducerEsgPage(): React.JSX.Element {
           type="button"
           variant="secondary"
           disabled={isFetching}
+          aria-busy={isFetching}
           onClick={() => void refetch()}
         >
           {isFetching ? 'Atualizando…' : 'Reconsultar'}

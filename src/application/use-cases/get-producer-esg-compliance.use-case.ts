@@ -5,7 +5,7 @@ import {
 } from '../../domain/policies/socio-environmental.policy.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 
-export interface EsgComplianceResult {
+interface EsgComplianceResult {
   producerId: string;
   documentMasked: string;
   esgStatus: EsgStatus;

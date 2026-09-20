@@ -83,6 +83,7 @@ jobs:
       - name: Audit (prod high+)
         run: pnpm audit:ci
 
+      # Build (client: sem VITE_USE_MOCKS — API real / Axios)
       - name: Build
         run: pnpm build
 

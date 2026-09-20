@@ -211,7 +211,7 @@ export function ProducersListPage(): React.JSX.Element {
           label="Buscar produtores"
           value={query}
           onChange={setQuery}
-          placeholder="Nome, documento mascarado, fazenda, cidade, UF, cultura, ESG…"
+          placeholder="Nome, documento, UF, ESG, qtd. fazendas, área…"
         />
         <ExactBox>
           <TextInput

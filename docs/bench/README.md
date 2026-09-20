@@ -22,15 +22,21 @@ Backlog de hipóteses (pool, índices, cache, listagem, BrasilAPI, bundle): ver 
 
 ## SLOs (HTTP end-to-end, API aquecida)
 
-| Scale | D0 p95 | D0 p99 | D0 min req/s | L0 p95 | L1 p95 |
-|-------|--------|--------|--------------|--------|--------|
-| S | ≤200 ms | ≤400 ms | ≥15 | ≤80 ms | ≤150 ms |
-| M | ≤500 ms | ≤900 ms | ≥8 | ≤120 ms | ≤250 ms |
-| L | ≤1500 ms | ≤3000 ms | ≥2 | ≤200 ms | ≤400 ms |
+| Scale | D0s p95 | D0s p99 | D0s min req/s | D0a p95 | L0 p95 | L1 p95 |
+|-------|---------|---------|---------------|---------|--------|--------|
+| S | ≤200 ms | ≤400 ms | ≥15 | ≤300 ms | ≤80 ms | ≤150 ms |
+| M | ≤500 ms | ≤900 ms | ≥8 | ≤600 ms | ≤120 ms | ≤250 ms |
+| L | ≤1500 ms | ≤3000 ms | ≥2 | ≤1800 ms | ≤200 ms | ≤400 ms |
 
-- **D0** = `GET /api/v1/dashboard/stats`
-- **L0** = `GET /api/v1/producers?page=1&pageSize=20`
-- **L1** = `…pageSize=100` (pior caso de hidratação do client atual)
+- **D0s (bloqueante / first paint)** = `GET /api/v1/dashboard/summary`
+- **D0a (bloqueante / secondary)** = `GET /api/v1/dashboard/analytics`
+- **D0 (residual / informativo)** = `GET /api/v1/dashboard/stats`
+- **P1 (informativo)** = `GET /api/v1/producers/:id` (detalhe hidratado)
+- **L0** = listagem pageSize 20; **L1** = pageSize 100 (summary, sem safras)
+
+Instrumentação: `BENCH_INSTRUMENT=1` → headers `X-Db-Queries`, `X-Heap-Delta-Mb` (não fazem parte do contrato OpenAPI estável).
+
+Cache dashboard: `DASHBOARD_STATS_CACHE_TTL_MS` (default **5000**). Set `0` para desligar.
 
 Gate SQL (M/L): Seq Scan dominante em `farms`/`harvests` nas queries D0/D1/D2 = FAIL.
 
@@ -38,11 +44,13 @@ Bundle (release / CI): `pnpm build:client && pnpm bench:bundle`
 
 | Chunk | Gate gzip | Notas |
 |-------|-----------|-------|
-| `vendor` | ≤180 KB | react + RTK |
+| `vendor` | ≤180 KB | react + RTK + styled-components + axios |
 | `recharts` | ≤120 KB | lazy no dashboard |
 | `entry` (`index-*`) | ≤100 KB | após code-split de rotas |
 
-Baseline before code-split (2026-09-20): entry **167 KB** gzip (gate 80 KB falhava). After: entry **~62 KB** gzip — ver `docs/bench/artifacts/bundle-size-before.json` / `bundle-size-after.json`. Regressão >10% vs `bundle-size-baseline.json` = FAIL.
+`pnpm bench:bundle` também imprime **gzip por rota** (`byRoute`: dashboard, list, form, esg, charts, export-csv) — informativo, sem gate.
+
+Baseline before code-split (2026-09-20): entry **167 KB** gzip (gate 80 KB falhava). After split: entry **~62 KB**. Após Frontend QA (vendor com styled-components + axios): entry **~27 KB**, vendor **~164 KB** — ver `bundle-size-baseline.json`. Regressão >10% vs baseline = FAIL.
 
 ## Protocolo
 

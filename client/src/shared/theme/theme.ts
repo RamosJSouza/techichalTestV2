@@ -11,12 +11,10 @@ export const theme = {
     borderSubtle: '#EEEEEE',
     text: '#212529',
     textSecondary: '#616161',
-    success: '#2E7D32',
     successBg: '#E8F5E9',
     danger: '#D32F2F',
     dangerBg: '#FFEBEE',
     info: '#1976D2',
-    infoBg: '#E3F2FD',
     hoverRow: '#F1F8E9',
   },
   radii: {
@@ -41,18 +39,12 @@ export const theme = {
   breakpoints: {
     mobileMax: '767px',
     tabletMax: '1279px',
-    desktopMin: '1280px',
   },
   shadows: {
-    level0: 'none',
     level1:
       '0 1px 3px rgba(33, 37, 41, 0.04), 0 1px 2px rgba(33, 37, 41, 0.02)',
     level2:
       '0 4px 12px rgba(33, 37, 41, 0.08), 0 2px 4px rgba(33, 37, 41, 0.04)',
-    level3:
-      '0 8px 24px rgba(33, 37, 41, 0.12), 0 4px 8px rgba(33, 37, 41, 0.06)',
-    level4:
-      '0 16px 40px rgba(33, 37, 41, 0.16), 0 8px 16px rgba(33, 37, 41, 0.08)',
   },
   typography: {
     fontFamily: "'Inter', system-ui, sans-serif",

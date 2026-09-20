@@ -11,6 +11,7 @@ import { applyFarmCompliancePolicies } from '../services/apply-farm-compliance.j
 import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
+import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 
 interface CreateProducerFarmInput {
@@ -24,7 +25,7 @@ interface CreateProducerFarmInput {
   carNumber?: string;
 }
 
-export interface CreateProducerInput {
+interface CreateProducerInput {
   name: string;
   document: string;
   farms?: CreateProducerFarmInput[];
@@ -37,6 +38,7 @@ export class CreateProducerUseCase {
     private readonly crypto: CryptoServiceInterface,
     private readonly config: AppConfigPort,
     private readonly logger: LoggerPort,
+    private readonly audit: ExternalValidationAuditPort,
   ) {}
 
   public async execute(input: CreateProducerInput): Promise<Producer> {
@@ -51,6 +53,7 @@ export class CreateProducerUseCase {
 
     let name = input.name;
     let documentValidationStatus: ExternalValidationStatus = 'VALIDATED';
+    let documentValidationPendingReason: string | null = null;
 
     if (document.isCnpj()) {
       const lookup = await this.brazilData.getCnpjData(document.value);
@@ -62,8 +65,9 @@ export class CreateProducerUseCase {
           );
         case 'PENDING_EXTERNAL_VALIDATION':
           documentValidationStatus = 'PENDING_EXTERNAL_VALIDATION';
+          documentValidationPendingReason = lookup.reason;
           this.logger.warn(
-            `CNPJ ${document.masked()} pending external validation (BrasilAPI unavailable)`,
+            `CNPJ ${document.masked()} pending external validation (BrasilAPI unavailable): ${lookup.reason}`,
           );
           break;
         case 'VALIDATED':
@@ -104,11 +108,12 @@ export class CreateProducerUseCase {
       name,
       document: document.value,
       documentValidationStatus,
+      documentValidationPendingReason,
     });
     producer.applyEsgStatus(esgStatus);
 
     for (const farmInput of input.farms ?? []) {
-      const territorialStatus = await assertCityBelongsToState(
+      const territorial = await assertCityBelongsToState(
         this.brazilData,
         farmInput.city,
         farmInput.state,
@@ -117,13 +122,36 @@ export class CreateProducerUseCase {
       const farm = Farm.create({
         producerId: producer.id,
         ...farmInput,
-        territorialValidationStatus: territorialStatus,
+        territorialValidationStatus: territorial.status,
+        territorialValidationPendingReason: territorial.pendingReason,
       });
       applyFarmCompliancePolicies(farm);
       producer.addFarm(farm);
     }
 
     await this.producerRepository.save(producer);
+
+    await this.audit.append({
+      resourceType: 'producer_document',
+      resourceId: producer.id,
+      previousStatus: 'VALIDATED',
+      newStatus: documentValidationStatus,
+      reason: documentValidationPendingReason,
+      trigger: 'write',
+      actor: 'system',
+    });
+    for (const farm of producer.farms) {
+      await this.audit.append({
+        resourceType: 'farm_territorial',
+        resourceId: farm.id,
+        previousStatus: 'VALIDATED',
+        newStatus: farm.territorialValidationStatus,
+        reason: farm.territorialValidationPendingReason,
+        trigger: 'write',
+        actor: 'system',
+      });
+    }
+
     this.logger.log(`Producer created: ${producer.id}`);
     return producer;
   }

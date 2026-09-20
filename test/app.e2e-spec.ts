@@ -23,7 +23,10 @@ if (isCi && !databaseUrl) {
 }
 
 const offlineBrazil: BrazilDataServiceInterface = {
-  getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+  getCnpjData: async () => ({
+    outcome: 'PENDING_EXTERNAL_VALIDATION',
+    reason: 'timeout_or_network',
+  }),
   isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
   listCitiesByState: async () => ({
     outcome: 'VALIDATED',
@@ -35,13 +38,17 @@ const offlineBrazil: BrazilDataServiceInterface = {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    process.env.ADMIN_API_TOKEN =
+      process.env.ADMIN_API_TOKEN ?? 'e2e-admin-token-min-8';
+    process.env.REVALIDATE_PENDING_ENABLED = '0';
+
     const client = postgres(databaseUrl!, { max: 1 });
     try {
       await migrate(drizzle(client), {
         migrationsFolder: join(process.cwd(), 'drizzle'),
       });
       await client`
-        TRUNCATE TABLE farm_crops, harvests, farms, producers RESTART IDENTITY CASCADE
+        TRUNCATE TABLE farm_crops, harvests, farms, producers, external_validation_audit RESTART IDENTITY CASCADE
       `;
     } finally {
       await client.end({ timeout: 5 });
@@ -181,6 +188,52 @@ const offlineBrazil: BrazilDataServiceInterface = {
     expect(second.body.code).toBeDefined();
   });
 
+  it('corrida concorrente no mesmo CPF → um 201 e um 409 (23505)', async () => {
+    const payload = {
+      name: 'Corrida Unique',
+      document: '100.000.002-80',
+    };
+    const [a, b] = await Promise.all([
+      request(app.getHttpServer()).post('/api/v1/producers').send(payload),
+      request(app.getHttpServer()).post('/api/v1/producers').send(payload),
+    ]);
+    const statuses = [a.status, b.status].sort((x, y) => x - y);
+    expect(statuses).toEqual([201, 409]);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/v1/producers')
+      .query({ page: 1, pageSize: 100 })
+      .expect(200);
+    const matches = (list.body.items as Array<{ document: string }>).filter(
+      (item) =>
+        typeof item.document === 'string' &&
+        item.document.includes('000.002'),
+    );
+    expect(matches).toHaveLength(1);
+  });
+
+  it('soft-deleted não aparece na listagem', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Soft List',
+        document: '034.729.256-98',
+      });
+    expect([200, 201]).toContain(created.status);
+    const id = created.body.id as string;
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/producers/${id}`)
+      .expect(204);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/v1/producers')
+      .query({ page: 1, pageSize: 100 })
+      .expect(200);
+    const ids = (list.body.items as Array<{ id: string }>).map((i) => i.id);
+    expect(ids).not.toContain(id);
+  });
+
   it('rejeita área de fazenda inválida', async () => {
     const producer = await request(app.getHttpServer())
       .post('/api/v1/producers')
@@ -230,5 +283,42 @@ const offlineBrazil: BrazilDataServiceInterface = {
     expect(response.body.documentValidationStatus).toBe(
       'PENDING_EXTERNAL_VALIDATION',
     );
+    expect(response.body.documentValidationPendingReason).toBeTruthy();
+  });
+
+  it('admin revalidate sem token → 401', async () => {
+    await request(app.getHttpServer())
+      .post(
+        '/api/v1/admin/revalidate/producers/00000000-0000-4000-8000-000000000001',
+      )
+      .expect(401);
+  });
+
+  it('admin revalidate com token reprocessa PENDING', async () => {
+    const token = process.env.ADMIN_API_TOKEN;
+    if (!token) {
+      // Sem token no ambiente, o guard sempre 401 — coberto acima.
+      return;
+    }
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Revalidate Target',
+        document: '04.252.011/0001-10',
+      });
+    expect([200, 201]).toContain(created.status);
+    expect(created.body.documentValidationStatus).toBe(
+      'PENDING_EXTERNAL_VALIDATION',
+    );
+
+    const revalidated = await request(app.getHttpServer())
+      .post(`/api/v1/admin/revalidate/producers/${created.body.id}`)
+      .set('X-Admin-Token', token)
+      .expect(200);
+
+    expect(revalidated.body).toHaveProperty('previousStatus');
+    expect(revalidated.body).toHaveProperty('newStatus');
+    // Offline mock permanece PENDING
+    expect(revalidated.body.newStatus).toBe('PENDING_EXTERNAL_VALIDATION');
   });
 });

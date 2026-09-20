@@ -7,6 +7,7 @@ import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import type { CryptoServiceInterface } from '../services/crypto.service.interface.js';
+import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 
 interface UpdateProducerInput {
@@ -20,6 +21,7 @@ export class UpdateProducerUseCase {
     private readonly crypto: CryptoServiceInterface,
     private readonly brazilData: BrazilDataServiceInterface,
     private readonly logger: LoggerPort,
+    private readonly audit: ExternalValidationAuditPort,
   ) {}
 
   public async execute(
@@ -36,6 +38,7 @@ export class UpdateProducerUseCase {
     }
 
     if (input.document !== undefined) {
+      const previousStatus = producer.documentValidationStatus;
       const document = CpfCnpj.create(input.document);
       const hash = this.crypto.blindIndex(document.value);
       const existing = await this.producerRepository.findByDocumentHash(hash);
@@ -44,6 +47,7 @@ export class UpdateProducerUseCase {
       }
 
       let documentValidationStatus: ExternalValidationStatus = 'VALIDATED';
+      let documentValidationPendingReason: string | null = null;
       let nextName: string | undefined;
 
       if (document.isCnpj()) {
@@ -56,8 +60,9 @@ export class UpdateProducerUseCase {
             );
           case 'PENDING_EXTERNAL_VALIDATION':
             documentValidationStatus = 'PENDING_EXTERNAL_VALIDATION';
+            documentValidationPendingReason = lookup.reason;
             this.logger.warn(
-              `CNPJ ${document.masked()} pending external validation on update (BrasilAPI unavailable)`,
+              `CNPJ ${document.masked()} pending external validation on update (BrasilAPI unavailable): ${lookup.reason}`,
             );
             break;
           case 'VALIDATED':
@@ -81,7 +86,10 @@ export class UpdateProducerUseCase {
       }
 
       producer.updateDocument(document.value);
-      producer.setDocumentValidationStatus(documentValidationStatus);
+      producer.setDocumentValidationStatus(
+        documentValidationStatus,
+        documentValidationPendingReason,
+      );
       if (nextName !== undefined && input.name === undefined) {
         producer.updateName(nextName);
       }
@@ -92,6 +100,18 @@ export class UpdateProducerUseCase {
       ) {
         producer.applyEsgStatus('WARNING');
       }
+
+      await this.producerRepository.update(producer);
+      await this.audit.append({
+        resourceType: 'producer_document',
+        resourceId: producer.id,
+        previousStatus,
+        newStatus: documentValidationStatus,
+        reason: documentValidationPendingReason,
+        trigger: 'write',
+        actor: 'system',
+      });
+      return producer;
     }
 
     return this.producerRepository.update(producer);

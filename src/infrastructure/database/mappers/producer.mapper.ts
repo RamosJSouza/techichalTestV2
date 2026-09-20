@@ -1,7 +1,11 @@
 import { Crop, Farm, Harvest } from '../../../domain/entities/farm.js';
 import type { HarvestStatus } from '../../../domain/entities/farm.js';
 import { Producer } from '../../../domain/entities/producer.js';
-import { parseExternalValidationStatus } from '../../../domain/constants/external-validation-status.js';
+import {
+  isExternalValidationStatus,
+  parseExternalValidationStatus,
+  UNKNOWN_EXTERNAL_VALIDATION_REASON,
+} from '../../../domain/constants/external-validation-status.js';
 import type { EsgStatus } from '../../../domain/policies/socio-environmental.policy.js';
 import type { CryptoService } from '../../crypto/crypto.service.js';
 import { farms, farmCrops, harvests, producers } from '../schema/index.js';
@@ -45,6 +49,19 @@ export class ProducerMapper {
       FarmMapper.toDomain(farmRow, harvestRows, cropRows),
     );
 
+    const rawDocStatus = row.documentValidationStatus;
+    const documentValidationStatus = parseExternalValidationStatus(rawDocStatus);
+    const documentValidationPendingReason = isExternalValidationStatus(
+      rawDocStatus,
+    )
+      ? row.documentValidationPendingReason
+      : (row.documentValidationPendingReason ??
+        UNKNOWN_EXTERNAL_VALIDATION_REASON);
+    const documentValidationPendingAt =
+      documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION'
+        ? (row.documentValidationPendingAt ?? new Date())
+        : row.documentValidationPendingAt;
+
     return Producer.reconstitute({
       id: row.id,
       name: row.name,
@@ -52,9 +69,9 @@ export class ProducerMapper {
       farms: domainFarms,
       esgStatus: toEsgStatus(row.esgStatus),
       esgCheckedAt: row.esgCheckedAt,
-      documentValidationStatus: parseExternalValidationStatus(
-        row.documentValidationStatus,
-      ),
+      documentValidationStatus,
+      documentValidationPendingAt,
+      documentValidationPendingReason,
       deletedAt: row.deletedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -72,6 +89,8 @@ export class ProducerMapper {
     esgStatus: string;
     esgCheckedAt: Date | null;
     documentValidationStatus: string;
+    documentValidationPendingAt: Date | null;
+    documentValidationPendingReason: string | null;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -84,6 +103,9 @@ export class ProducerMapper {
       esgStatus: producer.esgStatus,
       esgCheckedAt: producer.esgCheckedAt,
       documentValidationStatus: producer.documentValidationStatus,
+      documentValidationPendingAt: producer.documentValidationPendingAt,
+      documentValidationPendingReason:
+        producer.documentValidationPendingReason,
       createdAt: producer.createdAt,
       updatedAt: producer.updatedAt,
       deletedAt: producer.deletedAt,
@@ -111,6 +133,20 @@ export class FarmMapper {
         );
       });
 
+    const rawTerritorial = farmRow.territorialValidationStatus;
+    const territorialValidationStatus =
+      parseExternalValidationStatus(rawTerritorial);
+    const territorialValidationPendingReason = isExternalValidationStatus(
+      rawTerritorial,
+    )
+      ? farmRow.territorialValidationPendingReason
+      : (farmRow.territorialValidationPendingReason ??
+        UNKNOWN_EXTERNAL_VALIDATION_REASON);
+    const territorialValidationPendingAt =
+      territorialValidationStatus === 'PENDING_EXTERNAL_VALIDATION'
+        ? (farmRow.territorialValidationPendingAt ?? new Date())
+        : farmRow.territorialValidationPendingAt;
+
     return Farm.reconstitute({
       id: farmRow.id,
       producerId: farmRow.producerId,
@@ -127,9 +163,9 @@ export class FarmMapper {
         farmRow.climateRiskScore === null
           ? null
           : Number(farmRow.climateRiskScore),
-      territorialValidationStatus: parseExternalValidationStatus(
-        farmRow.territorialValidationStatus,
-      ),
+      territorialValidationStatus,
+      territorialValidationPendingAt,
+      territorialValidationPendingReason,
       deletedAt: farmRow.deletedAt,
       createdAt: farmRow.createdAt,
       updatedAt: farmRow.updatedAt,
@@ -149,6 +185,8 @@ export class FarmMapper {
     carStatus: string | null;
     climateRiskScore: string | null;
     territorialValidationStatus: string;
+    territorialValidationPendingAt: Date | null;
+    territorialValidationPendingReason: string | null;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -169,6 +207,9 @@ export class FarmMapper {
           ? null
           : farm.climateRiskScore.toFixed(2),
       territorialValidationStatus: farm.territorialValidationStatus,
+      territorialValidationPendingAt: farm.territorialValidationPendingAt,
+      territorialValidationPendingReason:
+        farm.territorialValidationPendingReason,
       createdAt: farm.createdAt,
       updatedAt: farm.updatedAt,
       deletedAt: farm.deletedAt,

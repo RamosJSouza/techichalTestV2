@@ -1,1 +1,7 @@
-export { producers, farms, harvests, farmCrops } from './tables.js';
+export {
+  producers,
+  farms,
+  harvests,
+  farmCrops,
+  externalValidationAudit,
+} from './tables.js';

@@ -25,6 +25,7 @@ import {
   ProducerMapper,
 } from '../database/mappers/producer.mapper.js';
 import { mapPgIntegrityError } from '../database/pg-error.js';
+import { trackDbRoundTrip } from '../database/request-query-context.js';
 import {
   farmCrops,
   farms,
@@ -111,6 +112,10 @@ export class DrizzleProducerRepository implements IProducerRepository {
             esgStatus: persistence.esgStatus,
             esgCheckedAt: persistence.esgCheckedAt,
             documentValidationStatus: persistence.documentValidationStatus,
+            documentValidationPendingAt:
+              persistence.documentValidationPendingAt,
+            documentValidationPendingReason:
+              persistence.documentValidationPendingReason,
             updatedAt: persistence.updatedAt,
             deletedAt: persistence.deletedAt,
           })
@@ -124,6 +129,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
 
   public async findById(id: string): Promise<Producer | null> {
     return this.timed('producer_find_by_id', async () => {
+      trackDbRoundTrip();
       const [row] = await this.db
         .select()
         .from(producers)
@@ -188,11 +194,13 @@ export class DrizzleProducerRepository implements IProducerRepository {
 
       const offset = (query.page - 1) * query.pageSize;
 
+      trackDbRoundTrip();
       const [totalRow] = await this.db
         .select({ value: count() })
         .from(producers)
         .where(whereClause);
 
+      trackDbRoundTrip();
       const rows = await this.db
         .select()
         .from(producers)
@@ -230,6 +238,27 @@ export class DrizzleProducerRepository implements IProducerRepository {
     });
   }
 
+  public async findPendingDocumentIds(limit: number): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: producers.id })
+      .from(producers)
+      .where(
+        and(
+          isNull(producers.deletedAt),
+          eq(
+            producers.documentValidationStatus,
+            'PENDING_EXTERNAL_VALIDATION',
+          ),
+        ),
+      )
+      .orderBy(
+        asc(producers.documentValidationPendingAt),
+        asc(producers.createdAt),
+      )
+      .limit(Math.max(1, Math.min(limit, 500)));
+    return rows.map((row) => row.id);
+  }
+
   private async timed<T>(
     operation: DbOperation,
     fn: () => Promise<T>,
@@ -246,6 +275,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
     }
 
     const producerIds = rows.map((row) => row.id);
+    trackDbRoundTrip();
     const aggRows = await this.db
       .select({
         producerId: farms.producerId,
@@ -280,6 +310,8 @@ export class DrizzleProducerRepository implements IProducerRepository {
         esgStatus: row.esgStatus,
         esgCheckedAt: row.esgCheckedAt,
         documentValidationStatus: row.documentValidationStatus,
+        documentValidationPendingAt: row.documentValidationPendingAt,
+        documentValidationPendingReason: row.documentValidationPendingReason,
         farmsCount: Number(agg?.farmsCount ?? 0),
         farmStates: states,
         totalAreaHa: Number(agg?.totalAreaHa ?? 0),
@@ -295,6 +327,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
     }
 
     const producerIds = rows.map((row) => row.id);
+    trackDbRoundTrip();
     const farmRows = await this.db
       .select()
       .from(farms)
@@ -303,22 +336,24 @@ export class DrizzleProducerRepository implements IProducerRepository {
       );
 
     const farmIds = farmRows.map((farm) => farm.id);
-    const harvestRows =
-      farmIds.length === 0
-        ? []
-        : await this.db
-            .select()
-            .from(harvests)
-            .where(inArray(harvests.farmId, farmIds));
+    let harvestRows: (typeof harvests.$inferSelect)[] = [];
+    if (farmIds.length > 0) {
+      trackDbRoundTrip();
+      harvestRows = await this.db
+        .select()
+        .from(harvests)
+        .where(inArray(harvests.farmId, farmIds));
+    }
 
     const harvestIds = harvestRows.map((harvest) => harvest.id);
-    const cropRows =
-      harvestIds.length === 0
-        ? []
-        : await this.db
-            .select()
-            .from(farmCrops)
-            .where(inArray(farmCrops.harvestId, harvestIds));
+    let cropRows: (typeof farmCrops.$inferSelect)[] = [];
+    if (harvestIds.length > 0) {
+      trackDbRoundTrip();
+      cropRows = await this.db
+        .select()
+        .from(farmCrops)
+        .where(inArray(farmCrops.harvestId, harvestIds));
+    }
 
     return rows.map((row) =>
       ProducerMapper.toDomain(

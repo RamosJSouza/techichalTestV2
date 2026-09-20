@@ -18,6 +18,8 @@ export type BrasilApiResultLabel =
   | 'rejected'
   | 'error';
 
+type BrasilApiCacheResult = 'hit' | 'miss' | 'expired';
+
 export type DbOperation =
   | 'producer_save'
   | 'producer_update'
@@ -69,6 +71,7 @@ export class MetricsService {
   public readonly circuitOpen: Gauge<string>;
   public readonly brasilApiRequestsTotal: Counter<string>;
   public readonly brasilApiRequestDurationSeconds: Histogram<string>;
+  public readonly brasilApiCacheTotal: Counter<string>;
   public readonly rateLimitRejectedTotal: Counter<string>;
   public readonly domainErrorsTotal: Counter<string>;
   public readonly clientTimingSeconds: Histogram<string>;
@@ -123,6 +126,12 @@ export class MetricsService {
       help: 'BrasilAPI lookup duration in seconds',
       labelNames: ['operation'],
       buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+      registers: [this.registry],
+    });
+    this.brasilApiCacheTotal = new Counter({
+      name: 'brasilapi_cache_total',
+      help: 'BrasilAPI in-memory cache lookups (no keys/PII in labels)',
+      labelNames: ['operation', 'result'],
       registers: [this.registry],
     });
     this.rateLimitRejectedTotal = new Counter({
@@ -204,6 +213,13 @@ export class MetricsService {
       { operation },
       durationSeconds,
     );
+  }
+
+  public recordBrasilApiCache(
+    operation: BrasilApiOperation,
+    result: BrasilApiCacheResult,
+  ): void {
+    this.brasilApiCacheTotal.inc({ operation, result });
   }
 
   public recordRateLimitRejected(): void {

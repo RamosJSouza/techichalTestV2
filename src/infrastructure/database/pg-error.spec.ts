@@ -37,6 +37,18 @@ describe('mapPgIntegrityError', () => {
         constraint: 'harvests_status_chk',
       }),
     ).toThrow(InvalidDomainValueException);
+    expect(() =>
+      mapPgIntegrityError({
+        code: '23514',
+        constraint: 'farms_climate_risk_range_chk',
+      }),
+    ).toThrow(InvalidDomainValueException);
+    expect(() =>
+      mapPgIntegrityError({
+        code: '23514',
+        constraint: 'farm_crops_name_nonempty_chk',
+      }),
+    ).toThrow(InvalidDomainValueException);
   });
 
   it('lê code/constraint aninhados em cause', () => {

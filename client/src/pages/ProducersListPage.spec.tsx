@@ -93,6 +93,8 @@ describe('ProducersListPage — erro, retry e exclusão', () => {
             esgStatus: 'APPROVED',
             esgCheckedAt: null,
             documentValidationStatus: 'VALIDATED',
+            documentValidationPendingAt: null,
+            documentValidationPendingReason: null,
             farmsCount: 1,
             farmStates: ['SP'],
             totalAreaHa: 100,

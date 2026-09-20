@@ -15,14 +15,18 @@ export class DashboardController {
   ) {}
 
   @Get('stats')
-  @ApiOkResponse({ description: 'Métricas agregadas completas do dashboard' })
+  @ApiOkResponse({
+    description:
+      'Shape completo (summary+analytics+ESG). Residual para clientes legados — first paint deve usar /summary.',
+  })
   public async stats(@Query() query: DashboardStatsQueryDto) {
     return this.getDashboardStats.execute(query);
   }
 
   @Get('summary')
   @ApiOkResponse({
-    description: 'KPIs e distribuições principais (first paint)',
+    description:
+      'First paint: KPIs, byState/byCrop/byLandUse/CAR/ESG. Caminho preferido do frontend.',
   })
   public async summary(@Query() query: DashboardStatsQueryDto) {
     return this.getDashboardSummary.execute(query);
@@ -30,7 +34,8 @@ export class DashboardController {
 
   @Get('analytics')
   @ApiOkResponse({
-    description: 'Séries temporais, ranking e risco detalhado',
+    description:
+      'Secondary paint: séries (cropsByYear, farmsByMonth), topCities, risco climático por estado/cultura.',
   })
   public async analytics(@Query() query: DashboardStatsQueryDto) {
     return this.getDashboardAnalytics.execute(query);

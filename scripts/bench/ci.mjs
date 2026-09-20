@@ -57,6 +57,7 @@ const apiEnv = {
   NODE_ENV: process.env.NODE_ENV === 'production' ? 'production' : 'test',
   PORT: String(port),
   THROTTLE_LIMIT: process.env.THROTTLE_LIMIT ?? '10000',
+  BENCH_INSTRUMENT: '1',
 };
 
 console.log('=== bench:ci starting API ===');
@@ -84,7 +85,10 @@ try {
   const load = await runNode(
     'scripts/bench/load-http.mjs',
     [`--scale=${scale}`],
-    { capture: true, env: { BENCH_BASE_URL: baseUrl } },
+    {
+      capture: true,
+      env: { BENCH_BASE_URL: baseUrl, BENCH_INSTRUMENT: '1' },
+    },
   );
   exitCode = load.code;
 

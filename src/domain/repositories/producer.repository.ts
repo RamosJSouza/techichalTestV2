@@ -2,8 +2,8 @@ import { Producer } from '../entities/producer.js';
 
 export const PRODUCER_REPOSITORY = Symbol('PRODUCER_REPOSITORY');
 
-export type ProducerSortBy = 'createdAt' | 'name';
-export type ProducerSortOrder = 'asc' | 'desc';
+type ProducerSortBy = 'createdAt' | 'name';
+type ProducerSortOrder = 'asc' | 'desc';
 
 export interface ProducerListQuery {
   page: number;
@@ -22,6 +22,8 @@ export interface ProducerListItem {
   esgStatus: string;
   esgCheckedAt: Date | null;
   documentValidationStatus: string;
+  documentValidationPendingAt: Date | null;
+  documentValidationPendingReason: string | null;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;
@@ -44,4 +46,6 @@ export interface IProducerRepository {
   findAll(): Promise<Producer[]>;
   findMany(query: ProducerListQuery): Promise<ProducerListResult>;
   softDelete(id: string, deletedAt: Date): Promise<void>;
+  /** IDs com documento PENDING, mais antigos primeiro. */
+  findPendingDocumentIds(limit: number): Promise<string[]>;
 }

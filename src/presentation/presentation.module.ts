@@ -1,11 +1,15 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../config/env.schema.js';
 import { APP_CONFIG_PORT } from '../application/services/app-config.port.js';
 import type { AppConfigPort } from '../application/services/app-config.port.js';
 import { CRYPTO_SERVICE_PORT } from '../application/services/crypto.service.interface.js';
 import type { CryptoServiceInterface } from '../application/services/crypto.service.interface.js';
 import { BRAZIL_DATA_SERVICE } from '../application/services/brazil-data.service.interface.js';
 import type { BrazilDataServiceInterface } from '../application/services/brazil-data.service.interface.js';
+import { EXTERNAL_VALIDATION_AUDIT_PORT } from '../application/services/external-validation-audit.port.js';
+import type { ExternalValidationAuditPort } from '../application/services/external-validation-audit.port.js';
 import { LOGGER_PORT } from '../application/services/logger.port.js';
 import type { LoggerPort } from '../application/services/logger.port.js';
 import { CreateFarmUseCase } from '../application/use-cases/create-farm.use-case.js';
@@ -19,6 +23,8 @@ import { GetProducerByIdUseCase } from '../application/use-cases/get-producer-by
 import { GetProducerEsgComplianceUseCase } from '../application/use-cases/get-producer-esg-compliance.use-case.js';
 import { ListCitiesByStateUseCase } from '../application/use-cases/list-cities-by-state.use-case.js';
 import { ListProducersUseCase } from '../application/use-cases/list-producers.use-case.js';
+import { RevalidateFarmTerritorialUseCase } from '../application/use-cases/revalidate-farm-territorial.use-case.js';
+import { RevalidateProducerDocumentUseCase } from '../application/use-cases/revalidate-producer-document.use-case.js';
 import { SearchProducerByDocumentUseCase } from '../application/use-cases/search-producer-by-document.use-case.js';
 import { UpdateFarmUseCase } from '../application/use-cases/update-farm.use-case.js';
 import { UpdateProducerUseCase } from '../application/use-cases/update-producer.use-case.js';
@@ -34,16 +40,20 @@ import { NestAppConfigAdapter } from '../infrastructure/adapters/config/nest-app
 import { NestLoggerAdapter } from '../infrastructure/adapters/logging/nest-logger.adapter.js';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
 import { CRYPTO_SERVICE } from '../infrastructure/database/database.tokens.js';
+import { PendingExternalValidationJob } from '../infrastructure/jobs/pending-external-validation.job.js';
+import { MetricsService } from '../infrastructure/observability/metrics.service.js';
 import { DrizzleDashboardRepository } from '../infrastructure/repositories/drizzle-dashboard.repository.js';
+import { DrizzleExternalValidationAuditRepository } from '../infrastructure/repositories/drizzle-external-validation-audit.repository.js';
 import { DrizzleFarmRepository } from '../infrastructure/repositories/drizzle-farm.repository.js';
 import { DrizzleProducerRepository } from '../infrastructure/repositories/drizzle-producer.repository.js';
+import { AdminRevalidateController } from './controllers/admin-revalidate.controller.js';
 import { DashboardController } from './controllers/dashboard.controller.js';
 import { FarmController } from './controllers/farm.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { IbgeController } from './controllers/ibge.controller.js';
 import { ObservabilityController } from './controllers/observability.controller.js';
 import { ProducerController } from './controllers/producer.controller.js';
-import { MetricsService } from '../infrastructure/observability/metrics.service.js';
+import { AdminTokenGuard } from './guards/admin-token.guard.js';
 
 @Module({
   imports: [
@@ -59,11 +69,13 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
     FarmController,
     DashboardController,
     IbgeController,
+    AdminRevalidateController,
   ],
   providers: [
     MetricsService,
     NestLoggerAdapter,
     NestAppConfigAdapter,
+    AdminTokenGuard,
     {
       provide: LOGGER_PORT,
       useExisting: NestLoggerAdapter,
@@ -73,6 +85,10 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
       useExisting: NestAppConfigAdapter,
     },
     {
+      provide: EXTERNAL_VALIDATION_AUDIT_PORT,
+      useClass: DrizzleExternalValidationAuditRepository,
+    },
+    {
       provide: CreateProducerUseCase,
       useFactory: (
         producers: IProducerRepository,
@@ -80,14 +96,23 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
         crypto: CryptoServiceInterface,
         config: AppConfigPort,
         logger: LoggerPort,
+        audit: ExternalValidationAuditPort,
       ): CreateProducerUseCase =>
-        new CreateProducerUseCase(producers, brazil, crypto, config, logger),
+        new CreateProducerUseCase(
+          producers,
+          brazil,
+          crypto,
+          config,
+          logger,
+          audit,
+        ),
       inject: [
         PRODUCER_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         CRYPTO_SERVICE_PORT,
         APP_CONFIG_PORT,
         LOGGER_PORT,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
       ],
     },
     {
@@ -118,13 +143,15 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
         crypto: CryptoServiceInterface,
         brazil: BrazilDataServiceInterface,
         logger: LoggerPort,
+        audit: ExternalValidationAuditPort,
       ): UpdateProducerUseCase =>
-        new UpdateProducerUseCase(producers, crypto, brazil, logger),
+        new UpdateProducerUseCase(producers, crypto, brazil, logger, audit),
       inject: [
         PRODUCER_REPOSITORY,
         CRYPTO_SERVICE_PORT,
         BRAZIL_DATA_SERVICE,
         LOGGER_PORT,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
       ],
     },
     {
@@ -143,14 +170,16 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
         brazil: BrazilDataServiceInterface,
         config: AppConfigPort,
         logger: LoggerPort,
+        audit: ExternalValidationAuditPort,
       ): CreateFarmUseCase =>
-        new CreateFarmUseCase(farms, producers, brazil, config, logger),
+        new CreateFarmUseCase(farms, producers, brazil, config, logger, audit),
       inject: [
         FARM_REPOSITORY,
         PRODUCER_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         APP_CONFIG_PORT,
         LOGGER_PORT,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
       ],
     },
     {
@@ -159,8 +188,15 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
         farms: IFarmRepository,
         brazil: BrazilDataServiceInterface,
         logger: LoggerPort,
-      ): UpdateFarmUseCase => new UpdateFarmUseCase(farms, brazil, logger),
-      inject: [FARM_REPOSITORY, BRAZIL_DATA_SERVICE, LOGGER_PORT],
+        audit: ExternalValidationAuditPort,
+      ): UpdateFarmUseCase =>
+        new UpdateFarmUseCase(farms, brazil, logger, audit),
+      inject: [
+        FARM_REPOSITORY,
+        BRAZIL_DATA_SERVICE,
+        LOGGER_PORT,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
+      ],
     },
     {
       provide: DeleteFarmUseCase,
@@ -172,9 +208,8 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
     },
     {
       provide: ValidateFarmCarUseCase,
-      useFactory: (
-        farms: IFarmRepository,
-      ): ValidateFarmCarUseCase => new ValidateFarmCarUseCase(farms),
+      useFactory: (farms: IFarmRepository): ValidateFarmCarUseCase =>
+        new ValidateFarmCarUseCase(farms),
       inject: [FARM_REPOSITORY],
     },
     {
@@ -214,6 +249,70 @@ import { MetricsService } from '../infrastructure/observability/metrics.service.
         brazil: BrazilDataServiceInterface,
       ): ListCitiesByStateUseCase => new ListCitiesByStateUseCase(brazil),
       inject: [BRAZIL_DATA_SERVICE],
+    },
+    {
+      provide: RevalidateProducerDocumentUseCase,
+      useFactory: (
+        producers: IProducerRepository,
+        brazil: BrazilDataServiceInterface,
+        audit: ExternalValidationAuditPort,
+        logger: LoggerPort,
+      ): RevalidateProducerDocumentUseCase =>
+        new RevalidateProducerDocumentUseCase(
+          producers,
+          brazil,
+          audit,
+          logger,
+        ),
+      inject: [
+        PRODUCER_REPOSITORY,
+        BRAZIL_DATA_SERVICE,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
+        LOGGER_PORT,
+      ],
+    },
+    {
+      provide: RevalidateFarmTerritorialUseCase,
+      useFactory: (
+        farms: IFarmRepository,
+        brazil: BrazilDataServiceInterface,
+        audit: ExternalValidationAuditPort,
+        logger: LoggerPort,
+      ): RevalidateFarmTerritorialUseCase =>
+        new RevalidateFarmTerritorialUseCase(farms, brazil, audit, logger),
+      inject: [
+        FARM_REPOSITORY,
+        BRAZIL_DATA_SERVICE,
+        EXTERNAL_VALIDATION_AUDIT_PORT,
+        LOGGER_PORT,
+      ],
+    },
+    {
+      provide: PendingExternalValidationJob,
+      useFactory: (
+        config: ConfigService<Env, true>,
+        producers: IProducerRepository,
+        farms: IFarmRepository,
+        revalidateProducer: RevalidateProducerDocumentUseCase,
+        revalidateFarm: RevalidateFarmTerritorialUseCase,
+        logger: LoggerPort,
+      ): PendingExternalValidationJob =>
+        new PendingExternalValidationJob(
+          config,
+          producers,
+          farms,
+          revalidateProducer,
+          revalidateFarm,
+          logger,
+        ),
+      inject: [
+        ConfigService,
+        PRODUCER_REPOSITORY,
+        FARM_REPOSITORY,
+        RevalidateProducerDocumentUseCase,
+        RevalidateFarmTerritorialUseCase,
+        LOGGER_PORT,
+      ],
     },
     {
       provide: PRODUCER_REPOSITORY,

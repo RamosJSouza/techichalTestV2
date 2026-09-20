@@ -11,6 +11,8 @@ export interface FarmResponse {
   carStatus: string | null;
   climateRiskScore: number | null;
   territorialValidationStatus: string;
+  territorialValidationPendingAt: string | null;
+  territorialValidationPendingReason: string | null;
   harvests: Array<{
     id: string;
     year: string;
@@ -26,6 +28,8 @@ export interface ProducerResponse {
   esgStatus: string;
   esgCheckedAt: string | null;
   documentValidationStatus: string;
+  documentValidationPendingAt: string | null;
+  documentValidationPendingReason: string | null;
   farms: FarmResponse[];
   createdAt: string;
   updatedAt: string;
@@ -39,6 +43,8 @@ export interface ProducerListItem {
   esgStatus: string;
   esgCheckedAt: string | null;
   documentValidationStatus: string;
+  documentValidationPendingAt: string | null;
+  documentValidationPendingReason: string | null;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;
@@ -59,6 +65,9 @@ export function producerResponseToListItem(
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt,
     documentValidationStatus: producer.documentValidationStatus,
+    documentValidationPendingAt: producer.documentValidationPendingAt,
+    documentValidationPendingReason:
+      producer.documentValidationPendingReason,
     farmsCount: producer.farms.length,
     farmStates,
     totalAreaHa: producer.farms.reduce((acc, f) => acc + f.totalArea, 0),

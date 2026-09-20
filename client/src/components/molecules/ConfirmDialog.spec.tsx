@@ -87,4 +87,13 @@ describe('ConfirmDialog', () => {
     renderDialog();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveFocus();
   });
+
+  it('Tab no último foco cicla para o primeiro (trap)', () => {
+    renderDialog();
+    const cancel = screen.getByRole('button', { name: 'Cancelar' });
+    const confirm = screen.getByRole('button', { name: 'Excluir' });
+    confirm.focus();
+    fireEvent.keyDown(window, { key: 'Tab' });
+    expect(cancel).toHaveFocus();
+  });
 });

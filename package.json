@@ -12,17 +12,9 @@
     "node": "22.22.3",
     "pnpm": "10.32.1"
   },
-  "pnpm": {
-    "overrides": {
-      "esbuild": "^0.25.0"
-    },
-    "onlyBuiltDependencies": [
-      "@swc/core",
-      "esbuild"
-    ]
-  },
   "scripts": {
     "preflight": "node scripts/preflight.mjs",
+    "ci:local": "node scripts/ci-local.mjs",
     "dev": "concurrently -n api,web -c blue,green \"pnpm start:dev\" \"pnpm --filter @brain-ag/client dev\"",
     "dev:api": "pnpm start:dev",
     "dev:client": "pnpm --filter @brain-ag/client dev",

@@ -9,7 +9,7 @@ type PgLikeError = {
   cause?: unknown;
 };
 
-export type PgIntegrityContext = 'document' | 'generic';
+type PgIntegrityContext = 'document' | 'generic';
 
 function readPgField(error: unknown, field: 'code' | 'constraint'): string | undefined {
   if (!error || typeof error !== 'object') {
@@ -49,7 +49,10 @@ function isStatusOrUfConstraint(name: string): boolean {
     n.includes('status') ||
     n.includes('state_uf') ||
     n.includes('state_len') ||
-    n.includes('_uf_')
+    n.includes('_uf_') ||
+    n.includes('climate_risk') ||
+    n.includes('crop') ||
+    n.includes('name_nonempty')
   );
 }
 

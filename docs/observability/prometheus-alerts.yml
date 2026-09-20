@@ -12,7 +12,7 @@ groups:
           severity: warning
         annotations:
           summary: "HTTP p95 > 1s"
-          description: "Latência p95 da API acima de 1s por 5m. Ver runbook Observabilidade."
+          description: "Latência p95 da API acima de 1s por 5m. Ver docs/observability/RUNBOOK.md."
 
       - alert: Http5xxRate
         expr: |
@@ -25,7 +25,7 @@ groups:
           severity: critical
         annotations:
           summary: "Taxa de 5xx > 2%"
-          description: "Erro interno elevado. Correlacionar logs por trace_id."
+          description: "Erro interno elevado. Correlacionar logs por trace_id. Ver docs/observability/RUNBOOK.md."
 
       - alert: DbDown
         expr: db_up == 0
@@ -34,7 +34,7 @@ groups:
           severity: critical
         annotations:
           summary: "Postgres indisponível"
-          description: "db_up=0 (ready/SELECT 1 falhou). Checar DATABASE_URL e container postgres."
+          description: "db_up=0 (ready/SELECT 1 falhou). Checar DATABASE_URL e container postgres. Ver docs/observability/RUNBOOK.md."
 
       - alert: BrasilApiDegraded
         expr: |
@@ -46,4 +46,4 @@ groups:
           severity: warning
         annotations:
           summary: "BrasilAPI degradada"
-          description: "Circuit open e/ou fallback PENDING elevado. Cadastros podem ficar PENDING_EXTERNAL_VALIDATION."
+          description: "Circuit open e/ou fallback PENDING elevado. Cadastros podem ficar PENDING_EXTERNAL_VALIDATION. Ver docs/observability/RUNBOOK.md."

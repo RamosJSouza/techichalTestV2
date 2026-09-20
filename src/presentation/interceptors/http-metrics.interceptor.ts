@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
+import {
+  getRequestHeapDeltaMb,
+  getRequestQueryCount,
+  isBenchInstrumentEnabled,
+} from '../../infrastructure/database/request-query-context.js';
 import { MetricsService } from '../../infrastructure/observability/metrics.service.js';
 import { normalizeHttpRoute } from '../../infrastructure/observability/normalize-http-route.js';
 
@@ -23,24 +28,36 @@ export class HttpMetricsInterceptor implements NestInterceptor {
     const route = normalizeHttpRoute(req);
     const method = req.method;
     const started = process.hrtime.bigint();
-
-    const record = (statusCode: number): void => {
-      const durationSeconds =
-        Number(process.hrtime.bigint() - started) / 1e9;
-      this.metrics.recordHttp(method, route, statusCode, durationSeconds);
-    };
+    const bench = isBenchInstrumentEnabled();
 
     return next.handle().pipe(
       tap({
         next: () => {
-          record(res.statusCode);
+          const durationSeconds =
+            Number(process.hrtime.bigint() - started) / 1e9;
+          this.metrics.recordHttp(
+            method,
+            route,
+            res.statusCode,
+            durationSeconds,
+          );
+          if (bench && !res.headersSent) {
+            res.setHeader('X-Db-Queries', String(getRequestQueryCount()));
+            res.setHeader('X-Heap-Delta-Mb', String(getRequestHeapDeltaMb()));
+          }
         },
         error: (err: { status?: number; getStatus?: () => number }) => {
           const status =
             typeof err?.getStatus === 'function'
               ? err.getStatus()
               : (err?.status ?? 500);
-          record(status);
+          const durationSeconds =
+            Number(process.hrtime.bigint() - started) / 1e9;
+          this.metrics.recordHttp(method, route, status, durationSeconds);
+          if (bench && !res.headersSent) {
+            res.setHeader('X-Db-Queries', String(getRequestQueryCount()));
+            res.setHeader('X-Heap-Delta-Mb', String(getRequestHeapDeltaMb()));
+          }
         },
       }),
     );

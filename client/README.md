@@ -27,7 +27,9 @@ Só o client (com API já rodando):
 pnpm dev:client
 ```
 
-Mocks offline (sem Nest):
+**Integração real (padrão):** sem `VITE_USE_MOCKS`, o SPA usa Axios → `/api/v1` (proxy Vite → Nest `:3000`). Não defina a flag em produção nem no CI.
+
+Mocks offline (sem Nest) — **só** com flag explícita:
 
 ```bash
 # client/.env.local
@@ -61,8 +63,9 @@ Breakpoints do DESIGN.md (AgroIntel Pro):
 pnpm test:client
 ```
 
-Cobertura mínima: erro HTTP + retry (dashboard/listagem), exclusão com ConfirmDialog,
-formulário em modo edição, validação CAR, export CSV + timing observável.
+Cobertura: CRUD (create/update/delete farm + delete producer), erro HTTP + retry
+(dashboard/listagem/form), validação CAR, export CSV (unit + UI), dashboard happy path,
+gate `VITE_USE_MOCKS`.
 
 ## Observabilidade do client
 

@@ -1,26 +1,33 @@
 import type { BrazilDataServiceInterface } from '../application/services/brazil-data.service.interface.js';
+import type { ExternalValidationAuditPort } from '../application/services/external-validation-audit.port.js';
 import { CreateFarmUseCase } from '../application/use-cases/create-farm.use-case.js';
 import { CreateProducerUseCase } from '../application/use-cases/create-producer.use-case.js';
 import { UpdateFarmUseCase } from '../application/use-cases/update-farm.use-case.js';
 import type { IFarmRepository } from '../domain/repositories/farm.repository.js';
 import type { IProducerRepository } from '../domain/repositories/producer.repository.js';
 import type { CryptoService } from '../infrastructure/crypto/crypto.service.js';
-import {
-  testConfig,
-  testCrypto,
-  testLogger,
-} from './test-helpers.js';
+import { testConfig, testCrypto, testLogger } from './test-helpers.js';
 
 export const defaultBrazil: BrazilDataServiceInterface = {
-  getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+  getCnpjData: async () => ({
+    outcome: 'PENDING_EXTERNAL_VALIDATION',
+    reason: 'timeout_or_network',
+  }),
   isCityInState: async () => ({ outcome: 'VALIDATED', data: true }),
   listCitiesByState: async () => ({ outcome: 'VALIDATED', data: [] }),
 };
+
+export function noopAudit(): ExternalValidationAuditPort {
+  return {
+    append: async () => undefined,
+  };
+}
 
 export function buildCreateProducer(
   repository: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
   crypto: CryptoService = testCrypto(),
+  audit: ExternalValidationAuditPort = noopAudit(),
 ): CreateProducerUseCase {
   return new CreateProducerUseCase(
     repository,
@@ -28,6 +35,7 @@ export function buildCreateProducer(
     crypto,
     testConfig(),
     testLogger(),
+    audit,
   );
 }
 
@@ -35,6 +43,7 @@ export function buildCreateFarm(
   farmRepo: IFarmRepository,
   producerRepo: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
+  audit: ExternalValidationAuditPort = noopAudit(),
 ): CreateFarmUseCase {
   return new CreateFarmUseCase(
     farmRepo,
@@ -42,12 +51,14 @@ export function buildCreateFarm(
     brazil,
     testConfig(),
     testLogger(),
+    audit,
   );
 }
 
 export function buildUpdateFarm(
   farmRepo: IFarmRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
+  audit: ExternalValidationAuditPort = noopAudit(),
 ): UpdateFarmUseCase {
-  return new UpdateFarmUseCase(farmRepo, brazil, testLogger());
+  return new UpdateFarmUseCase(farmRepo, brazil, testLogger(), audit);
 }

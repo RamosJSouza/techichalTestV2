@@ -2,7 +2,8 @@
   "label": "after",
   "scale": "S",
   "baseUrl": "http://localhost:3000",
-  "at": "2026-09-20T15:39:35.210Z",
+  "at": "2026-09-20T19:37:38.917Z",
+  "instrument": true,
   "results": [
     {
       "id": "L0",
@@ -10,15 +11,18 @@
       "pageSize": 20,
       "samples": 40,
       "errors": 0,
-      "p50Ms": 35.95,
-      "p95Ms": 45.99,
-      "payloadP50Bytes": 5080,
-      "payloadP95Bytes": 5080,
+      "p50Ms": 45.48,
+      "p95Ms": 77.84,
+      "payloadP50Bytes": 5868,
+      "payloadP95Bytes": 5868,
       "itemsInLastResponse": 20,
       "shapeMode": "summary",
       "estimatedQueries": 3,
-      "heapDeltaBytes": 1900312,
-      "heapAfterBytes": 9906696
+      "dbQueriesMedian": 3,
+      "queries": 3,
+      "heapDeltaMbMedian": 0.504,
+      "heapDeltaBytes": 1934688,
+      "heapAfterBytes": 9975896
     },
     {
       "id": "L1",
@@ -26,15 +30,18 @@
       "pageSize": 100,
       "samples": 30,
       "errors": 0,
-      "p50Ms": 47.34,
-      "p95Ms": 66.44,
-      "payloadP50Bytes": 25186,
-      "payloadP95Bytes": 25186,
+      "p50Ms": 50.29,
+      "p95Ms": 68.92,
+      "payloadP50Bytes": 29095,
+      "payloadP95Bytes": 29095,
       "itemsInLastResponse": 100,
       "shapeMode": "summary",
       "estimatedQueries": 3,
-      "heapDeltaBytes": 1555248,
-      "heapAfterBytes": 11485864
+      "dbQueriesMedian": 3,
+      "queries": 3,
+      "heapDeltaMbMedian": 1.193,
+      "heapDeltaBytes": 1726464,
+      "heapAfterBytes": 11737288
     }
   ]
 }

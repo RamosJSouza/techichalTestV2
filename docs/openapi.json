@@ -74,6 +74,30 @@
         ]
       }
     },
+    "/api/v1/observability/client-timings": {
+      "post": {
+        "operationId": "ObservabilityController_recordClientTiming",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientTimingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timing allowlisted registrado (204)"
+          }
+        },
+        "tags": [
+          "observability"
+        ]
+      }
+    },
     "/api/v1/producers": {
       "post": {
         "operationId": "ProducerController_create",
@@ -168,11 +192,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Lista paginada resumida de produtores (sem harvests/crops)",
+            "description": "Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops). First paint da tabela.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProducerListPageResponse"
+                  "$ref": "#/components/schemas/ProducerListPageResponseDto"
                 }
               }
             }
@@ -200,7 +224,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Busca por documento (blind index)"
+            "description": "Busca por documento (blind index) — retorno hidratado completo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProducerDetailResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -250,7 +281,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Detalhe do produtor"
+            "description": "Detalhe do produtor com fazendas, safras e culturas (hidratação completa)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProducerDetailResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -283,7 +321,14 @@
         },
         "responses": {
           "200": {
-            "description": "Produtor atualizado"
+            "description": "Produtor atualizado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProducerDetailResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -505,7 +550,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Métricas agregadas completas do dashboard"
+            "description": "Shape completo (summary+analytics+ESG). Residual para clientes legados — first paint deve usar /summary."
           }
         },
         "tags": [
@@ -597,7 +642,7 @@
         ],
         "responses": {
           "200": {
-            "description": "KPIs e distribuições principais (first paint)"
+            "description": "First paint: KPIs, byState/byCrop/byLandUse/CAR/ESG. Caminho preferido do frontend."
           }
         },
         "tags": [
@@ -689,7 +734,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Séries temporais, ranking e risco detalhado"
+            "description": "Secondary paint: séries (cropsByYear, farmsByMonth), topCities, risco climático por estado/cultura."
           }
         },
         "tags": [
@@ -722,6 +767,88 @@
           "ibge"
         ]
       }
+    },
+    "/api/v1/admin/revalidate/producers/{id}": {
+      "post": {
+        "operationId": "AdminRevalidateController_producer",
+        "parameters": [
+          {
+            "name": "X-Admin-Token",
+            "in": "header",
+            "description": "Token administrativo (ADMIN_API_TOKEN)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revalida CNPJ do produtor via BrasilAPI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidateResultDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/revalidate/farms/{id}": {
+      "post": {
+        "operationId": "AdminRevalidateController_farm",
+        "parameters": [
+          {
+            "name": "X-Admin-Token",
+            "in": "header",
+            "description": "Token administrativo (ADMIN_API_TOKEN)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revalida cidade/UF da fazenda via BrasilAPI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidateResultDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin"
+        ]
+      }
     }
   },
   "info": {
@@ -734,6 +861,28 @@
   "servers": [],
   "components": {
     "schemas": {
+      "ClientTimingDto": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "dashboard_csv_export"
+            ]
+          },
+          "durationSeconds": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "maximum": 120,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "event",
+          "durationSeconds"
+        ],
+        "additionalProperties": false
+      },
       "CreateProducerDto": {
         "type": "object",
         "properties": {
@@ -857,14 +1006,38 @@
               }
             },
             "example": "***.982.247-**"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "document"
+        ]
+      },
+      "ProducerListItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a8f3d1b2-8c9e-4a1b-9f01-123456789abc"
+          },
+          "name": {
+            "type": "string",
+            "example": "João da Silva"
+          },
+          "document": {
+            "type": "string",
+            "description": "CPF/CNPJ mascarado",
+            "example": "***.982.247-**"
           },
           "esgStatus": {
             "type": "string",
-            "enum": ["APPROVED", "WARNING", "BLOCKED"]
+            "example": "APPROVED"
           },
           "esgCheckedAt": {
-            "type": ["string", "null"],
-            "format": "date-time"
+            "type": "object",
+            "nullable": true,
+            "example": "2026-01-15T12:00:00.000Z"
           },
           "documentValidationStatus": {
             "type": "string",
@@ -873,14 +1046,45 @@
               "PENDING_EXTERNAL_VALIDATION",
               "REJECTED"
             ],
-            "description": "Status da validação externa do documento (BrasilAPI CNPJ). CPF local → VALIDATED. Outage → PENDING."
+            "description": "VALIDATED | PENDING_EXTERNAL_VALIDATION | REJECTED (BrasilAPI CNPJ). Outage → PENDING, nunca positivo silencioso."
           },
-          "farms": {
+          "documentValidationPendingAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "documentValidationPendingReason": {
+            "type": "object",
+            "nullable": true,
+            "description": "Motivo da pendência (circuit_open, timeout_or_network, …)"
+          },
+          "farmsCount": {
+            "type": "number",
+            "description": "Quantidade de fazendas ativas do produtor",
+            "example": 3
+          },
+          "farmStates": {
+            "description": "UFs distintas das fazendas",
+            "example": [
+              "SP",
+              "MG"
+            ],
             "type": "array",
-            "items": { "$ref": "#/components/schemas/FarmResponse" }
+            "items": {
+              "type": "string"
+            }
           },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "updatedAt": { "type": "string", "format": "date-time" }
+          "totalAreaHa": {
+            "type": "number",
+            "example": 1250.5
+          },
+          "arableAreaHa": {
+            "type": "number",
+            "example": 800
+          },
+          "vegetationAreaHa": {
+            "type": "number",
+            "example": 450.5
+          }
         },
         "required": [
           "id",
@@ -888,28 +1092,114 @@
           "document",
           "esgStatus",
           "documentValidationStatus",
-          "farms",
-          "createdAt",
-          "updatedAt"
+          "farmsCount",
+          "farmStates",
+          "totalAreaHa",
+          "arableAreaHa",
+          "vegetationAreaHa"
         ]
       },
-      "FarmResponse": {
+      "ProducerListPageResponseDto": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "producerId": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
-          "city": { "type": "string" },
-          "state": { "type": "string", "minLength": 2, "maxLength": 2 },
-          "totalArea": { "type": "number" },
-          "arableArea": { "type": "number" },
-          "vegetationArea": { "type": "number" },
-          "carNumber": { "type": ["string", "null"] },
-          "carStatus": {
-            "type": ["string", "null"],
-            "enum": ["ACTIVE", "PENDING", "CANCELLED", null]
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProducerListItemResponseDto"
+            }
           },
-          "climateRiskScore": { "type": ["number", "null"] },
+          "total": {
+            "type": "number",
+            "example": 3334
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "number",
+            "example": 20
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "pageSize"
+        ]
+      },
+      "HarvestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string",
+            "example": "2024/2025"
+          },
+          "status": {
+            "type": "string",
+            "example": "ACTIVE"
+          },
+          "crops": {
+            "example": [
+              "Soja",
+              "Milho"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "year",
+          "status",
+          "crops"
+        ]
+      },
+      "FarmDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "producerId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "example": "SP"
+          },
+          "totalArea": {
+            "type": "number"
+          },
+          "arableArea": {
+            "type": "number"
+          },
+          "vegetationArea": {
+            "type": "number"
+          },
+          "carNumber": {
+            "type": "object",
+            "nullable": true
+          },
+          "carStatus": {
+            "type": "object",
+            "nullable": true
+          },
+          "climateRiskScore": {
+            "type": "object",
+            "nullable": true
+          },
           "territorialValidationStatus": {
             "type": "string",
             "enum": [
@@ -917,22 +1207,20 @@
               "PENDING_EXTERNAL_VALIDATION",
               "REJECTED"
             ],
-            "description": "Status da validação cidade∈UF via BrasilAPI IBGE. Outage → PENDING."
+            "description": "Validação cidade∈UF via BrasilAPI IBGE"
+          },
+          "territorialValidationPendingAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "territorialValidationPendingReason": {
+            "type": "object",
+            "nullable": true
           },
           "harvests": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string", "format": "uuid" },
-                "year": { "type": "string" },
-                "status": { "type": "string" },
-                "crops": {
-                  "type": "array",
-                  "items": { "type": "string" }
-                }
-              },
-              "required": ["id", "year", "status", "crops"]
+              "$ref": "#/components/schemas/HarvestResponseDto"
             }
           }
         },
@@ -949,23 +1237,25 @@
           "harvests"
         ]
       },
-      "ProducerListItem": {
+      "ProducerDetailResponseDto": {
         "type": "object",
-        "description": "Item resumido da listagem (sem farms/harvests/crops)",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
           "document": {
             "type": "string",
             "description": "CPF/CNPJ mascarado"
           },
           "esgStatus": {
-            "type": "string",
-            "enum": ["APPROVED", "WARNING", "BLOCKED"]
+            "type": "string"
           },
           "esgCheckedAt": {
-            "type": ["string", "null"],
-            "format": "date-time"
+            "type": "object",
+            "nullable": true
           },
           "documentValidationStatus": {
             "type": "string",
@@ -973,43 +1263,40 @@
               "VALIDATED",
               "PENDING_EXTERNAL_VALIDATION",
               "REJECTED"
-            ]
+            ],
+            "description": "Cadastro aceita PENDING; REJECTED/inativo bloqueia no write. Compliance plena exige VALIDATED."
           },
-          "farmsCount": { "type": "integer", "minimum": 0 },
-          "farmStates": {
+          "documentValidationPendingAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "documentValidationPendingReason": {
+            "type": "object",
+            "nullable": true
+          },
+          "farms": {
             "type": "array",
-            "items": { "type": "string", "minLength": 2, "maxLength": 2 }
+            "items": {
+              "$ref": "#/components/schemas/FarmDetailResponseDto"
+            }
           },
-          "totalAreaHa": { "type": "number" },
-          "arableAreaHa": { "type": "number" },
-          "vegetationAreaHa": { "type": "number" }
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
         },
         "required": [
           "id",
           "name",
           "document",
           "esgStatus",
-          "esgCheckedAt",
           "documentValidationStatus",
-          "farmsCount",
-          "farmStates",
-          "totalAreaHa",
-          "arableAreaHa",
-          "vegetationAreaHa"
+          "farms",
+          "createdAt",
+          "updatedAt"
         ]
-      },
-      "ProducerListPageResponse": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/ProducerListItem" }
-          },
-          "total": { "type": "integer", "minimum": 0 },
-          "page": { "type": "integer", "minimum": 1 },
-          "pageSize": { "type": "integer", "minimum": 1 }
-        },
-        "required": ["items", "total", "page", "pageSize"]
       },
       "UpdateProducerDto": {
         "type": "object",
@@ -1177,6 +1464,39 @@
           }
         },
         "additionalProperties": false
+      },
+      "RevalidateResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "previousStatus": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "PENDING_EXTERNAL_VALIDATION",
+              "REJECTED"
+            ]
+          },
+          "newStatus": {
+            "type": "string",
+            "enum": [
+              "VALIDATED",
+              "PENDING_EXTERNAL_VALIDATION",
+              "REJECTED"
+            ]
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "previousStatus",
+          "newStatus"
+        ]
       }
     }
   }

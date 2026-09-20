@@ -11,6 +11,12 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
 import { isTrustProxyEnabled, parseEnv } from './config/env.schema.js';
 import { MetricsService } from './infrastructure/observability/metrics.service.js';
+import {
+  getRequestHeapDeltaMb,
+  getRequestQueryCount,
+  isBenchInstrumentEnabled,
+  runWithRequestQueryContext,
+} from './infrastructure/database/request-query-context.js';
 import { buildOpenApiDocument } from './openapi/build-openapi-document.js';
 
 async function bootstrap(): Promise<void> {
@@ -27,6 +33,38 @@ async function bootstrap(): Promise<void> {
   }
 
   const metrics = app.get(MetricsService);
+
+  if (isBenchInstrumentEnabled()) {
+    app.use(
+      (
+        _req: unknown,
+        res: {
+          setHeader: (name: string, value: string) => void;
+          json: (body: unknown) => unknown;
+          send: (body: unknown) => unknown;
+        },
+        next: () => void,
+      ) => {
+        runWithRequestQueryContext(() => {
+          const attach = (): void => {
+            res.setHeader('X-Db-Queries', String(getRequestQueryCount()));
+            res.setHeader('X-Heap-Delta-Mb', String(getRequestHeapDeltaMb()));
+          };
+          const originalJson = res.json.bind(res);
+          const originalSend = res.send.bind(res);
+          res.json = (body: unknown) => {
+            attach();
+            return originalJson(body);
+          };
+          res.send = (body: unknown) => {
+            attach();
+            return originalSend(body);
+          };
+          next();
+        });
+      },
+    );
+  }
 
   app.use(helmet());
   app.use(json({ limit: env.BODY_LIMIT }));

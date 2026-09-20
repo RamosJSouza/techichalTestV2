@@ -4,6 +4,7 @@ import type { IFarmRepository } from '../../domain/repositories/farm.repository.
 import { applyFarmCompliancePolicies } from '../services/apply-farm-compliance.js';
 import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
+import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 
 interface UpdateFarmInput {
@@ -22,6 +23,7 @@ export class UpdateFarmUseCase {
     private readonly farmRepository: IFarmRepository,
     private readonly brazilData: BrazilDataServiceInterface,
     private readonly logger: LoggerPort,
+    private readonly audit: ExternalValidationAuditPort,
   ) {}
 
   public async execute(id: string, input: UpdateFarmInput): Promise<Farm> {
@@ -30,16 +32,23 @@ export class UpdateFarmUseCase {
       throw new NotFoundException(`Fazenda ${id} não encontrada.`);
     }
 
+    const previousStatus = farm.territorialValidationStatus;
     const nextCity = input.city ?? farm.city;
     const nextState = input.state ?? farm.state;
+    let territorialChanged = false;
+
     if (input.city !== undefined || input.state !== undefined) {
-      const territorialStatus = await assertCityBelongsToState(
+      const territorial = await assertCityBelongsToState(
         this.brazilData,
         nextCity,
         nextState,
         this.logger,
       );
-      farm.setTerritorialValidationStatus(territorialStatus);
+      farm.setTerritorialValidationStatus(
+        territorial.status,
+        territorial.pendingReason,
+      );
+      territorialChanged = true;
     }
 
     farm.updateDetails(input);
@@ -53,6 +62,19 @@ export class UpdateFarmUseCase {
     const updated = await this.farmRepository.update(farm, {
       harvestsChanged: input.harvests !== undefined,
     });
+
+    if (territorialChanged) {
+      await this.audit.append({
+        resourceType: 'farm_territorial',
+        resourceId: farm.id,
+        previousStatus,
+        newStatus: farm.territorialValidationStatus,
+        reason: farm.territorialValidationPendingReason,
+        trigger: 'write',
+        actor: 'system',
+      });
+    }
+
     this.logger.log(`Farm updated: ${id}`);
     return updated;
   }

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { Farm } from '../../domain/entities/farm.js';
 import type {
   FarmUpdateOptions,
@@ -62,6 +62,10 @@ export class DrizzleFarmRepository implements IFarmRepository {
             climateRiskScore: persistence.climateRiskScore,
             territorialValidationStatus:
               persistence.territorialValidationStatus,
+            territorialValidationPendingAt:
+              persistence.territorialValidationPendingAt,
+            territorialValidationPendingReason:
+              persistence.territorialValidationPendingReason,
             updatedAt: persistence.updatedAt,
             deletedAt: persistence.deletedAt,
           })
@@ -118,6 +122,27 @@ export class DrizzleFarmRepository implements IFarmRepository {
         .set({ deletedAt, updatedAt: deletedAt })
         .where(eq(farms.id, id));
     });
+  }
+
+  public async findPendingTerritorialIds(limit: number): Promise<string[]> {
+    const rows = await this.db
+      .select({ id: farms.id })
+      .from(farms)
+      .where(
+        and(
+          isNull(farms.deletedAt),
+          eq(
+            farms.territorialValidationStatus,
+            'PENDING_EXTERNAL_VALIDATION',
+          ),
+        ),
+      )
+      .orderBy(
+        asc(farms.territorialValidationPendingAt),
+        asc(farms.createdAt),
+      )
+      .limit(Math.max(1, Math.min(limit, 500)));
+    return rows.map((row) => row.id);
   }
 
   private async timed<T>(

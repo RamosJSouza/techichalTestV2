@@ -106,10 +106,17 @@ describe('Producer use cases', () => {
 
   it('persiste PENDING_EXTERNAL_VALIDATION quando BrasilAPI indisponível (CNPJ)', async () => {
     const offline: BrazilDataServiceInterface = {
-      getCnpjData: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
-      isCityInState: async () => ({ outcome: 'PENDING_EXTERNAL_VALIDATION' }),
+      getCnpjData: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'timeout_or_network',
+      }),
+      isCityInState: async () => ({
+        outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'timeout_or_network',
+      }),
       listCitiesByState: async () => ({
         outcome: 'PENDING_EXTERNAL_VALIDATION',
+        reason: 'timeout_or_network',
       }),
     };
     const producer = await buildCreateProducer(
@@ -123,6 +130,8 @@ describe('Producer use cases', () => {
     expect(producer.documentValidationStatus).toBe(
       'PENDING_EXTERNAL_VALIDATION',
     );
+    expect(producer.documentValidationPendingReason).toBe('timeout_or_network');
+    expect(producer.documentValidationPendingAt).not.toBeNull();
     expect(producer.esgStatus).toBe('WARNING');
   });
 });

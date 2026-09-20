@@ -16,6 +16,8 @@ interface FarmResponse {
   carStatus: string | null;
   climateRiskScore: number | null;
   territorialValidationStatus: string;
+  territorialValidationPendingAt: string | null;
+  territorialValidationPendingReason: string | null;
   harvests: Array<{
     id: string;
     year: string;
@@ -31,6 +33,8 @@ interface ProducerResponse {
   esgStatus: string;
   esgCheckedAt: string | null;
   documentValidationStatus: string;
+  documentValidationPendingAt: string | null;
+  documentValidationPendingReason: string | null;
   farms: FarmResponse[];
   createdAt: string;
   updatedAt: string;
@@ -43,6 +47,8 @@ interface ProducerListItemResponse {
   esgStatus: string;
   esgCheckedAt: string | null;
   documentValidationStatus: string;
+  documentValidationPendingAt: string | null;
+  documentValidationPendingReason: string | null;
   farmsCount: number;
   farmStates: string[];
   totalAreaHa: number;
@@ -64,6 +70,10 @@ export function toFarmResponse(farm: Farm): FarmResponse {
     carStatus: farm.carStatus,
     climateRiskScore: farm.climateRiskScore,
     territorialValidationStatus: farm.territorialValidationStatus,
+    territorialValidationPendingAt:
+      farm.territorialValidationPendingAt?.toISOString() ?? null,
+    territorialValidationPendingReason:
+      farm.territorialValidationPendingReason,
     harvests: farm.harvests.map((harvest) => ({
       id: harvest.id,
       year: harvest.year,
@@ -81,6 +91,10 @@ export function toProducerResponse(producer: Producer): ProducerResponse {
     esgStatus: producer.esgStatus,
     esgCheckedAt: producer.esgCheckedAt?.toISOString() ?? null,
     documentValidationStatus: producer.documentValidationStatus,
+    documentValidationPendingAt:
+      producer.documentValidationPendingAt?.toISOString() ?? null,
+    documentValidationPendingReason:
+      producer.documentValidationPendingReason,
     farms: producer.farms.map(toFarmResponse),
     createdAt: producer.createdAt.toISOString(),
     updatedAt: producer.updatedAt.toISOString(),
@@ -97,6 +111,9 @@ export function toProducerListItem(
     esgStatus: item.esgStatus,
     esgCheckedAt: item.esgCheckedAt?.toISOString() ?? null,
     documentValidationStatus: item.documentValidationStatus,
+    documentValidationPendingAt:
+      item.documentValidationPendingAt?.toISOString() ?? null,
+    documentValidationPendingReason: item.documentValidationPendingReason,
     farmsCount: item.farmsCount,
     farmStates: item.farmStates,
     totalAreaHa: item.totalAreaHa,

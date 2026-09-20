@@ -1,18 +1,59 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, avg, count, eq, isNotNull, isNull, sum } from 'drizzle-orm';
+import {
+  and,
+  avg,
+  count,
+  desc,
+  eq,
+  exists,
+  gte,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+  sum,
+  type SQL,
+} from 'drizzle-orm';
 import type {
+  DashboardFilters,
   DashboardStats,
   IDashboardRepository,
 } from '../../domain/repositories/dashboard.repository.js';
 import type { DrizzleDb } from '../database/database.module.js';
 import { DRIZZLE } from '../database/database.tokens.js';
-import { farmCrops, farms, harvests } from '../database/schema/index.js';
+import {
+  farmCrops,
+  farms,
+  harvests,
+  producers,
+} from '../database/schema/index.js';
+
+function round2(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function percentage(part: number, total: number): number {
+  return total === 0 ? 0 : round2((part / total) * 100);
+}
+
+function nullableAvg(
+  value: string | number | null | undefined,
+): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return round2(Number(value));
+}
 
 @Injectable()
 export class DrizzleDashboardRepository implements IDashboardRepository {
   public constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  public async getStats(): Promise<DashboardStats> {
+  public async getStats(
+    filters: DashboardFilters = {},
+  ): Promise<DashboardStats> {
+    const farmWhere = this.buildFarmWhere(filters);
+
     const [totals] = await this.db
       .select({
         totalFarms: count(farms.id),
@@ -21,15 +62,16 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
         vegetationHectares: sum(farms.vegetationArea),
       })
       .from(farms)
-      .where(isNull(farms.deletedAt));
+      .where(farmWhere);
 
+    const climateWhere = and(farmWhere, isNotNull(farms.climateRiskScore));
     const [climate] = await this.db
       .select({
         averageScore: avg(farms.climateRiskScore),
         farmsWithScore: count(farms.id),
       })
       .from(farms)
-      .where(and(isNull(farms.deletedAt), isNotNull(farms.climateRiskScore)));
+      .where(climateWhere);
 
     const byStateRows = await this.db
       .select({
@@ -38,9 +80,10 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
         hectares: sum(farms.totalArea),
       })
       .from(farms)
-      .where(isNull(farms.deletedAt))
+      .where(farmWhere)
       .groupBy(farms.state);
 
+    const cropWhere = and(farmWhere, eq(harvests.status, 'ACTIVE'));
     const byCropRows = await this.db
       .select({
         crop: farmCrops.cropName,
@@ -49,9 +92,86 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
       .from(farmCrops)
       .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
       .innerJoin(farms, eq(harvests.farmId, farms.id))
-      // RF-02.4: só safras ACTIVE e fazendas não soft-deleted
-      .where(and(isNull(farms.deletedAt), eq(harvests.status, 'ACTIVE')))
+      .where(cropWhere)
       .groupBy(farmCrops.cropName);
+
+    const byCarStatusRows = await this.db
+      .select({
+        status: farms.carStatus,
+        count: count(farms.id),
+      })
+      .from(farms)
+      .where(farmWhere)
+      .groupBy(farms.carStatus);
+
+    const esgWhere = and(farmWhere, isNull(producers.deletedAt));
+    const byEsgStatusRows = await this.db
+      .select({
+        status: producers.esgStatus,
+        count: count(sql`DISTINCT ${producers.id}`),
+      })
+      .from(farms)
+      .innerJoin(producers, eq(farms.producerId, producers.id))
+      .where(esgWhere)
+      .groupBy(producers.esgStatus);
+
+    const climateByStateRows = await this.db
+      .select({
+        state: farms.state,
+        averageScore: avg(farms.climateRiskScore),
+        farmsWithScore: count(farms.id),
+      })
+      .from(farms)
+      .where(climateWhere)
+      .groupBy(farms.state);
+
+    const climateByCropRows = await this.db
+      .select({
+        crop: farmCrops.cropName,
+        averageScore: avg(farms.climateRiskScore),
+        farmsWithScore: count(sql`DISTINCT ${farms.id}`),
+      })
+      .from(farmCrops)
+      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+      .innerJoin(farms, eq(harvests.farmId, farms.id))
+      .where(and(cropWhere, isNotNull(farms.climateRiskScore)))
+      .groupBy(farmCrops.cropName);
+
+    const cropsByYearRows = await this.db
+      .select({
+        year: harvests.year,
+        crop: farmCrops.cropName,
+        count: count(farmCrops.id),
+      })
+      .from(farmCrops)
+      .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+      .innerJoin(farms, eq(harvests.farmId, farms.id))
+      .where(cropWhere)
+      .groupBy(harvests.year, farmCrops.cropName);
+
+    const farmsByMonthRows = await this.db
+      .select({
+        month: sql<string>`to_char(date_trunc('month', ${farms.createdAt}), 'YYYY-MM')`,
+        farms: count(farms.id),
+        hectares: sum(farms.totalArea),
+      })
+      .from(farms)
+      .where(farmWhere)
+      .groupBy(sql`date_trunc('month', ${farms.createdAt})`)
+      .orderBy(sql`date_trunc('month', ${farms.createdAt})`);
+
+    const topCitiesRows = await this.db
+      .select({
+        city: farms.city,
+        state: farms.state,
+        farms: count(farms.id),
+        hectares: sum(farms.totalArea),
+      })
+      .from(farms)
+      .where(farmWhere)
+      .groupBy(farms.city, farms.state)
+      .orderBy(desc(count(farms.id)))
+      .limit(10);
 
     const totalFarms = Number(totals?.totalFarms ?? 0);
     const totalHectares = Number(totals?.totalHectares ?? 0);
@@ -64,24 +184,49 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
       0,
     );
 
-    const averageScore =
-      climate?.averageScore === null || climate?.averageScore === undefined
-        ? null
-        : Number(Number(climate.averageScore).toFixed(2));
+    const byCarStatus = byCarStatusRows.map((row) => {
+      const carCount = Number(row.count);
+      return {
+        status: row.status ?? 'Sem CAR',
+        count: carCount,
+        percentage: percentage(carCount, totalFarms),
+      };
+    });
+
+    const esgProducerTotal = byEsgStatusRows.reduce(
+      (acc, row) => acc + Number(row.count),
+      0,
+    );
+    const byEsgStatus = byEsgStatusRows.map((row) => {
+      const esgCount = Number(row.count);
+      return {
+        status: row.status,
+        count: esgCount,
+        percentage: percentage(esgCount, esgProducerTotal),
+      };
+    });
+
+    const activeCarCount = byCarStatus
+      .filter((item) => item.status === 'ACTIVE')
+      .reduce((acc, item) => acc + item.count, 0);
+    const approvedEsgCount = byEsgStatus
+      .filter((item) => item.status === 'APPROVED')
+      .reduce((acc, item) => acc + item.count, 0);
 
     return {
       totalFarms,
       totalHectares,
+      averageFarmSize:
+        totalFarms === 0 ? 0 : round2(totalHectares / totalFarms),
+      carComplianceRate: percentage(activeCarCount, totalFarms),
+      esgComplianceRate: percentage(approvedEsgCount, esgProducerTotal),
       byState: byStateRows.map((row) => {
         const hectares = Number(row.hectares ?? 0);
         return {
           state: row.state,
           count: Number(row.count),
           hectares,
-          percentage:
-            totalHectares === 0
-              ? 0
-              : Number(((hectares / totalHectares) * 100).toFixed(2)),
+          percentage: percentage(hectares, totalHectares),
         };
       }),
       byCrop: byCropRows.map((row) => {
@@ -89,28 +234,117 @@ export class DrizzleDashboardRepository implements IDashboardRepository {
         return {
           crop: row.crop,
           count: cropCount,
-          percentage:
-            cropTotal === 0
-              ? 0
-              : Number(((cropCount / cropTotal) * 100).toFixed(2)),
+          percentage: percentage(cropCount, cropTotal),
         };
       }),
       byLandUse: {
         arableHectares,
         vegetationHectares,
-        arablePercentage:
-          landTotal === 0
-            ? 0
-            : Number(((arableHectares / landTotal) * 100).toFixed(2)),
-        vegetationPercentage:
-          landTotal === 0
-            ? 0
-            : Number(((vegetationHectares / landTotal) * 100).toFixed(2)),
+        arablePercentage: percentage(arableHectares, landTotal),
+        vegetationPercentage: percentage(vegetationHectares, landTotal),
       },
       regionalClimateRisk: {
-        averageScore,
+        averageScore: nullableAvg(climate?.averageScore),
         farmsWithScore: Number(climate?.farmsWithScore ?? 0),
       },
+      byCarStatus,
+      byEsgStatus,
+      climateRiskByState: climateByStateRows.map((row) => ({
+        state: row.state,
+        averageScore: nullableAvg(row.averageScore),
+        farmsWithScore: Number(row.farmsWithScore),
+      })),
+      climateRiskByCrop: climateByCropRows.map((row) => ({
+        crop: row.crop,
+        averageScore: nullableAvg(row.averageScore),
+        farmsWithScore: Number(row.farmsWithScore),
+      })),
+      cropsByYear: cropsByYearRows.map((row) => ({
+        year: row.year,
+        crop: row.crop,
+        count: Number(row.count),
+      })),
+      farmsByMonth: farmsByMonthRows.map((row) => ({
+        month: row.month,
+        farms: Number(row.farms),
+        hectares: Number(row.hectares ?? 0),
+      })),
+      topCities: topCitiesRows.map((row) => ({
+        city: row.city,
+        state: row.state,
+        farms: Number(row.farms),
+        hectares: Number(row.hectares ?? 0),
+      })),
     };
+  }
+
+  private buildFarmWhere(filters: DashboardFilters): SQL {
+    const conditions: SQL[] = [isNull(farms.deletedAt)];
+
+    if (filters.state) {
+      conditions.push(eq(farms.state, filters.state.toUpperCase()));
+    }
+    if (filters.carStatus) {
+      conditions.push(eq(farms.carStatus, filters.carStatus));
+    }
+    if (filters.minClimateRisk !== undefined) {
+      conditions.push(
+        gte(farms.climateRiskScore, String(filters.minClimateRisk)),
+      );
+    }
+    if (filters.maxClimateRisk !== undefined) {
+      conditions.push(
+        lte(farms.climateRiskScore, String(filters.maxClimateRisk)),
+      );
+    }
+    if (filters.esgStatus) {
+      conditions.push(
+        exists(
+          this.db
+            .select({ id: producers.id })
+            .from(producers)
+            .where(
+              and(
+                eq(producers.id, farms.producerId),
+                eq(producers.esgStatus, filters.esgStatus),
+                isNull(producers.deletedAt),
+              ),
+            ),
+        ),
+      );
+    }
+    if (filters.crop || filters.harvestYear) {
+      const harvestConditions: SQL[] = [
+        eq(harvests.farmId, farms.id),
+        eq(harvests.status, 'ACTIVE'),
+      ];
+      if (filters.harvestYear) {
+        harvestConditions.push(eq(harvests.year, filters.harvestYear));
+      }
+      if (filters.crop) {
+        conditions.push(
+          exists(
+            this.db
+              .select({ id: farmCrops.id })
+              .from(farmCrops)
+              .innerJoin(harvests, eq(farmCrops.harvestId, harvests.id))
+              .where(
+                and(...harvestConditions, eq(farmCrops.cropName, filters.crop)),
+              ),
+          ),
+        );
+      } else {
+        conditions.push(
+          exists(
+            this.db
+              .select({ id: harvests.id })
+              .from(harvests)
+              .where(and(...harvestConditions)),
+          ),
+        );
+      }
+    }
+
+    return and(...conditions)!;
   }
 }

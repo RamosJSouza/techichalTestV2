@@ -26,6 +26,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   private readonly baseUrl: string;
   private readonly cnpjBreaker: CircuitBreaker<[string], CnpjCompanyData | null>;
   private readonly cityBreaker: CircuitBreaker<[string, string], boolean | null>;
+  private readonly citiesBreaker: CircuitBreaker<[string], string[] | null>;
 
   public constructor(
     private readonly http: HttpService,
@@ -48,6 +49,10 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
       async (city: string, state: string) => this.fetchCityInState(city, state),
       breakerOptions,
     );
+    this.citiesBreaker = new CircuitBreaker(
+      async (uf: string) => this.fetchCities(uf),
+      breakerOptions,
+    );
 
     this.cnpjBreaker.fallback(() => {
       this.logger.warn(
@@ -58,6 +63,12 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     this.cityBreaker.fallback(() => {
       this.logger.warn(
         'BrasilAPI IBGE circuit open — graceful degradation (sync pending)',
+      );
+      return null;
+    });
+    this.citiesBreaker.fallback(() => {
+      this.logger.warn(
+        'BrasilAPI IBGE cities circuit open — graceful degradation',
       );
       return null;
     });
@@ -83,6 +94,17 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     } catch (error) {
       this.logger.warn(
         `BrasilAPI IBGE unavailable: ${error instanceof Error ? error.message : 'unknown'}`,
+      );
+      return null;
+    }
+  }
+
+  public async listCitiesByState(uf: string): Promise<string[] | null> {
+    try {
+      return await this.citiesBreaker.fire(uf);
+    } catch (error) {
+      this.logger.warn(
+        `BrasilAPI IBGE cities unavailable: ${error instanceof Error ? error.message : 'unknown'}`,
       );
       return null;
     }
@@ -118,23 +140,24 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     }
   }
 
+  private async fetchCities(uf: string): Promise<string[]> {
+    const response = await this.withRetry(() =>
+      firstValueFrom(
+        this.http.get<BrasilApiMunicipio[]>(
+          `${this.baseUrl}/ibge/municipios/v1/${uf.toUpperCase()}`,
+        ),
+      ),
+    );
+    return response.data.map((municipio) => municipio.nome);
+  }
+
   private async fetchCityInState(
     city: string,
     state: string,
   ): Promise<boolean> {
-    const uf = state.toUpperCase();
-    const response = await this.withRetry(() =>
-      firstValueFrom(
-        this.http.get<BrasilApiMunicipio[]>(
-          `${this.baseUrl}/ibge/municipios/v1/${uf}`,
-        ),
-      ),
-    );
-
+    const cities = await this.fetchCities(state);
     const normalizedCity = this.normalize(city);
-    return response.data.some(
-      (municipio) => this.normalize(municipio.nome) === normalizedCity,
-    );
+    return cities.some((nome) => this.normalize(nome) === normalizedCity);
   }
 
   private normalize(value: string): string {

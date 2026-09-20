@@ -4,15 +4,15 @@ FROM node:22-alpine AS base
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
-# Instala deps do monorepo (inclui vite em client/devDependencies)
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY client/package.json ./client/package.json
 # NODE_ENV não pode ser production aqui — senão pnpm omite vite/devDeps
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile
 
 FROM base AS build
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.build.json nest-cli.json .swcrc ./
 COPY client/package.json ./client/package.json
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/client/node_modules ./client/node_modules
@@ -21,9 +21,9 @@ COPY src ./src
 COPY client/src ./client/src
 COPY client/index.html client/vite.config.ts client/tsconfig.json client/jest.config.ts ./client/
 ENV CI=true
-RUN pnpm --filter @brain-ag/client build \
-  && pnpm build:api \
-  && pnpm prune --prod
+RUN pnpm --filter @brain-ag/client build & client_pid=$!; \
+    pnpm build:api & api_pid=$!; \
+    wait "$client_pid" && wait "$api_pid" && pnpm prune --prod
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

@@ -14,13 +14,17 @@
   "pnpm": {
     "overrides": {
       "esbuild": "^0.25.0"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild"
+    ]
   },
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"pnpm start:dev\" \"pnpm --filter @brain-ag/client dev\"",
     "dev:api": "pnpm start:dev",
     "dev:client": "pnpm --filter @brain-ag/client dev",
-    "build": "pnpm --filter @brain-ag/client build && nest build",
+    "build": "concurrently -n web,api -c green,blue \"pnpm --filter @brain-ag/client build\" \"pnpm build:api\"",
     "build:api": "nest build",
     "build:client": "pnpm --filter @brain-ag/client build",
     "deploy": "nest deploy",
@@ -71,6 +75,8 @@
     "@nestjs/cli": "^12.0.0",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.16.2",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",

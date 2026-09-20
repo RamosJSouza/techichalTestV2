@@ -35,7 +35,6 @@ export interface ProducerResponse {
   updatedAt: string;
 }
 
-/** Item da listagem paginada (sem farms/harvests/crops). */
 export interface ProducerListItem {
   id: string;
   name: string;

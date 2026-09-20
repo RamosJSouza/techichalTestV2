@@ -21,6 +21,13 @@ import { MetricsService } from '../../infrastructure/observability/metrics.servi
 
 type RequestWithId = Request & { id?: string };
 
+type ErrorMeta = {
+  errorId: string;
+  requestId: string;
+  traceId: string | null;
+  path: string;
+};
+
 @Catch()
 @Injectable()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -34,10 +41,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<RequestWithId>();
-    const errorId = randomUUID();
-    const requestId = this.resolveRequestId(request);
-    const traceId = this.resolveTraceId();
-    const path = this.safeRequestPath(request);
+    const meta: ErrorMeta = {
+      errorId: randomUUID(),
+      requestId: this.resolveRequestId(request),
+      traceId: this.resolveTraceId(),
+      path: this.safeRequestPath(request),
+    };
 
     if (exception instanceof ZodError) {
       this.metrics.recordDomainError('VALIDATION_ERROR');
@@ -50,11 +59,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           path: issue.path.join('.'),
           message: issue.message,
         })),
-        errorId,
-        requestId,
-        traceId,
-        timestamp: new Date().toISOString(),
-        path,
+        ...this.errorEnvelope(meta),
       });
       return;
     }
@@ -67,11 +72,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         error: HttpStatus[status] ?? 'Error',
         message: exception.message,
         code: exception.code,
-        errorId,
-        requestId,
-        traceId,
-        timestamp: new Date().toISOString(),
-        path,
+        ...this.errorEnvelope(meta),
       });
       return;
     }
@@ -80,17 +81,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus();
       if (status >= 500) {
         this.metrics.recordDomainError('INTERNAL_ERROR');
-        this.logInternal(exception, errorId, requestId, traceId, path);
+        this.logInternal(exception, meta);
         response.status(status).json({
           statusCode: status,
           error: 'Internal Server Error',
           message: 'Internal server error',
           code: 'INTERNAL_ERROR',
-          errorId,
-          requestId,
-          traceId,
-          timestamp: new Date().toISOString(),
-          path,
+          ...this.errorEnvelope(meta),
         });
         return;
       }
@@ -112,31 +109,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       response.status(status).json({
         ...body,
         statusCode: status,
-        errorId,
-        requestId,
-        traceId,
-        timestamp: new Date().toISOString(),
-        path,
+        ...this.errorEnvelope(meta),
       });
       return;
     }
 
     this.metrics.recordDomainError('INTERNAL_ERROR');
-    this.logInternal(exception, errorId, requestId, traceId, path);
+    this.logInternal(exception, meta);
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'Internal Server Error',
       message: 'Internal server error',
       code: 'INTERNAL_ERROR',
-      errorId,
-      requestId,
-      traceId,
-      timestamp: new Date().toISOString(),
-      path,
+      ...this.errorEnvelope(meta),
     });
   }
 
-  /** Pathname only — evita PII em query (?document=). */
+  private errorEnvelope(meta: ErrorMeta): ErrorMeta & { timestamp: string } {
+    return {
+      ...meta,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   private safeRequestPath(request: RequestWithId): string {
     if (typeof request.path === 'string' && request.path.length > 0) {
       return request.path;
@@ -165,13 +160,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     return span.spanContext().traceId || null;
   }
 
-  private logInternal(
-    exception: unknown,
-    errorId: string,
-    requestId: string,
-    traceId: string | null,
-    path: string,
-  ): void {
+  private logInternal(exception: unknown, meta: ErrorMeta): void {
     const detail =
       exception instanceof Error
         ? {
@@ -180,10 +169,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             stack: exception.stack,
           }
         : { detail: String(exception) };
-    this.logger.error(
-      { errorId, requestId, traceId, path, ...detail },
-      'Unhandled error',
-    );
+    this.logger.error({ ...meta, ...detail }, 'Unhandled error');
   }
 
   private mapDomainStatus(exception: DomainException): number {

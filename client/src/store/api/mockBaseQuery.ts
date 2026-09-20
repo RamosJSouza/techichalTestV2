@@ -6,10 +6,6 @@ import type {
   AxiosBaseQueryError,
 } from './axiosBaseQuery';
 
-/**
- * Base query offline — só carregado quando `VITE_USE_MOCKS=true`.
- * Fixtures ficam fora do grafo de produção via dynamic import em apiSlice.
- */
 export const mockBaseQuery: BaseQueryFn<
   AxiosBaseQueryArgs,
   unknown,

@@ -6,7 +6,6 @@ const LONG_DIGITS_RE = /^\d{6,}$/;
 const LONG_HEX_RE = /^[0-9a-f]{16,}$/i;
 const PARAM_RE = /^:[A-Za-z_][A-Za-z0-9_]*$/;
 
-/** Rotas conhecidas (templates) — evita unmatched desnecessário. */
 const KNOWN_ROUTE_PREFIXES = [
   '/api/v1/producers',
   '/api/v1/farms',
@@ -73,11 +72,6 @@ function scrubSegment(segment: string): string {
   return segment;
 }
 
-/**
- * Normaliza path para label Prometheus de baixa cardinalidade.
- * Preferência: template Express (`req.route.path` + baseUrl).
- * Fallback: scrub de UUID/dígitos; unmatched se ainda parecer dinâmico demais.
- */
 export function normalizeHttpRoute(req: Pick<Request, 'baseUrl' | 'route' | 'path' | 'originalUrl'>): string {
   const baseUrl = typeof req.baseUrl === 'string' ? req.baseUrl : '';
   const routePath =

@@ -1,11 +1,7 @@
-/**
- * Cursor opaco keyset para listagem de produtores (createdAt|name + id).
- */
 export type ProducerListCursorPayload = {
   v: 1;
   sortBy: 'createdAt' | 'name';
   sortOrder: 'asc' | 'desc';
-  /** ISO string (createdAt) ou nome */
   sortValue: string;
   id: string;
 };
@@ -28,33 +24,36 @@ export function decodeProducerListCursor(
   } catch {
     throw new Error('Invalid list cursor');
   }
-  if (
-    !raw ||
-    typeof raw !== 'object' ||
-    (raw as ProducerListCursorPayload).v !== 1 ||
-    !((raw as ProducerListCursorPayload).sortBy === 'createdAt' ||
-      (raw as ProducerListCursorPayload).sortBy === 'name') ||
-    !((raw as ProducerListCursorPayload).sortOrder === 'asc' ||
-      (raw as ProducerListCursorPayload).sortOrder === 'desc') ||
-    typeof (raw as ProducerListCursorPayload).sortValue !== 'string' ||
-    typeof (raw as ProducerListCursorPayload).id !== 'string'
-  ) {
+
+  if (!isProducerListCursorPayload(raw)) {
     throw new Error('Invalid list cursor');
   }
 
-  const payload = raw as ProducerListCursorPayload;
-  if (!UUID_RE.test(payload.id)) {
+  if (!UUID_RE.test(raw.id)) {
     throw new Error('Invalid list cursor');
   }
-  if (payload.sortValue.length === 0 || payload.sortValue.length > 255) {
+  if (raw.sortValue.length === 0 || raw.sortValue.length > 255) {
     throw new Error('Invalid list cursor');
   }
-  if (payload.sortBy === 'createdAt') {
-    const ms = Date.parse(payload.sortValue);
-    if (Number.isNaN(ms)) {
-      throw new Error('Invalid list cursor');
-    }
+  if (raw.sortBy === 'createdAt' && Number.isNaN(Date.parse(raw.sortValue))) {
+    throw new Error('Invalid list cursor');
   }
 
-  return payload;
+  return raw;
+}
+
+function isProducerListCursorPayload(
+  raw: unknown,
+): raw is ProducerListCursorPayload {
+  if (!raw || typeof raw !== 'object') {
+    return false;
+  }
+  const candidate = raw as Record<string, unknown>;
+  return (
+    candidate.v === 1 &&
+    (candidate.sortBy === 'createdAt' || candidate.sortBy === 'name') &&
+    (candidate.sortOrder === 'asc' || candidate.sortOrder === 'desc') &&
+    typeof candidate.sortValue === 'string' &&
+    typeof candidate.id === 'string'
+  );
 }

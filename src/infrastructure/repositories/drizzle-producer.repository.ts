@@ -44,6 +44,13 @@ import { MetricsService } from '../observability/metrics.service.js';
 
 type ProducerRow = typeof producers.$inferSelect;
 
+function escapeIlikePattern(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+}
+
 @Injectable()
 export class DrizzleProducerRepository implements IProducerRepository {
   public constructor(
@@ -182,13 +189,11 @@ export class DrizzleProducerRepository implements IProducerRepository {
 
   public async findMany(query: ProducerListQuery): Promise<ProducerListResult> {
     return this.timed('producer_find_many', async () => {
-      const conditions = [isNull(producers.deletedAt)];
+      const baseConditions = [isNull(producers.deletedAt)];
       if (query.name) {
-        const escaped = query.name
-          .replace(/\\/g, '\\\\')
-          .replace(/%/g, '\\%')
-          .replace(/_/g, '\\_');
-        conditions.push(ilike(producers.name, `%${escaped}%`));
+        baseConditions.push(
+          ilike(producers.name, `%${escapeIlikePattern(query.name)}%`),
+        );
       }
 
       const sortColumn =
@@ -196,10 +201,9 @@ export class DrizzleProducerRepository implements IProducerRepository {
       const primaryOrder =
         query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
-      let cursorPayload: ReturnType<typeof decodeProducerListCursor> | null =
-        null;
+      const listConditions = [...baseConditions];
       if (query.cursor) {
-        cursorPayload = decodeProducerListCursor(query.cursor);
+        const cursorPayload = decodeProducerListCursor(query.cursor);
         if (
           cursorPayload.sortBy !== query.sortBy ||
           cursorPayload.sortOrder !== query.sortOrder
@@ -208,55 +212,39 @@ export class DrizzleProducerRepository implements IProducerRepository {
             'List cursor sortBy/sortOrder mismatch with query',
           );
         }
-        const cmp =
-          query.sortOrder === 'desc'
-            ? sql` < `
-            : sql` > `;
+        const cmp = query.sortOrder === 'desc' ? sql` < ` : sql` > `;
         if (query.sortBy === 'name') {
-          conditions.push(
+          listConditions.push(
             sql`(${producers.name}, ${producers.id})${cmp}(${cursorPayload.sortValue}, ${cursorPayload.id}::uuid)`,
           );
         } else {
-          conditions.push(
+          listConditions.push(
             sql`(${producers.createdAt}, ${producers.id})${cmp}(${cursorPayload.sortValue}::timestamptz, ${cursorPayload.id}::uuid)`,
           );
         }
       }
 
-      const whereClause = and(...conditions);
+      const whereClause = and(...listConditions);
       const useCursor = Boolean(query.cursor);
       const offset = useCursor ? 0 : (query.page - 1) * query.pageSize;
 
-      const countConditions = [isNull(producers.deletedAt)];
-      if (query.name) {
-        const escaped = query.name
-          .replace(/\\/g, '\\\\')
-          .replace(/%/g, '\\%')
-          .replace(/_/g, '\\_');
-        countConditions.push(ilike(producers.name, `%${escaped}%`));
-      }
+      trackDbRoundTrip();
+      trackDbRoundTrip();
 
-      trackDbRoundTrip();
-      trackDbRoundTrip();
+      const buildListQuery = () =>
+        this.db
+          .select()
+          .from(producers)
+          .where(whereClause)
+          .orderBy(primaryOrder, asc(producers.id))
+          .limit(query.pageSize);
+
       const [[totalRow], rows] = await Promise.all([
         this.db
           .select({ value: count() })
           .from(producers)
-          .where(and(...countConditions)),
-        useCursor
-          ? this.db
-              .select()
-              .from(producers)
-              .where(whereClause)
-              .orderBy(primaryOrder, asc(producers.id))
-              .limit(query.pageSize)
-          : this.db
-              .select()
-              .from(producers)
-              .where(whereClause)
-              .orderBy(primaryOrder, asc(producers.id))
-              .limit(query.pageSize)
-              .offset(offset),
+          .where(and(...baseConditions)),
+        useCursor ? buildListQuery() : buildListQuery().offset(offset),
       ]);
 
       const items = await this.toListItems(rows);

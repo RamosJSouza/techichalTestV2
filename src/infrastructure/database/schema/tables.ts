@@ -179,7 +179,6 @@ export const farmCrops = pgTable(
   ],
 );
 
-/** Trilha append-only de mudanças de validação externa (sem PII em claro). */
 export const externalValidationAudit = pgTable(
   'external_validation_audit',
   {

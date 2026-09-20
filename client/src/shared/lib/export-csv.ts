@@ -53,7 +53,6 @@ function reportClientTiming(durationSeconds: number): void {
   });
 }
 
-/** Exporta uma ou mais abas como arquivos CSV (um arquivo por aba). */
 export function exportToCsv(sheets: CsvSheet[], basename: string): void {
   const started = performance.now();
   const safeBase = basename.replace(/\.csv$/i, '').replace(/\.xlsx$/i, '');

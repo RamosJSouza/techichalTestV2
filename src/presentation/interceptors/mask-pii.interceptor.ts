@@ -18,7 +18,6 @@ function maskObject(payload: unknown): unknown {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(payload)) {
       if (key === 'document' && typeof value === 'string') {
-        // Idempotente: se já mascarado no mapper, não reprocessar
         result[key] = value.includes('*')
           ? value
           : CpfCnpj.maskDigits(value.replace(/\D/g, ''));

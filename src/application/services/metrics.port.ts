@@ -1,11 +1,6 @@
-/**
- * Port de métricas usado por adapters/repos/jobs/filters (ISP: subset necessário).
- * Implementação de produção: MetricsService (prom-client).
- */
-
-export type MetricsCircuitBreakerName = 'cnpj' | 'city' | 'cities';
-
 export type MetricsBrasilApiOperation = 'cnpj' | 'city' | 'cities';
+
+export type MetricsCircuitBreakerName = MetricsBrasilApiOperation;
 
 export type MetricsBrasilApiResultLabel =
   | 'success'

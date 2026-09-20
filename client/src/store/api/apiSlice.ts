@@ -21,7 +21,6 @@ import {
 } from './axiosBaseQuery';
 import { isViteMocksEnabled } from './mocks-gate';
 
-/** Ativo somente com flag explícita de desenvolvimento/teste (tree-shake quando false). */
 const USE_MOCKS = isViteMocksEnabled(import.meta.env.VITE_USE_MOCKS);
 
 const dynamicBaseQuery: BaseQueryFn<
@@ -45,7 +44,6 @@ export const apiSlice = createApi({
       DashboardSummary,
       DashboardFilters | void
     >({
-      // First paint — não usar /dashboard/stats.
       query: (filters) => ({
         url: '/dashboard/summary',
         params: filters ?? undefined,
@@ -56,7 +54,6 @@ export const apiSlice = createApi({
       DashboardAnalytics,
       DashboardFilters | void
     >({
-      // Secondary paint (séries/risco) — paralelo ao summary.
       query: (filters) => ({
         url: '/dashboard/analytics',
         params: filters ?? undefined,

@@ -24,7 +24,7 @@ export class ZodValidationPipe implements PipeTransform {
     const { metatype, type } = metadata;
 
     if (!isZodDto(metatype)) {
-      // Mass assignment: body/query sem schema Zod não passam sem filtragem
+      // body/query sem schema Zod não passam sem filtragem
       if (type === 'body' || type === 'query') {
         throw new BadRequestException({
           statusCode: 400,

@@ -9,13 +9,13 @@ import type {
   BrazilLookupResult,
   CnpjCompanyData,
 } from '../../../application/services/brazil-data.service.interface.js';
-import type { MetricsPort } from '../../../application/services/metrics.port.js';
+import type {
+  MetricsBrasilApiOperation,
+  MetricsBrasilApiResultLabel,
+  MetricsPort,
+} from '../../../application/services/metrics.port.js';
 import type { Env } from '../../../config/env.schema.js';
-import {
-  MetricsService,
-  type BrasilApiOperation,
-  type BrasilApiResultLabel,
-} from '../../observability/metrics.service.js';
+import { MetricsService } from '../../observability/metrics.service.js';
 
 interface BrasilApiCnpjResponse {
   cnpj: string;
@@ -208,14 +208,12 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
     };
   }
 
-  /** Expõe reset dos breakers para testes de recovery. */
   public resetCircuitsForTests(): void {
     this.cnpjBreaker.close();
     this.cityBreaker.close();
     this.citiesBreaker.close();
   }
 
-  /** TTL curto para testes de expiração de cache. */
   public setCacheTtlForTests(ttlMs: number): void {
     this.cacheTtlMs = ttlMs;
   }
@@ -350,7 +348,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   private getCache<T>(
     cache: Map<string, CacheEntry<T>>,
     key: string,
-    operation: BrasilApiOperation,
+    operation: MetricsBrasilApiOperation,
   ): T | undefined {
     const entry = cache.get(key);
     if (!entry) {
@@ -375,7 +373,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   }
 
   private async instrumented<T>(
-    operation: BrasilApiOperation,
+    operation: MetricsBrasilApiOperation,
     fn: () => Promise<BrazilLookupResult<T>>,
   ): Promise<BrazilLookupResult<T>> {
     const started = process.hrtime.bigint();
@@ -391,7 +389,7 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
 
   private resultLabel<T>(
     result: BrazilLookupResult<T>,
-  ): BrasilApiResultLabel {
+  ): MetricsBrasilApiResultLabel {
     switch (result.outcome) {
       case 'VALIDATED':
         return 'success';
@@ -407,8 +405,8 @@ export class BrasilApiAdapter implements BrazilDataServiceInterface {
   }
 
   private recordMetrics(
-    operation: BrasilApiOperation,
-    result: BrasilApiResultLabel,
+    operation: MetricsBrasilApiOperation,
+    result: MetricsBrasilApiResultLabel,
     started: bigint,
   ): void {
     const durationSeconds = Number(process.hrtime.bigint() - started) / 1e9;

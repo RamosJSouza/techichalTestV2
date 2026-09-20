@@ -91,7 +91,6 @@ interface DashboardChartsSectionProps {
   };
 }
 
-/** Chunk sob demanda: recharts + ChartCard (PNG). */
 export function DashboardChartsSection({
   summary,
   analytics,

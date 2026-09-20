@@ -34,7 +34,6 @@ import {
 import { MaskPiiInterceptor } from '../interceptors/mask-pii.interceptor.js';
 import { toProducerListItem, toProducerResponse } from '../mappers/producer-response.mapper.js';
 
-/** Exemplo Swagger com PII mascarado (RF-04). */
 class ProducerMaskedResponseDto {
   @ApiProperty({ example: 'a8f3d1b2-8c9e-4a1b-9f01-123456789abc' })
   public id!: string;
@@ -81,7 +80,7 @@ export class ProducerController {
   @Get()
   @ApiOkResponse({
     description:
-      'Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops). First paint da tabela.',
+      'Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops).',
     type: ProducerListPageResponseDto,
   })
   public async list(@Query() query: ListProducersQueryDto) {

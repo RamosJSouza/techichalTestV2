@@ -56,12 +56,6 @@ function isStatusOrUfConstraint(name: string): boolean {
   );
 }
 
-/**
- * Converte violações PostgreSQL de integridade em exceções de domínio.
- * - 23505 unique → ConflictException (409)
- * - 23514 check (área) → InvalidFarmAreaException (400)
- * - 23514 check (UF/status) → InvalidDomainValueException (400)
- */
 export function mapPgIntegrityError(
   error: unknown,
   ctx: PgIntegrityContext = 'generic',

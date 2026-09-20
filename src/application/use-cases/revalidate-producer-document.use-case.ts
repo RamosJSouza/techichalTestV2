@@ -1,11 +1,13 @@
-import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
-import type { ExternalValidationAuditTrigger } from '../services/external-validation-audit.port.js';
-import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
-import type { LoggerPort } from '../services/logger.port.js';
-import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
+import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
-import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
+import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
+import type {
+  ExternalValidationAuditPort,
+  ExternalValidationAuditTrigger,
+} from '../services/external-validation-audit.port.js';
+import type { LoggerPort } from '../services/logger.port.js';
+import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
 
 export interface RevalidateResult {
   id: string;

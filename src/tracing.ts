@@ -1,11 +1,5 @@
 /**
- * OpenTelemetry bootstrap — importado antes do Nest em main.ts.
- * Com OTEL_EXPORTER_OTLP_ENDPOINT: exporta traces via OTLP/HTTP.
- * Sem endpoint: SDK sobe sem exporter (no-op de export).
- * OTEL_SERVICE_NAME (opcional) é lido pelo SDK via Resource detectors / env.
- *
- * Headers sensíveis (authorization, cookie, x-admin-token) não entram em
- * span attributes — headersToSpanAttributes vazio.
+ * Headers sensíveis não entram em span attributes (headersToSpanAttributes vazio).
  */
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { NodeSDK } from '@opentelemetry/sdk-node';

@@ -15,7 +15,6 @@ export interface ProducerListQuery {
   cursor?: string;
 }
 
-/** Item leve para listagem paginada (sem farms/harvests/crops). */
 export interface ProducerListItem {
   id: string;
   name: string;
@@ -38,7 +37,6 @@ export interface ProducerListResult {
   total: number;
   page: number;
   pageSize: number;
-  /** Próxima página keyset; null se não há mais itens. */
   nextCursor: string | null;
 }
 
@@ -50,6 +48,5 @@ export interface IProducerRepository {
   findAll(): Promise<Producer[]>;
   findMany(query: ProducerListQuery): Promise<ProducerListResult>;
   softDelete(id: string, deletedAt: Date): Promise<void>;
-  /** IDs com documento PENDING, mais antigos primeiro. */
   findPendingDocumentIds(limit: number): Promise<string[]>;
 }

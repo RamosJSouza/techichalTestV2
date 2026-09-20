@@ -46,56 +46,55 @@ export class DrizzleFarmRepository implements IFarmRepository {
     opts: FarmUpdateOptions = { harvestsChanged: true },
   ): Promise<Farm> {
     return this.timed('farm_update', async () => {
-    const persistence = FarmMapper.toPersistence(farm);
-    try {
-      await this.db.transaction(async (tx) => {
-        await tx
-          .update(farms)
-          .set({
-            name: persistence.name,
-            city: persistence.city,
-            state: persistence.state,
-            totalArea: persistence.totalArea,
-            arableArea: persistence.arableArea,
-            vegetationArea: persistence.vegetationArea,
-            carNumber: persistence.carNumber,
-            carStatus: persistence.carStatus,
-            climateRiskScore: persistence.climateRiskScore,
-            territorialValidationStatus:
-              persistence.territorialValidationStatus,
-            territorialValidationPendingAt:
-              persistence.territorialValidationPendingAt,
-            territorialValidationPendingReason:
-              persistence.territorialValidationPendingReason,
-            updatedAt: persistence.updatedAt,
-            deletedAt: persistence.deletedAt,
-          })
-          .where(eq(farms.id, farm.id));
-
-        // Pula delete+insert quando as safras não mudaram (ex.: só nome/CAR/área).
-        if (opts.harvestsChanged === false) {
-          return;
-        }
-
-        const existingHarvests = await tx
-          .select({ id: harvests.id })
-          .from(harvests)
-          .where(eq(harvests.farmId, farm.id));
-        const existingHarvestIds = existingHarvests.map((row) => row.id);
-
-        if (existingHarvestIds.length > 0) {
+      const persistence = FarmMapper.toPersistence(farm);
+      try {
+        await this.db.transaction(async (tx) => {
           await tx
-            .delete(farmCrops)
-            .where(inArray(farmCrops.harvestId, existingHarvestIds));
-          await tx.delete(harvests).where(eq(harvests.farmId, farm.id));
-        }
+            .update(farms)
+            .set({
+              name: persistence.name,
+              city: persistence.city,
+              state: persistence.state,
+              totalArea: persistence.totalArea,
+              arableArea: persistence.arableArea,
+              vegetationArea: persistence.vegetationArea,
+              carNumber: persistence.carNumber,
+              carStatus: persistence.carStatus,
+              climateRiskScore: persistence.climateRiskScore,
+              territorialValidationStatus:
+                persistence.territorialValidationStatus,
+              territorialValidationPendingAt:
+                persistence.territorialValidationPendingAt,
+              territorialValidationPendingReason:
+                persistence.territorialValidationPendingReason,
+              updatedAt: persistence.updatedAt,
+              deletedAt: persistence.deletedAt,
+            })
+            .where(eq(farms.id, farm.id));
 
-        await this.insertHarvestsAndCrops(tx, farm);
-      });
-    } catch (error) {
-      mapPgIntegrityError(error, 'generic');
-    }
-    return farm;
+          if (opts.harvestsChanged === false) {
+            return;
+          }
+
+          const existingHarvests = await tx
+            .select({ id: harvests.id })
+            .from(harvests)
+            .where(eq(harvests.farmId, farm.id));
+          const existingHarvestIds = existingHarvests.map((row) => row.id);
+
+          if (existingHarvestIds.length > 0) {
+            await tx
+              .delete(farmCrops)
+              .where(inArray(farmCrops.harvestId, existingHarvestIds));
+            await tx.delete(harvests).where(eq(harvests.farmId, farm.id));
+          }
+
+          await this.insertHarvestsAndCrops(tx, farm);
+        });
+      } catch (error) {
+        mapPgIntegrityError(error, 'generic');
+      }
+      return farm;
     });
   }
 

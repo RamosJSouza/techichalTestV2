@@ -35,7 +35,6 @@ export const theme = {
     headerHeight: '64px',
     canvasMax: '1680px',
   },
-  /** DESIGN.md: mobile <768, tablet 768–1279, desktop ≥1280 */
   breakpoints: {
     mobileMax: '767px',
     tabletMax: '1279px',

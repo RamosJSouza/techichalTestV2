@@ -3,7 +3,6 @@ import { EXTERNAL_VALIDATION_STATUSES } from '../../domain/constants/external-va
 
 const STATUS_ENUM = [...EXTERNAL_VALIDATION_STATUSES];
 
-/** Item da listagem paginada (summary — sem farms/harvests/crops). */
 export class ProducerListItemResponseDto {
   @ApiProperty({ example: 'a8f3d1b2-8c9e-4a1b-9f01-123456789abc' })
   public id!: string;
@@ -65,7 +64,6 @@ export class ProducerListItemResponseDto {
   public vegetationAreaHa!: number;
 }
 
-/** Envelope da listagem paginada. */
 export class ProducerListPageResponseDto {
   @ApiProperty({ type: [ProducerListItemResponseDto] })
   public items!: ProducerListItemResponseDto[];
@@ -92,7 +90,6 @@ export class ProducerListPageResponseDto {
   public nextCursor!: string | null;
 }
 
-/** Safra no detalhe hidratado. */
 class HarvestResponseDto {
   @ApiProperty()
   public id!: string;
@@ -107,7 +104,6 @@ class HarvestResponseDto {
   public crops!: string[];
 }
 
-/** Fazenda no detalhe hidratado. */
 class FarmDetailResponseDto {
   @ApiProperty()
   public id!: string;
@@ -158,7 +154,6 @@ class FarmDetailResponseDto {
   public harvests!: HarvestResponseDto[];
 }
 
-/** Detalhe completo do produtor (GET /producers/:id). */
 export class ProducerDetailResponseDto {
   @ApiProperty()
   public id!: string;
@@ -198,7 +193,6 @@ export class ProducerDetailResponseDto {
   public updatedAt!: string;
 }
 
-/** Resultado de revalidação admin. */
 export class RevalidateResultDto {
   @ApiProperty()
   public id!: string;

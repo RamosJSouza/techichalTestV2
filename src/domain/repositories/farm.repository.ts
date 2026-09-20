@@ -12,6 +12,5 @@ export interface IFarmRepository {
   update(farm: Farm, opts?: FarmUpdateOptions): Promise<Farm>;
   findById(id: string): Promise<Farm | null>;
   softDelete(id: string, deletedAt: Date): Promise<void>;
-  /** IDs com território PENDING, mais antigos primeiro. */
   findPendingTerritorialIds(limit: number): Promise<string[]>;
 }

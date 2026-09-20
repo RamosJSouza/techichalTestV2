@@ -8,7 +8,6 @@ export interface CnpjCompanyData {
 }
 
 /**
- * Resultado discriminado da BrasilAPI.
  * Outage / circuit open → PENDING (nunca positivo silencioso).
  * Rejeição definitiva → REJECTED.
  */
@@ -24,7 +23,6 @@ export interface BrazilDataServiceInterface {
     state: string,
   ): Promise<BrazilLookupResult<boolean>>;
   listCitiesByState(uf: string): Promise<BrazilLookupResult<string[]>>;
-  /** Estado dos circuit breakers (sem PII). */
   getCircuitStats(): {
     cnpjOpen: boolean;
     cityOpen: boolean;

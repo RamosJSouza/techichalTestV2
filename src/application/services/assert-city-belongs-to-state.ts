@@ -8,10 +8,6 @@ interface TerritorialValidationOutcome {
   pendingReason: string | null;
 }
 
-/**
- * Valida cidade ∈ UF via BrasilAPI.
- * Retorna status persistível; mismatch definitivo lança exceção.
- */
 export async function assertCityBelongsToState(
   brazilData: BrazilDataServiceInterface,
   city: string,

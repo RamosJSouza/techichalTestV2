@@ -21,7 +21,6 @@ type ResolveCnpjStrictInput = {
   brazilData: BrazilDataServiceInterface;
   document: CpfCnpj;
   logger?: LoggerPort;
-  /** Contexto do log (create vs update). */
   pendingLogContext?: 'create' | 'update';
 };
 
@@ -31,11 +30,6 @@ type ResolveCnpjRevalidateInput = {
   document: CpfCnpj;
 };
 
-/**
- * Política compartilhada de validação CNPJ via BrasilAPI.
- * - strict (create/update): REJECTED/inativo → InactiveCnpjException
- * - revalidate: nunca lança; mapeia outcomes para status persistível
- */
 export async function resolveCnpjDocumentValidation(
   input: ResolveCnpjStrictInput,
 ): Promise<ResolveCnpjStrictResult>;

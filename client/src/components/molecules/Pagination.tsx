@@ -103,7 +103,6 @@ export function pageRange(
   return { from, to };
 }
 
-/** Clamp página alvo para o intervalo válido [1, totalPages]. */
 export function clampPage(
   target: number,
   total: number,

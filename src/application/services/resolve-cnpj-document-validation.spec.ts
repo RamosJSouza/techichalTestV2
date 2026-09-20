@@ -3,7 +3,6 @@ import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
 import type { BrazilDataServiceInterface } from './brazil-data.service.interface.js';
 import { resolveCnpjDocumentValidation } from './resolve-cnpj-document-validation.js';
 
-/** CNPJ válido de teste (dígitos verificadores OK). */
 const ACTIVE_CNPJ = '11222333000181';
 
 function stubBrazil(

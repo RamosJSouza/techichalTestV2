@@ -202,7 +202,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops). First paint da tabela.",
+            "description": "Lista paginada resumida de produtores (farmsCount/áreas/UFs; sem harvests/crops).",
             "content": {
               "application/json": {
                 "schema": {
@@ -560,7 +560,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Shape completo (summary+analytics+ESG). Residual para clientes legados — first paint deve usar /summary."
+            "description": "Shape completo (summary+analytics+ESG). Residual para clientes legados — preferir /summary."
           }
         },
         "tags": [
@@ -652,7 +652,7 @@
         ],
         "responses": {
           "200": {
-            "description": "First paint: KPIs, byState/byCrop/byLandUse/CAR/ESG. Caminho preferido do frontend."
+            "description": "KPIs, byState/byCrop/byLandUse/CAR/ESG."
           }
         },
         "tags": [
@@ -744,7 +744,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Secondary paint: séries (cropsByYear, farmsByMonth), topCities, risco climático por estado/cultura."
+            "description": "Séries (cropsByYear, farmsByMonth), topCities, risco climático por estado/cultura."
           }
         },
         "tags": [

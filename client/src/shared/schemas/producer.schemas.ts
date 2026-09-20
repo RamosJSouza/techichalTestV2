@@ -50,7 +50,6 @@ export const farmAreasSchema = z
     },
   );
 
-/** Passo 0 do wizard — sem .strict() para tolerar `farm` extra no RHF. */
 export const wizardStep0Schema = z.object({
   name: requiredString('Nome obrigatório').max(255),
   document: z
@@ -59,7 +58,6 @@ export const wizardStep0Schema = z.object({
     .max(18),
 });
 
-/** Passo 0 em edição (documento mascarado / não editável). */
 export const wizardStep0EditSchema = z.object({
   name: requiredString('Nome obrigatório').max(255),
 });

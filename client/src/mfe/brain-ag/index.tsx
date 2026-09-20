@@ -24,7 +24,6 @@ const ProducerEsgPage = lazy(async () => {
   return { default: mod.ProducerEsgPage };
 });
 
-/** Fronteira MFE-ready: exportar este App em Module Federation no futuro. */
 export function BrainAgApp(): React.JSX.Element {
   return (
     <Provider store={store}>

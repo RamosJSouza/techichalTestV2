@@ -24,10 +24,16 @@ export type DrizzleDb = PostgresJsDatabase<typeof schema>;
       provide: CRYPTO_SERVICE,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>): CryptoService => {
-        return new CryptoService(
-          config.get('ENCRYPTION_KEY', { infer: true }),
-          config.get('PEPPER_SECRET', { infer: true }),
-        );
+        return new CryptoService(config.get('PEPPER_SECRET', { infer: true }), {
+          keyId: config.get('ENCRYPTION_KEY_ID', { infer: true }),
+          keyHex: config.get('ENCRYPTION_KEY', { infer: true }),
+          previousKeyId: config.get('ENCRYPTION_KEY_PREVIOUS_ID', {
+            infer: true,
+          }),
+          previousKeyHex: config.get('ENCRYPTION_KEY_PREVIOUS', {
+            infer: true,
+          }),
+        });
       },
     },
   ],

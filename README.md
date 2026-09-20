@@ -18,12 +18,15 @@ O repositório usa `engine-strict` e `package-manager-strict` (`.npmrc`).
 
 ```bash
 cp .env_example .env
+# Compose força NODE_ENV=production no container api — o .env precisa de
+# ENCRYPTION_KEY / PEPPER_SECRET (≥32) / POSTGRES_PASSWORD sem valores de exemplo.
+# Variáveis já exportadas no shell têm prioridade sobre o arquivo .env.
 pnpm docker:up          # build client+API + Postgres + migrations
 ```
 
 - SPA: http://localhost:3000/
 - API: http://localhost:3000/api/v1
-- Swagger: http://localhost:3000/api/docs
+- Swagger (não-production): http://localhost:3000/api/docs
 - Health: `GET /api/v1/health`
 - Postgres no host: `localhost:5433`
 
@@ -58,7 +61,11 @@ Variáveis importantes no `.env`:
 |----------|-----------|
 | `DATABASE_URL` | Connection string PostgreSQL |
 | `ENCRYPTION_KEY` | 64 hex chars (32 bytes) para AES-256-GCM |
-| `PEPPER_SECRET` | Pepper do blind index HMAC-SHA256 (≥16 chars) |
+| `ENCRYPTION_KEY_ID` | Key-id no ciphertext (`kid:iv:tag:ct`); default `v1` |
+| `ENCRYPTION_KEY_PREVIOUS` / `_ID` | Chave anterior para decrypt durante rotação |
+| `PEPPER_SECRET` | Pepper HMAC (≥16; em production ≥32 e ≠ exemplo) |
+| `BODY_LIMIT` | Limite JSON body (default `100kb`) |
+| `TRUST_PROXY` | `true`/`1` se atrás de proxy confiável (rate limit) |
 
 ## Endpoints
 
@@ -87,15 +94,16 @@ Safras (`harvests`) têm `status` `ACTIVE` | `ARCHIVED` (novas = `ACTIVE`). O gr
 
 ## Segurança de PII e produção
 
-- Documento criptografado em repouso (AES-256-GCM, formato `iv:authTag:ciphertext`)
-- Busca via `document_hash` (HMAC-SHA256)
+- Documento criptografado em repouso (AES-256-GCM, formato `kid:iv:authTag:ciphertext`; legado `iv:tag:ct` ainda descriptografa)
+- Busca via `document_hash` (HMAC-SHA256); unique parcial `WHERE deleted_at IS NULL` + hash anonimizado no soft delete
+- Caps Zod: farms≤20, harvests≤10, crops≤20; `page`≤10000; body JSON limitado (`BODY_LIMIT`)
 - Respostas HTTP com `@MaskPII()` + interceptor (`***.XXX.XXX-**` / `**.XXX.XXX/XXXX-**`)
-- Soft delete via `deleted_at`
+- Soft delete via `deleted_at` (permite recriar o mesmo CPF/CNPJ)
 - Logs Pino com `trace_id` / `span_id` (OpenTelemetry) e redact de `document`
-- Em `NODE_ENV=production`, secrets de exemplo / senha `postgrespassword` são **rejeitados**
-- Rate limit (`express-rate-limit` via `THROTTLE_*`), `helmet`, CORS via `CORS_ORIGINS` (CSV)
+- Em `NODE_ENV=production`, secrets de exemplo / senha `postgrespassword` / pepper com menos de 32 chars são **rejeitados**; Swagger **desligado**
+- Rate limit (`express-rate-limit` via `THROTTLE_*`; skip só `/health*`), `helmet`, CORS via `CORS_ORIGINS` (CSV)
 - Erros 5xx desconhecidos: mensagem genérica + `errorId` / `traceId` (detalhe só nos logs)
-- **Sem autenticação no escopo atual** — API aberta; proteger rede (VPN/firewall) em produção controlada
+- **Sem autenticação no escopo atual** — API aberta; proteger rede (VPN/firewall/mTLS) em produção controlada
 
 ### Gerar chaves
 

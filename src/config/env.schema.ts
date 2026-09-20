@@ -4,6 +4,10 @@ export const EXAMPLE_ENCRYPTION_KEY =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 export const EXAMPLE_PEPPER_SECRET = 'change-me-pepper-secret-min-16';
 
+const hex64 = z
+  .string()
+  .regex(/^[0-9a-fA-F]{64}$/, 'must be 64 hex chars (32 bytes)');
+
 const envSchema = z
   .object({
     NODE_ENV: z
@@ -11,12 +15,10 @@ const envSchema = z
       .default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-    ENCRYPTION_KEY: z
-      .string()
-      .regex(
-        /^[0-9a-fA-F]{64}$/,
-        'ENCRYPTION_KEY must be 64 hex chars (32 bytes)',
-      ),
+    ENCRYPTION_KEY: hex64,
+    ENCRYPTION_KEY_ID: z.string().min(1).max(32).default('v1'),
+    ENCRYPTION_KEY_PREVIOUS: hex64.optional(),
+    ENCRYPTION_KEY_PREVIOUS_ID: z.string().min(1).max(32).optional(),
     PEPPER_SECRET: z
       .string()
       .min(16, 'PEPPER_SECRET must be at least 16 characters'),
@@ -27,8 +29,21 @@ const envSchema = z
     CORS_ORIGINS: z.string().optional().default(''),
     THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
+    TRUST_PROXY: z
+      .enum(['true', 'false', '1', '0'])
+      .optional()
+      .default('false'),
+    BODY_LIMIT: z.string().min(2).max(16).default('100kb'),
   })
   .superRefine((data, ctx) => {
+    if (data.ENCRYPTION_KEY_PREVIOUS && !data.ENCRYPTION_KEY_PREVIOUS_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY_PREVIOUS_ID'],
+        message:
+          'ENCRYPTION_KEY_PREVIOUS_ID is required when ENCRYPTION_KEY_PREVIOUS is set',
+      });
+    }
     if (data.NODE_ENV !== 'production') {
       return;
     }
@@ -45,7 +60,14 @@ const envSchema = z
         code: 'custom',
         path: ['PEPPER_SECRET'],
         message:
-          'production forbids the example PEPPER_SECRET; set a unique secret (≥16 chars)',
+          'production forbids the example PEPPER_SECRET; set a unique secret',
+      });
+    }
+    if (data.PEPPER_SECRET.length < 32) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PEPPER_SECRET'],
+        message: 'production requires PEPPER_SECRET with at least 32 characters',
       });
     }
     if (
@@ -74,4 +96,8 @@ export function parseEnv(env: NodeJS.ProcessEnv = process.env): Env {
   }
 
   return result.data;
+}
+
+export function isTrustProxyEnabled(env: Env): boolean {
+  return env.TRUST_PROXY === 'true' || env.TRUST_PROXY === '1';
 }

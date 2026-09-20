@@ -36,6 +36,13 @@
       "when": 1789900000000,
       "tag": "0004_dashboard_list_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789910000000,
+      "tag": "0005_producers_document_hash_partial_unique",
+      "breakpoints": true
     }
   ]
 }

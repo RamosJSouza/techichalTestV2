@@ -1,6 +1,6 @@
 # Client — Brain Agriculture (React + Vite)
 
-SPA embutida no monorepo NestJS. Em produção é servida em `/` via `@nestjs/serve-static`; a API permanece em `/api/v1` e o Swagger em `/api/docs`.
+SPA embutida no monorepo NestJS. Em produção é servida em `/` via `@nestjs/serve-static`; a API permanece em `/api/v1`. Swagger (`/api/docs`) só sobe fora de `NODE_ENV=production`.
 
 ## Stack
 
@@ -43,7 +43,7 @@ pnpm start:prod   # serve SPA se client/dist existir
 pnpm docker:up    # imagem unificada (client + API + Postgres)
 ```
 
-Em produção o Nest serve `client/dist` em `/` (exclui `/api*`). Swagger: `/api/docs`.
+Em produção o Nest serve `client/dist` em `/` (exclui `/api*`). Swagger (`/api/docs`) não é registrado em `NODE_ENV=production`.
 
 ## Responsivo
 

@@ -34,6 +34,9 @@ const offlineBrazil: BrazilDataServiceInterface = {
       await migrate(drizzle(client), {
         migrationsFolder: join(process.cwd(), 'drizzle'),
       });
+      await client`
+        TRUNCATE TABLE farm_crops, harvests, farms, producers RESTART IDENTITY CASCADE
+      `;
     } finally {
       await client.end({ timeout: 5 });
     }
@@ -132,6 +135,15 @@ const offlineBrazil: BrazilDataServiceInterface = {
     await request(app.getHttpServer())
       .get(`/api/v1/producers/${id}`)
       .expect(404);
+
+    const recreate = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Fernando Ramos Reonboard',
+        document: '529.982.247-25',
+      });
+    expect([201, 200]).toContain(recreate.status);
+    expect(recreate.body.id).not.toBe(id);
   });
 
   it('retorna 409 para documento duplicado', async () => {

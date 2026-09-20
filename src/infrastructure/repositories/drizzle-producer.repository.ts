@@ -176,7 +176,11 @@ export class DrizzleProducerRepository implements IProducerRepository {
     await this.db.transaction(async (tx) => {
       await tx
         .update(producers)
-        .set({ deletedAt, updatedAt: deletedAt })
+        .set({
+          deletedAt,
+          updatedAt: deletedAt,
+          documentHash: `del:${id}`,
+        })
         .where(eq(producers.id, id));
       await tx
         .update(farms)

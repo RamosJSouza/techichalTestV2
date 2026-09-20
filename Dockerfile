@@ -19,7 +19,7 @@ COPY --from=deps /app/client/node_modules ./client/node_modules
 COPY src ./src
 # Não usar `COPY client ./client` — apagaria client/node_modules (symlinks pnpm)
 COPY client/src ./client/src
-COPY client/index.html client/vite.config.ts client/tsconfig.json client/jest.config.ts ./client/
+COPY client/index.html client/vite.config.ts client/tsconfig.json client/jest.config.cjs ./client/
 ENV CI=true
 RUN pnpm --filter @brain-ag/client build & client_pid=$!; \
     pnpm build:api & api_pid=$!; \

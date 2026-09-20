@@ -1,6 +1,7 @@
 import './tracing.js';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { json } from 'express';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -9,16 +10,23 @@ import helmet from 'helmet';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
-import { parseEnv } from './config/env.schema.js';
+import { isTrustProxyEnabled, parseEnv } from './config/env.schema.js';
 
 async function bootstrap(): Promise<void> {
   const env = parseEnv();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
+    bodyParser: false,
   });
   app.useLogger(app.get(Logger));
+
+  if (isTrustProxyEnabled(env)) {
+    app.set('trust proxy', 1);
+  }
+
   app.use(helmet());
+  app.use(json({ limit: env.BODY_LIMIT }));
   app.use(
     rateLimit({
       windowMs: env.THROTTLE_TTL_MS,
@@ -27,11 +35,7 @@ async function bootstrap(): Promise<void> {
       legacyHeaders: false,
       skip: (req) => {
         const path = req.path ?? '';
-        return (
-          path.includes('/health') ||
-          path.includes('/metrics') ||
-          path.includes('/api/docs')
-        );
+        return path.includes('/health');
       },
     }),
   );
@@ -49,18 +53,20 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api/v1');
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Brain Agriculture API')
-    .setDescription(
-      'API de gestão de produtores rurais, fazendas, safras e dashboard analítico. Sem autenticação no escopo atual — proteja a rede e use rate limit/CORS em produção.',
-    )
-    .setVersion('1.0.0')
-    .build();
+  if (env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Brain Agriculture API')
+      .setDescription(
+        'API de gestão de produtores rurais, fazendas, safras e dashboard analítico. Sem autenticação no escopo atual — proteja a rede e use rate limit/CORS em produção.',
+      )
+      .setVersion('1.0.0')
+      .build();
 
-  const document = cleanupOpenApiDoc(
-    SwaggerModule.createDocument(app, swaggerConfig),
-  );
-  SwaggerModule.setup('api/docs', app, document);
+    const document = cleanupOpenApiDoc(
+      SwaggerModule.createDocument(app, swaggerConfig),
+    );
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const clientIndex = join(process.cwd(), 'client', 'dist', 'index.html');
   if (existsSync(clientIndex)) {

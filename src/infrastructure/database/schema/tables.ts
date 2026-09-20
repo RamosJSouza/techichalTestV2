@@ -4,9 +4,11 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const producers = pgTable(
   'producers',
@@ -14,7 +16,7 @@ export const producers = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 255 }).notNull(),
     document: text('document').notNull(),
-    documentHash: varchar('document_hash', { length: 64 }).notNull().unique(),
+    documentHash: varchar('document_hash', { length: 64 }).notNull(),
     esgStatus: varchar('esg_status', { length: 20 }).default('APPROVED').notNull(),
     esgCheckedAt: timestamp('esg_checked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -23,6 +25,9 @@ export const producers = pgTable(
   },
   (table) => [
     index('producers_deleted_created_idx').on(table.deletedAt, table.createdAt),
+    uniqueIndex('producers_document_hash_active_uidx')
+      .on(table.documentHash)
+      .where(sql`${table.deletedAt} is null`),
   ],
 );
 

@@ -1,41 +1,71 @@
 {
-  "at": "2026-09-20T20:36:40.240Z",
+  "at": "2026-09-21T01:10:29.236Z",
   "rows": [
     {
-      "file": "Badge-DSojQxjv.js",
+      "file": "Badge-CaFuPRfM.js",
       "kind": "other",
-      "raw": 1013,
-      "gzip": 544
+      "raw": 973,
+      "gzip": 522
     },
     {
-      "file": "brazilian-states-BCPUA91e.js",
+      "file": "ConfirmDialog-AfxkJzrs.js",
       "kind": "other",
-      "raw": 1724,
-      "gzip": 834
+      "raw": 3091,
+      "gzip": 1264
     },
     {
-      "file": "ConfirmDialog-wifbMCL6.js",
-      "kind": "other",
-      "raw": 3340,
-      "gzip": 1281
-    },
-    {
-      "file": "DashboardChartsSection-BnKr9Md3.js",
+      "file": "DashboardChartsSection-DqTKa1Tt.js",
       "kind": "feature:dashboard-charts",
-      "raw": 224982,
-      "gzip": 51895
+      "raw": 221901,
+      "gzip": 51849
     },
     {
-      "file": "DashboardPage-BYmEtB4w.js",
+      "file": "DashboardPage-BQ4BP3hm.js",
       "kind": "route:dashboard",
-      "raw": 23835,
-      "gzip": 4932
+      "raw": 21358,
+      "gzip": 4854
     },
     {
-      "file": "ErrorRetryPanel-x1DN4Oj_.js",
+      "file": "ErrorRetryPanel-BzcSxb3U.js",
       "kind": "other",
-      "raw": 2425,
-      "gzip": 919
+      "raw": 2264,
+      "gzip": 892
+    },
+    {
+      "file": "ProducerEsgPage-B_SApaRD.js",
+      "kind": "route:producer-esg",
+      "raw": 5829,
+      "gzip": 1562
+    },
+    {
+      "file": "ProducerFormPage-BAlLXvin.js",
+      "kind": "route:producer-form",
+      "raw": 142707,
+      "gzip": 42961
+    },
+    {
+      "file": "ProducersListPage-Y7fFp-xF.js",
+      "kind": "route:producers-list",
+      "raw": 21159,
+      "gzip": 5202
+    },
+    {
+      "file": "TextInput-BdTqoKP1.js",
+      "kind": "other",
+      "raw": 1369,
+      "gzip": 682
+    },
+    {
+      "file": "ValidationBanner-DJ09JPDU.js",
+      "kind": "other",
+      "raw": 662,
+      "gzip": 458
+    },
+    {
+      "file": "brazilian-states-BM2Zu5j3.js",
+      "kind": "other",
+      "raw": 1609,
+      "gzip": 811
     },
     {
       "file": "export-csv-DrorOpTc.js",
@@ -44,84 +74,60 @@
       "gzip": 618
     },
     {
-      "file": "index-DxB0gEUA.js",
+      "file": "http-error-detail-VblUfS5Z.js",
+      "kind": "other",
+      "raw": 109,
+      "gzip": 121
+    },
+    {
+      "file": "index-B4B_urQL.js",
       "kind": "entry",
-      "raw": 85751,
-      "gzip": 27461
+      "raw": 82010,
+      "gzip": 27021
     },
     {
-      "file": "ProducerEsgPage-DCzzohS3.js",
-      "kind": "route:producer-esg",
-      "raw": 7043,
-      "gzip": 1634
-    },
-    {
-      "file": "ProducerFormPage-xrlVQOzz.js",
-      "kind": "route:producer-form",
-      "raw": 145182,
-      "gzip": 43051
-    },
-    {
-      "file": "ProducersListPage-DmHBCDPU.js",
-      "kind": "route:producers-list",
-      "raw": 23883,
-      "gzip": 5248
-    },
-    {
-      "file": "recharts-DmbQTETY.js",
+      "file": "recharts-CYsIARz8.js",
       "kind": "recharts",
       "raw": 393768,
-      "gzip": 110057
+      "gzip": 110058
     },
     {
-      "file": "TextInput-7ny97CiW.js",
-      "kind": "other",
-      "raw": 1489,
-      "gzip": 707
-    },
-    {
-      "file": "ValidationBanner-1pm7SzO8.js",
-      "kind": "other",
-      "raw": 702,
-      "gzip": 481
-    },
-    {
-      "file": "vendor-58sZAldu.js",
+      "file": "vendor-D92lIhZL.js",
       "kind": "vendor",
-      "raw": 506290,
-      "gzip": 167968
+      "raw": 500744,
+      "gzip": 165298
     }
   ],
   "byKind": {
-    "vendor": 167968,
-    "recharts": 110057,
-    "entry": 27461
+    "vendor": 165298,
+    "recharts": 110058,
+    "entry": 27021
   },
   "byRoute": {
     "route:dashboard": {
-      "file": "DashboardPage-BYmEtB4w.js",
-      "gzip": 4932,
-      "raw": 23835
+      "file": "DashboardPage-BQ4BP3hm.js",
+      "gzip": 4854,
+      "raw": 21358
     },
     "route:producers-list": {
-      "file": "ProducersListPage-DmHBCDPU.js",
-      "gzip": 5248,
-      "raw": 23883
+      "file": "ProducersListPage-Y7fFp-xF.js",
+      "gzip": 5202,
+      "raw": 21159
     },
     "route:producer-form": {
-      "file": "ProducerFormPage-xrlVQOzz.js",
-      "gzip": 43051,
-      "raw": 145182
+      "file": "ProducerFormPage-BAlLXvin.js",
+      "gzip": 42961,
+      "raw": 142707
     },
     "route:producer-esg": {
-      "file": "ProducerEsgPage-DCzzohS3.js",
-      "gzip": 1634,
-      "raw": 7043
+      "file": "ProducerEsgPage-B_SApaRD.js",
+      "gzip": 1562,
+      "raw": 5829
     },
     "feature:dashboard-charts": {
-      "file": "DashboardChartsSection-BnKr9Md3.js",
-      "gzip": 51895,
-      "raw": 224982
+      "file": "DashboardChartsSection-DqTKa1Tt.js",
+      "gzip": 51849,
+      "raw": 221901
     },
     "feature:export-csv": {
       "file": "export-csv-DrorOpTc.js",
@@ -132,19 +138,19 @@
   "gates": [
     {
       "name": "vendor",
-      "actual": 167968,
+      "actual": 165298,
       "limit": 184320,
       "ok": true
     },
     {
       "name": "recharts",
-      "actual": 110057,
+      "actual": 110058,
       "limit": 122880,
       "ok": true
     },
     {
       "name": "entry",
-      "actual": 27461,
+      "actual": 27021,
       "limit": 102400,
       "ok": true
     }
@@ -152,20 +158,20 @@
   "baselineDelta": {
     "vendor": {
       "prev": 167968,
-      "curr": 167968,
-      "pct": 0,
+      "curr": 165298,
+      "pct": -1.5895884930462945,
       "ok": true
     },
     "recharts": {
       "prev": 110057,
-      "curr": 110057,
-      "pct": 0,
+      "curr": 110058,
+      "pct": 0.0009086200786864988,
       "ok": true
     },
     "entry": {
       "prev": 27460,
-      "curr": 27461,
-      "pct": 0.003641660597232338,
+      "curr": 27021,
+      "pct": -1.5986890021849962,
       "ok": true
     }
   },

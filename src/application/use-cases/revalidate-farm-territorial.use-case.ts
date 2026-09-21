@@ -7,6 +7,7 @@ import { NotFoundException } from '../../domain/exceptions/not-found.exception.j
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
 import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import { CityStateMismatchException } from '../../domain/exceptions/city-state-mismatch.exception.js';
+import type { TransactionPort } from '../services/transaction.port.js';
 
 export interface RevalidateFarmResult {
   id: string;
@@ -21,6 +22,7 @@ export class RevalidateFarmTerritorialUseCase {
     private readonly brazil: BrazilDataServiceInterface,
     private readonly audit: ExternalValidationAuditPort,
     private readonly logger: LoggerPort,
+    private readonly tx: TransactionPort,
   ) {}
 
   public async execute(
@@ -61,15 +63,17 @@ export class RevalidateFarmTerritorialUseCase {
       }
     }
 
-    await this.farms.update(farm, { harvestsChanged: false });
-    await this.audit.append({
-      resourceType: 'farm_territorial',
-      resourceId: farm.id,
-      previousStatus,
-      newStatus,
-      reason,
-      trigger,
-      actor,
+    await this.tx.run(async () => {
+      await this.farms.update(farm, { harvestsChanged: false });
+      await this.audit.append({
+        resourceType: 'farm_territorial',
+        resourceId: farm.id,
+        previousStatus,
+        newStatus,
+        reason,
+        trigger,
+        actor,
+      });
     });
 
     this.logger.log(

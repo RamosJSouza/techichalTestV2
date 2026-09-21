@@ -327,4 +327,35 @@ if (isCi && !databaseUrl) {
     expect(harvestsLeft).toHaveLength(0);
     expect(cropsLeft).toHaveLength(0);
   });
+
+  it('advisory lock por chave: segundo try falha até unlock (sessões distintas)', async () => {
+    const key = `revalidate:test:${randomUUID()}`;
+    // Dois clientes max:1 = duas sessões reais (paridade com sql.reserve() no app).
+    const sqlB = postgres(databaseUrl!, { max: 1 });
+    try {
+      const [a] = await sql`
+        SELECT pg_try_advisory_lock(hashtextextended(${key}, 0)) AS ok
+      `;
+      expect(a?.ok).toBe(true);
+
+      const [b] = await sqlB`
+        SELECT pg_try_advisory_lock(hashtextextended(${key}, 0)) AS ok
+      `;
+      expect(b?.ok).toBe(false);
+
+      await sql`
+        SELECT pg_advisory_unlock(hashtextextended(${key}, 0))
+      `;
+
+      const [c] = await sqlB`
+        SELECT pg_try_advisory_lock(hashtextextended(${key}, 0)) AS ok
+      `;
+      expect(c?.ok).toBe(true);
+      await sqlB`
+        SELECT pg_advisory_unlock(hashtextextended(${key}, 0))
+      `;
+    } finally {
+      await sqlB.end({ timeout: 5 });
+    }
+  });
 });

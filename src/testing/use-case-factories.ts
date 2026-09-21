@@ -1,5 +1,6 @@
 import type { BrazilDataServiceInterface } from '../application/services/brazil-data.service.interface.js';
 import type { ExternalValidationAuditPort } from '../application/services/external-validation-audit.port.js';
+import type { TransactionPort } from '../application/services/transaction.port.js';
 import { CreateFarmUseCase } from '../application/use-cases/create-farm.use-case.js';
 import { CreateProducerUseCase } from '../application/use-cases/create-producer.use-case.js';
 import { UpdateFarmUseCase } from '../application/use-cases/update-farm.use-case.js';
@@ -28,11 +29,18 @@ export function noopAudit(): ExternalValidationAuditPort {
   };
 }
 
+export function noopTx(): TransactionPort {
+  return {
+    run: async <T>(fn: () => Promise<T>): Promise<T> => fn(),
+  };
+}
+
 export function buildCreateProducer(
   repository: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
   crypto: CryptoService = testCrypto(),
   audit: ExternalValidationAuditPort = noopAudit(),
+  tx: TransactionPort = noopTx(),
 ): CreateProducerUseCase {
   return new CreateProducerUseCase(
     repository,
@@ -41,6 +49,7 @@ export function buildCreateProducer(
     testConfig(),
     testLogger(),
     audit,
+    tx,
   );
 }
 
@@ -49,6 +58,7 @@ export function buildCreateFarm(
   producerRepo: IProducerRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
   audit: ExternalValidationAuditPort = noopAudit(),
+  tx: TransactionPort = noopTx(),
 ): CreateFarmUseCase {
   return new CreateFarmUseCase(
     farmRepo,
@@ -57,6 +67,7 @@ export function buildCreateFarm(
     testConfig(),
     testLogger(),
     audit,
+    tx,
   );
 }
 
@@ -64,6 +75,7 @@ export function buildUpdateFarm(
   farmRepo: IFarmRepository,
   brazil: BrazilDataServiceInterface = defaultBrazil,
   audit: ExternalValidationAuditPort = noopAudit(),
+  tx: TransactionPort = noopTx(),
 ): UpdateFarmUseCase {
-  return new UpdateFarmUseCase(farmRepo, brazil, testLogger(), audit);
+  return new UpdateFarmUseCase(farmRepo, brazil, testLogger(), audit, tx);
 }

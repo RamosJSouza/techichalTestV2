@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "jest --config jest.config.cjs",
+    "test:cov": "jest --config jest.config.cjs --coverage",
     "test:watch": "jest --config jest.config.cjs --watch"
   },
   "dependencies": {

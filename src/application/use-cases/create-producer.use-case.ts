@@ -13,6 +13,7 @@ import type { CryptoServiceInterface } from '../services/crypto.service.interfac
 import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
+import type { TransactionPort } from '../services/transaction.port.js';
 
 interface CreateProducerFarmInput {
   name: string;
@@ -39,6 +40,7 @@ export class CreateProducerUseCase {
     private readonly config: AppConfigPort,
     private readonly logger: LoggerPort,
     private readonly audit: ExternalValidationAuditPort,
+    private readonly tx: TransactionPort,
   ) {}
 
   public async execute(input: CreateProducerInput): Promise<Producer> {
@@ -111,28 +113,30 @@ export class CreateProducerUseCase {
       producer.addFarm(farm);
     }
 
-    await this.producerRepository.save(producer);
+    await this.tx.run(async () => {
+      await this.producerRepository.save(producer);
 
-    await this.audit.append({
-      resourceType: 'producer_document',
-      resourceId: producer.id,
-      previousStatus: 'VALIDATED',
-      newStatus: documentValidationStatus,
-      reason: documentValidationPendingReason,
-      trigger: 'write',
-      actor: 'system',
-    });
-    for (const farm of producer.farms) {
       await this.audit.append({
-        resourceType: 'farm_territorial',
-        resourceId: farm.id,
+        resourceType: 'producer_document',
+        resourceId: producer.id,
         previousStatus: 'VALIDATED',
-        newStatus: farm.territorialValidationStatus,
-        reason: farm.territorialValidationPendingReason,
+        newStatus: documentValidationStatus,
+        reason: documentValidationPendingReason,
         trigger: 'write',
         actor: 'system',
       });
-    }
+      for (const farm of producer.farms) {
+        await this.audit.append({
+          resourceType: 'farm_territorial',
+          resourceId: farm.id,
+          previousStatus: 'VALIDATED',
+          newStatus: farm.territorialValidationStatus,
+          reason: farm.territorialValidationPendingReason,
+          trigger: 'write',
+          actor: 'system',
+        });
+      }
+    });
 
     this.logger.log(`Producer created: ${producer.id}`);
     return producer;

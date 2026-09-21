@@ -4,8 +4,9 @@ import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type { Env } from '../../config/env.schema.js';
 import { CryptoService } from '../crypto/crypto.service.js';
+import type { PostgresSql } from './advisory-lock.js';
 import * as schema from './schema/index.js';
-import { CRYPTO_SERVICE, DRIZZLE } from './database.tokens.js';
+import { CRYPTO_SERVICE, DRIZZLE, POSTGRES_SQL } from './database.tokens.js';
 
 export type DrizzleDb = PostgresJsDatabase<typeof schema>;
 
@@ -13,10 +14,16 @@ export type DrizzleDb = PostgresJsDatabase<typeof schema>;
 @Module({
   providers: [
     {
-      provide: DRIZZLE,
+      provide: POSTGRES_SQL,
       inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>): DrizzleDb => {
-        const client = postgres(config.get('DATABASE_URL', { infer: true }));
+      useFactory: (config: ConfigService<Env, true>): PostgresSql => {
+        return postgres(config.get('DATABASE_URL', { infer: true }));
+      },
+    },
+    {
+      provide: DRIZZLE,
+      inject: [POSTGRES_SQL],
+      useFactory: (client: PostgresSql): DrizzleDb => {
         return drizzle(client, { schema });
       },
     },
@@ -37,6 +44,6 @@ export type DrizzleDb = PostgresJsDatabase<typeof schema>;
       },
     },
   ],
-  exports: [DRIZZLE, CRYPTO_SERVICE],
+  exports: [DRIZZLE, POSTGRES_SQL, CRYPTO_SERVICE],
 })
 export class DatabaseModule {}

@@ -25,7 +25,11 @@ lerna-debug.log*
 
 # Tests
 /coverage
+/src/coverage
 /.nyc_output
+
+# pnpm store (local / docker spill)
+.pnpm-store/
 
 # IDEs and editors
 /.idea

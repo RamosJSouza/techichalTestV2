@@ -9,6 +9,7 @@ import { assertCityBelongsToState } from '../services/assert-city-belongs-to-sta
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
+import type { TransactionPort } from '../services/transaction.port.js';
 
 interface CreateFarmInput {
   producerId: string;
@@ -30,6 +31,7 @@ export class CreateFarmUseCase {
     private readonly config: AppConfigPort,
     private readonly logger: LoggerPort,
     private readonly audit: ExternalValidationAuditPort,
+    private readonly tx: TransactionPort,
   ) {}
 
   public async execute(input: CreateFarmInput): Promise<Farm> {
@@ -66,15 +68,17 @@ export class CreateFarmUseCase {
     });
     applyFarmCompliancePolicies(farm);
 
-    await this.farmRepository.save(farm);
-    await this.audit.append({
-      resourceType: 'farm_territorial',
-      resourceId: farm.id,
-      previousStatus: 'VALIDATED',
-      newStatus: farm.territorialValidationStatus,
-      reason: farm.territorialValidationPendingReason,
-      trigger: 'write',
-      actor: 'system',
+    await this.tx.run(async () => {
+      await this.farmRepository.save(farm);
+      await this.audit.append({
+        resourceType: 'farm_territorial',
+        resourceId: farm.id,
+        previousStatus: 'VALIDATED',
+        newStatus: farm.territorialValidationStatus,
+        reason: farm.territorialValidationPendingReason,
+        trigger: 'write',
+        actor: 'system',
+      });
     });
     this.logger.log(`Farm registered: ${farm.id}`);
     return farm;

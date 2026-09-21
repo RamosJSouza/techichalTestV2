@@ -952,7 +952,6 @@
                         "maxLength": 10
                       },
                       "crops": {
-                        "minItems": 1,
                         "maxItems": 20,
                         "type": "array",
                         "items": {
@@ -1375,7 +1374,6 @@
                   "maxLength": 10
                 },
                 "crops": {
-                  "minItems": 1,
                   "maxItems": 20,
                   "type": "array",
                   "items": {
@@ -1463,7 +1461,6 @@
                   "maxLength": 10
                 },
                 "crops": {
-                  "minItems": 1,
                   "maxItems": 20,
                   "type": "array",
                   "items": {

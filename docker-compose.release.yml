@@ -1,0 +1,57 @@
+# Validação determinística de release (Node 22.22.3 + pnpm 10.32.1 + Postgres 16).
+# Host: apenas Docker CLI. Não usa Node/pnpm do host.
+#
+# node_modules e store ficam em volumes Linux (bind mount Windows é lento demais).
+# Artefatos (coverage, docs/openapi, docs/bench, docs/release) saem no bind mount.
+#
+# Uso:
+#   pnpm ci:docker
+#   # ou: docker compose -f docker-compose.release.yml run --rm --build ci
+#
+# Teardown:
+#   docker compose -f docker-compose.release.yml down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_strong_password_9f3a
+      POSTGRES_DB: brain_agriculture
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d brain_agriculture"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  ci:
+    build:
+      context: .
+      dockerfile: Dockerfile.ci
+    image: brain-ag-ci:22.22.3-pnpm10.32.1
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ci_node_modules:/workspace/node_modules
+      - ci_client_node_modules:/workspace/client/node_modules
+      - ci_pnpm_store:/root/.local/share/pnpm/store
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CI: "true"
+      NODE_ENV: test
+      PORT: "3000"
+      DATABASE_URL: postgres://postgres:ci_strong_password_9f3a@postgres:5432/brain_agriculture
+      ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      PEPPER_SECRET: "ci-pepper-secret-min16"
+      BRASIL_API_BASE_URL: https://brasilapi.com.br/api
+      THROTTLE_LIMIT: "10000"
+      BENCH_BASE_URL: http://127.0.0.1:3000
+    command: ["node", "scripts/ci-pipeline.mjs"]
+
+volumes:
+  ci_node_modules:
+  ci_client_node_modules:
+  ci_pnpm_store:

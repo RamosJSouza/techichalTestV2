@@ -1,0 +1,13 @@
+# syntax=docker/dockerfile:1
+# Imagem de validação de release — Node/pnpm pinados; sem depender do host.
+FROM node:22.22.3-bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/* \
+  && corepack enable \
+  && corepack prepare pnpm@10.32.1 --activate \
+  && node -v \
+  && pnpm -v
+
+WORKDIR /workspace

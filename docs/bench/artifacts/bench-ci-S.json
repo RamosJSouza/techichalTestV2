@@ -1,8 +1,9 @@
 {
   "scale": "S",
-  "baseUrl": "http://localhost:3000",
-  "at": "2026-09-20T19:26:38.314Z",
-  "sloPolicy": "Blocking: D0s (/summary) + D0a (/analytics) + L0/L1. D0 (/stats) and P1 (detail) are residual/info.",
+  "baseUrl": "http://127.0.0.1:3000",
+  "cacheMode": "warm",
+  "at": "2026-09-21T01:11:26.578Z",
+  "sloPolicy": "Blocking: D0s (/summary) + D0a (/analytics) + L0/L1. D0 (/stats), L2, Lc, P1 are residual/info.",
   "instrument": true,
   "results": [
     {
@@ -10,139 +11,151 @@
       "path": "/api/v1/health/live",
       "samples": 50,
       "errors": 0,
-      "p50": 73.69,
-      "p95": 174.96,
-      "p99": 186.83,
-      "rps": 86.36,
+      "p50": 70.31,
+      "p95": 164.01,
+      "p99": 176.88,
+      "rps": 90.74,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.115
+      "heapDeltaMbMedian": 0.118
     },
     {
       "id": "D0s",
       "path": "/api/v1/dashboard/summary",
       "samples": 80,
       "errors": 0,
-      "p50": 34.54,
-      "p95": 49.82,
-      "p99": 55.13,
-      "rps": 110.19,
+      "p50": 41.1,
+      "p95": 82.57,
+      "p99": 107.31,
+      "rps": 87.43,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.147
+      "heapDeltaMbMedian": 0.146
     },
     {
       "id": "D0a",
       "path": "/api/v1/dashboard/analytics",
       "samples": 60,
       "errors": 0,
-      "p50": 8.16,
-      "p95": 13.13,
-      "p99": 394.07,
-      "rps": 65.65,
+      "p50": 11.09,
+      "p95": 29.2,
+      "p99": 987.68,
+      "rps": 34.17,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.141
+      "heapDeltaMbMedian": 0.143
     },
     {
       "id": "D0",
       "path": "/api/v1/dashboard/stats",
       "samples": 80,
       "errors": 0,
-      "p50": 31.18,
-      "p95": 49.85,
-      "p99": 427.48,
-      "rps": 77.82,
+      "p50": 32.77,
+      "p95": 71.44,
+      "p99": 460.96,
+      "rps": 66.56,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.141
+      "heapDeltaMbMedian": 0.144
     },
     {
       "id": "D1",
       "path": "/api/v1/dashboard/stats?state=SP",
       "samples": 40,
       "errors": 0,
-      "p50": 31.41,
-      "p95": 115.68,
-      "p99": 117.79,
-      "rps": 99.75,
+      "p50": 36.04,
+      "p95": 115.73,
+      "p99": 119.06,
+      "rps": 86.58,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.136
+      "heapDeltaMbMedian": 0.138
     },
     {
       "id": "D2",
       "path": "/api/v1/dashboard/stats?crop=Soja",
       "samples": 40,
       "errors": 0,
-      "p50": 29.18,
-      "p95": 362.34,
-      "p99": 364.52,
-      "rps": 61.54,
+      "p50": 38.62,
+      "p95": 374.77,
+      "p99": 376.71,
+      "rps": 52.98,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.139
+      "heapDeltaMbMedian": 0.141
     },
     {
       "id": "D3",
       "path": "/api/v1/dashboard/stats?minClimateRisk=10&maxClimateRisk=40",
       "samples": 40,
       "errors": 0,
-      "p50": 34.46,
-      "p95": 159.88,
-      "p99": 162.86,
-      "rps": 77.82,
+      "p50": 44.26,
+      "p95": 152.9,
+      "p99": 154.61,
+      "rps": 63.8,
       "dbQueriesMedian": 0,
-      "heapDeltaMbMedian": 0.139
+      "heapDeltaMbMedian": 0.142
     },
     {
       "id": "L0",
       "path": "/api/v1/producers?page=1&pageSize=20",
       "samples": 60,
       "errors": 0,
-      "p50": 39.02,
-      "p95": 53.52,
-      "p99": 63.35,
-      "rps": 24.51,
+      "p50": 30.7,
+      "p95": 39.67,
+      "p99": 60.8,
+      "rps": 31.73,
       "dbQueriesMedian": 3,
-      "heapDeltaMbMedian": 0.525
+      "heapDeltaMbMedian": 0.529
     },
     {
       "id": "L1",
       "path": "/api/v1/producers?page=1&pageSize=100",
       "samples": 40,
       "errors": 0,
-      "p50": 51.64,
-      "p95": 64.91,
-      "p99": 80.78,
-      "rps": 18.73,
+      "p50": 58.27,
+      "p95": 103.15,
+      "p99": 108.61,
+      "rps": 15.73,
       "dbQueriesMedian": 3,
-      "heapDeltaMbMedian": 1.216
+      "heapDeltaMbMedian": 1.258
     },
     {
       "id": "P1",
-      "path": "/api/v1/producers/00043391-a33f-40b5-986d-0912cd3c8975",
+      "path": "/api/v1/producers/0030b66e-3de1-4360-953c-9d64e1c73137",
       "samples": 30,
       "errors": 0,
-      "p50": 49.22,
-      "p95": 67.65,
-      "p99": 69.23,
-      "rps": 19.04,
+      "p50": 43.42,
+      "p95": 52.6,
+      "p99": 53.3,
+      "rps": 22.85,
       "dbQueriesMedian": 4,
-      "heapDeltaMbMedian": 0.437
+      "heapDeltaMbMedian": 0.452
+    },
+    {
+      "id": "Lc",
+      "path": "/api/v1/producers?pageSize=100&sortBy=createdAt&sortOrder=desc&cursor=eyJ2IjoxLCJzb3J0QnkiOiJjcmVhdGVkQXQiLCJzb3J0T3JkZXIiOiJkZXNjIiwic29ydFZhbHVlIjoiMjAyNi0wOS0yMVQwMToxMDo0Ny44ODNaIiwiaWQiOiI0NzhjOGE5NS1mOGE3LTQwMzItYTZhZC1jNGUxNjQwYzE3MmMifQ",
+      "samples": 30,
+      "errors": 0,
+      "p50": 57.24,
+      "p95": 106.52,
+      "p99": 108.48,
+      "rps": 15.07,
+      "dbQueriesMedian": 3,
+      "heapDeltaMbMedian": 1.258
     }
   ],
   "gates": [
     {
       "name": "D0s_p95",
       "ok": true,
-      "actual": 49.82,
+      "actual": 82.57,
       "limit": 200
     },
     {
       "name": "D0s_p99",
       "ok": true,
-      "actual": 55.13,
+      "actual": 107.31,
       "limit": 400
     },
     {
       "name": "D0s_rps",
       "ok": true,
-      "actual": 110.19,
+      "actual": 87.43,
       "limit": 15
     },
     {
@@ -154,7 +167,7 @@
     {
       "name": "D0a_p95",
       "ok": true,
-      "actual": 13.13,
+      "actual": 29.2,
       "limit": 300
     },
     {
@@ -166,15 +179,15 @@
     {
       "name": "D0_stats_p95_info",
       "ok": true,
-      "actual": 49.85,
+      "actual": 71.44,
       "limit": 200,
       "informational": true,
-      "note": "Residual /dashboard/stats ÔÇö n├úo bloqueante"
+      "note": "Residual /dashboard/stats — não bloqueante"
     },
     {
       "name": "L0_p95",
       "ok": true,
-      "actual": 53.52,
+      "actual": 39.67,
       "limit": 80
     },
     {
@@ -186,7 +199,7 @@
     {
       "name": "L1_p95",
       "ok": true,
-      "actual": 64.91,
+      "actual": 103.15,
       "limit": 150
     },
     {
@@ -196,12 +209,20 @@
       "limit": 0
     },
     {
-      "name": "P1_detail_p95_info",
+      "name": "Lc_cursor_p95_info",
       "ok": true,
-      "actual": 67.65,
+      "actual": 106.52,
       "limit": null,
       "informational": true,
-      "note": "GET /producers/:id hydrate completo ÔÇö informativo"
+      "note": "Keyset via nextCursor — informativo"
+    },
+    {
+      "name": "P1_detail_p95_info",
+      "ok": true,
+      "actual": 52.6,
+      "limit": null,
+      "informational": true,
+      "note": "GET /producers/:id hydrate completo — informativo"
     }
   ],
   "pass": true

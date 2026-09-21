@@ -6,30 +6,34 @@ API REST NestJS e SPA React no mesmo processo em produção (`/`).
 
 **Engines fixos:** Node **22.22.3** · pnpm **10.32.1** (`.nvmrc`, `.tool-versions`, `packageManager`, `pnpm preflight`)
 
-Validação limpa executada em **2026-09-20** — ver [`docs/release-checklist.md`](docs/release-checklist.md).
+Validação limpa executada em **2026-09-21** — ver [`docs/release-checklist.md`](docs/release-checklist.md).
 
 ---
 
 ## Quickstart verificado (do zero)
 
-Os comandos abaixo são **os mesmos** do CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+### Pré-requisito único (recomendado)
 
-### Pré-requisitos
+- **Docker Desktop / Engine** no PATH — Node/pnpm do host **não** são necessários.
 
-- Node.js **22.22.3** (`node -v`)
-- pnpm **10.32.1** via Corepack: `corepack enable && corepack prepare pnpm@10.32.1 --activate`
-- Docker Desktop (Postgres efêmero na porta **5432** — libere a porta se houver outro Postgres local)
+```bash
+pnpm ci:docker
+# Imagem: brain-ag-ci:22.22.3-pnpm10.32.1 + postgres:16-alpine
+# Flags: --keep · --purge (limpa volumes de cache)
+```
 
-### 1) Réplica CI (atalho)
+Pipeline interno (`scripts/ci-pipeline.mjs`): preflight → install frozen → migrate → lint → testes API/client/cobertura → OpenAPI export+drift → contract → e2e → audit prod → build → bundle → bench HTTP.
+
+### Alternativa com engines no host
+
+- Node.js **22.22.3** · pnpm **10.32.1** · Docker só para Postgres CI
 
 ```bash
 pnpm ci:local
-# Flags: --skip-docker (Postgres CI já no ar) · --keep-db (não derruba o container ao fim)
+# Flags: --skip-docker · --keep-db
 ```
 
-Sobe [`docker-compose.ci.yml`](docker-compose.ci.yml) (sem volume), aplica o mesmo `env` do job GHA e executa a sequência completa abaixo. Teardown padrão: `down -v`.
-
-`pnpm verify` é só smoke de desenvolvimento (lint + test + e2e + build) — **não** substitui o CI.
+Sobe [`docker-compose.ci.yml`](docker-compose.ci.yml) e espelha [`.github/workflows/ci.yml`](.github/workflows/ci.yml). `pnpm verify` é só smoke de desenvolvimento — **não** substitui o CI.
 
 ### 2) Env idêntico ao job GHA
 
@@ -131,10 +135,6 @@ pnpm docker:up
 | **Requisito do desafio** | CRUD produtores/fazendas, CPF/CNPJ, invariante de áreas, culturas por safra, dashboard (totais, por UF, por cultura, uso do solo), API REST, Docker, PostgreSQL, ORM, testes, logs |
 | **Extensão deliberada** | ESG/CAR/risco climático, BrasilAPI ACL, FLE+blind index, Prometheus/OTEL, benchmark harness, SPA React completa, soft-delete+unique parcial |
 
-### Restrição deliberada vs enunciado
-
-O enunciado permite **zero culturas** por safra. O contrato HTTP exige `crops.min(1)` por safra enviada ([`producer.schemas.ts`](src/presentation/schemas/producer.schemas.ts)) — decisão de qualidade cadastral (safra sem cultura não entra no payload). Para cadastrar fazenda sem safras, omita `harvests` / envie lista vazia.
-
 ---
 
 ## Troubleshooting
@@ -182,7 +182,7 @@ Alinhadas a [`.env_example`](.env_example):
 |--------|-------|
 | `farms[]` no create | ≤ 20 |
 | `harvests[]` por fazenda | ≤ 10 |
-| `crops[]` por safra | 1…20 (mín. 1 se a safra for enviada; ver restrição deliberada acima) |
+| `crops[]` por safra | 0…20 (nomes não-vazios quando presentes) |
 | `page` | 1…10000 |
 | `pageSize` | 1…100 (default 20) |
 | Body JSON | `BODY_LIMIT` (default `100kb`) |
@@ -280,6 +280,10 @@ Limitações deliberadas do desafio / ops (detalhe operacional também em [Limit
 | Migrations `0000–0003` | Aplicadas once pelo journal Drizzle; SQL antigo **não** é reaplicável à mão (sem `IF NOT EXISTS`). |
 | Artefatos `docs/bench/artifacts/` | Baseline commitada de propósito (bundle/SLO); dumps locais regeneráveis via `pnpm bench:*`. |
 | Compose `api` | Força `NODE_ENV=production` (Swagger off); secrets fracos são rejeitados pelo schema. |
+| Concorrência fazenda | Optimistic lock em `updated_at` (read-modify-write) → HTTP **409**; cliente deve reler e reenviar. Sem `SELECT FOR UPDATE` amplo. |
+| Job revalidação multi-réplica | `pg_try_advisory_lock` por ID (sessão); sem coluna de lease. Crash da conexão libera o lock. Isolamento: serialização por recurso, não por tabela. |
+| Auditoria × write | Mesma TX (ALS/`TransactionPort`) em create/update/revalidate — falha de audit reverte o write. Isolamento default do Postgres (Read Committed). |
+| Retry de create | Não é idempotente por request-id; unique parcial de `document_hash` + mapeamento `23505`→409 cobre corrida de CPF/CNPJ. |
 
 ---
 

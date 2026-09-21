@@ -8,7 +8,7 @@ export const defaultFarm = (): FarmAreasFormValues => ({
   totalArea: 100,
   arableArea: 50,
   vegetationArea: 20,
-  harvests: [{ year: '2025/2026', crops: ['Soja'] }],
+  harvests: [{ year: '2025/2026', crops: [] }],
   carNumber: undefined,
 });
 
@@ -66,7 +66,7 @@ export function toFarmApiPayload(
     harvests: [
       {
         year,
-        crops: crops.length ? crops : ['Soja'],
+        crops,
       },
       ...tail,
     ],

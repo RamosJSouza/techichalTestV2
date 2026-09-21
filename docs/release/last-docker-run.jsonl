@@ -1,0 +1,17 @@
+# Merge dos resultados desta prova Docker (2026-09-21)
+{"step":"preflight","exitCode":0,"ms":3138,"source":"ci-pipeline"}
+{"step":"install-frozen","exitCode":0,"ms":172025,"source":"ci-pipeline"}
+{"step":"migrate","exitCode":0,"ms":4486,"source":"ci-pipeline"}
+{"step":"lint","exitCode":0,"ms":3458,"source":"ci-pipeline"}
+{"step":"test-api","exitCode":0,"ms":27171,"source":"ci-pipeline"}
+{"step":"test-client","exitCode":0,"ms":28618,"source":"ci-pipeline"}
+{"step":"coverage","exitCode":0,"ms":122942,"source":"ci-pipeline"}
+{"step":"openapi-export","exitCode":0,"ms":52465,"source":"ci-pipeline"}
+{"step":"openapi-drift","exitCode":1,"ms":244,"source":"ci-pipeline","blocker":true}
+{"step":"contract","exitCode":0,"ms":7446,"source":"ci-pipeline-tail"}
+{"step":"e2e","exitCode":0,"ms":27847,"source":"ci-pipeline-tail"}
+{"step":"audit-prod","exitCode":0,"ms":3667,"source":"ci-pipeline-tail"}
+{"step":"build","exitCode":0,"ms":47022,"source":"ci-pipeline-tail"}
+{"step":"bundle-budget","exitCode":0,"ms":2244,"source":"ci-pipeline-tail"}
+{"step":"bench-http","exitCode":0,"ms":58872,"source":"ci-pipeline-tail"}
+{"step":"ci-docker-overall","exitCode":1,"reason":"openapi-drift vs HEAD"}

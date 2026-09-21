@@ -22,9 +22,7 @@ const coerceNonNegative = z.coerce
 const harvestSchema = z
   .object({
     year: requiredString('Ano da safra obrigatório').max(10),
-    crops: z
-      .array(z.string().min(1))
-      .min(1, { message: 'Selecione ao menos uma cultura' }),
+    crops: z.array(z.string().min(1)),
   })
   .strict();
 

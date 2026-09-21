@@ -9,6 +9,7 @@ import type { CryptoServiceInterface } from '../services/crypto.service.interfac
 import type { ExternalValidationAuditPort } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
+import type { TransactionPort } from '../services/transaction.port.js';
 
 interface UpdateProducerInput {
   name?: string;
@@ -22,6 +23,7 @@ export class UpdateProducerUseCase {
     private readonly brazilData: BrazilDataServiceInterface,
     private readonly logger: LoggerPort,
     private readonly audit: ExternalValidationAuditPort,
+    private readonly tx: TransactionPort,
   ) {}
 
   public async execute(
@@ -81,15 +83,17 @@ export class UpdateProducerUseCase {
         producer.applyEsgStatus('WARNING');
       }
 
-      await this.producerRepository.update(producer);
-      await this.audit.append({
-        resourceType: 'producer_document',
-        resourceId: producer.id,
-        previousStatus,
-        newStatus: documentValidationStatus,
-        reason: documentValidationPendingReason,
-        trigger: 'write',
-        actor: 'system',
+      await this.tx.run(async () => {
+        await this.producerRepository.update(producer);
+        await this.audit.append({
+          resourceType: 'producer_document',
+          resourceId: producer.id,
+          previousStatus,
+          newStatus: documentValidationStatus,
+          reason: documentValidationPendingReason,
+          trigger: 'write',
+          actor: 'system',
+        });
       });
       return producer;
     }

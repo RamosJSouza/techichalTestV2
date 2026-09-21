@@ -4,6 +4,7 @@ import {
   buildCreateProducer,
   defaultBrazil,
   noopAudit,
+  noopTx,
 } from '../../testing/use-case-factories.js';
 import { UpdateProducerUseCase } from './update-producer.use-case.js';
 
@@ -23,6 +24,7 @@ describe('UpdateProducerUseCase', () => {
       defaultBrazil,
       testLogger(),
       noopAudit(),
+      noopTx(),
     ).execute(created.id, { name: 'Maria' });
     expect(updated.name).toBe('Maria');
   });
@@ -36,6 +38,7 @@ describe('UpdateProducerUseCase', () => {
         defaultBrazil,
         testLogger(),
         noopAudit(),
+        noopTx(),
       ).execute('00000000-0000-4000-8000-000000000000', { name: 'X' }),
     ).rejects.toThrow(/não encontrado/);
   });

@@ -113,7 +113,7 @@ export function ProducerFormPage(): React.JSX.Element {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const step = useAppSelector((s) => s.ui.wizardStep);
-  const [selectedCrops, setSelectedCrops] = useState<string[]>(['Soja']);
+  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
   const [step0Error, setStep0Error] = useState<string | null>(null);
   const [draftFarms, setDraftFarms] = useState<FarmAreasFormValues[]>([]);
   const [editingFarmId, setEditingFarmId] = useState<string | null>(null);
@@ -239,18 +239,14 @@ export function ProducerFormPage(): React.JSX.Element {
       document: getValues('document'),
       farm: farmFromResponse(farm),
     });
-    setSelectedCrops(
-      farm.harvests[0]?.crops?.length
-        ? [...farm.harvests[0].crops]
-        : ['Soja'],
-    );
+    setSelectedCrops([...(farm.harvests[0]?.crops ?? [])]);
   };
 
   const startNewFarm = (): void => {
     setIsAddingFarm(true);
     setEditingFarmId(null);
     setValue('farm', defaultFarm());
-    setSelectedCrops(['Soja']);
+    setSelectedCrops([]);
   };
 
   const goToStep1 = (): void => {
@@ -301,7 +297,7 @@ export function ProducerFormPage(): React.JSX.Element {
     }
     setDraftFarms((prev) => [...prev, parsed.data]);
     setValue('farm', defaultFarm());
-    setSelectedCrops(['Soja']);
+    setSelectedCrops([]);
     return true;
   };
 
@@ -593,7 +589,7 @@ export function ProducerFormPage(): React.JSX.Element {
                 [
                   {
                     year: e.target.value,
-                    crops: selectedCrops.length ? selectedCrops : ['Soja'],
+                    crops: selectedCrops,
                   },
                 ],
                 { shouldValidate: true },
@@ -619,7 +615,7 @@ export function ProducerFormPage(): React.JSX.Element {
                       setValue('farm.harvests', [
                         {
                           year,
-                          crops: next.length ? next : ['Soja'],
+                          crops: next,
                         },
                       ]);
                       return next;

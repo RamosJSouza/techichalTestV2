@@ -40,6 +40,10 @@ import {
   harvests,
   producers,
 } from '../database/schema/index.js';
+import {
+  getDbClient,
+  isInTransaction,
+} from '../database/transaction-context.js';
 import { MetricsService } from '../observability/metrics.service.js';
 
 type ProducerRow = typeof producers.$inferSelect;
@@ -67,7 +71,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
     const persistence = ProducerMapper.toPersistence(producer, this.crypto);
 
     try {
-      await this.db.transaction(async (tx) => {
+      await this.withTx(async (tx) => {
         await tx.insert(producers).values(persistence);
 
         if (producer.farms.length === 0) {
@@ -115,7 +119,8 @@ export class DrizzleProducerRepository implements IProducerRepository {
     return this.timed('producer_update', async () => {
       const persistence = ProducerMapper.toPersistence(producer, this.crypto);
       try {
-        await this.db
+        const client = getDbClient(this.db);
+        await client
           .update(producers)
           .set({
             name: persistence.name,
@@ -142,7 +147,8 @@ export class DrizzleProducerRepository implements IProducerRepository {
   public async findById(id: string): Promise<Producer | null> {
     return this.timed('producer_find_by_id', async () => {
       trackDbRoundTrip();
-      const [row] = await this.db
+      const client = getDbClient(this.db);
+      const [row] = await client
         .select()
         .from(producers)
         .where(and(eq(producers.id, id), isNull(producers.deletedAt)))
@@ -159,7 +165,8 @@ export class DrizzleProducerRepository implements IProducerRepository {
     documentHash: string,
   ): Promise<Producer | null> {
     return this.timed('producer_find_by_document_hash', async () => {
-      const [row] = await this.db
+      const client = getDbClient(this.db);
+      const [row] = await client
         .select()
         .from(producers)
         .where(
@@ -275,7 +282,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
     await this.timed('producer_soft_delete', async () => {
-      await this.db.transaction(async (tx) => {
+      await this.withTx(async (tx) => {
         await tx
           .update(producers)
           .set({
@@ -293,7 +300,9 @@ export class DrizzleProducerRepository implements IProducerRepository {
   }
 
   public async findPendingDocumentIds(limit: number): Promise<string[]> {
-    const rows = await this.db
+    const capped = Math.max(1, Math.min(limit, 500));
+    const client = getDbClient(this.db);
+    const rows = await client
       .select({ id: producers.id })
       .from(producers)
       .where(
@@ -309,8 +318,26 @@ export class DrizzleProducerRepository implements IProducerRepository {
         asc(producers.documentValidationPendingAt),
         asc(producers.createdAt),
       )
-      .limit(Math.max(1, Math.min(limit, 500)));
+      .limit(capped);
     return rows.map((row) => row.id);
+  }
+
+  private async withTx(
+    fn: (
+      tx: Parameters<Parameters<DrizzleDb['transaction']>[0]>[0],
+    ) => Promise<void>,
+  ): Promise<void> {
+    if (isInTransaction()) {
+      await fn(
+        getDbClient(this.db) as Parameters<
+          Parameters<DrizzleDb['transaction']>[0]
+        >[0],
+      );
+      return;
+    }
+    await this.db.transaction(async (tx) => {
+      await fn(tx);
+    });
   }
 
   private async timed<T>(
@@ -377,9 +404,10 @@ export class DrizzleProducerRepository implements IProducerRepository {
       return [];
     }
 
+    const client = getDbClient(this.db);
     const producerIds = rows.map((row) => row.id);
     trackDbRoundTrip();
-    const farmRows = await this.db
+    const farmRows = await client
       .select()
       .from(farms)
       .where(
@@ -390,7 +418,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
     let harvestRows: (typeof harvests.$inferSelect)[] = [];
     if (farmIds.length > 0) {
       trackDbRoundTrip();
-      harvestRows = await this.db
+      harvestRows = await client
         .select()
         .from(harvests)
         .where(inArray(harvests.farmId, farmIds));
@@ -400,7 +428,7 @@ export class DrizzleProducerRepository implements IProducerRepository {
     let cropRows: (typeof farmCrops.$inferSelect)[] = [];
     if (harvestIds.length > 0) {
       trackDbRoundTrip();
-      cropRows = await this.db
+      cropRows = await client
         .select()
         .from(farmCrops)
         .where(inArray(farmCrops.harvestId, harvestIds));

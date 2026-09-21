@@ -177,6 +177,54 @@ const offlineBrazil: BrazilDataServiceInterface = {
     expect(recreate.body.id).not.toBe(id);
   });
 
+  it('aceita safra com crops vazio na criação e na atualização', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Safra Sem Culturas',
+        document: '153.509.460-56',
+        farms: [
+          {
+            name: 'Fazenda Vazia',
+            city: 'Ribeirão Preto',
+            state: 'SP',
+            totalArea: 200,
+            arableArea: 100,
+            vegetationArea: 50,
+            harvests: [{ year: '2025/2026', crops: [] }],
+          },
+        ],
+      });
+    expect([200, 201]).toContain(created.status);
+    const producerId = created.body.id as string;
+
+    const detail = await request(app.getHttpServer())
+      .get(`/api/v1/producers/${producerId}`)
+      .expect(200);
+    const farm = detail.body.farms[0] as {
+      id: string;
+      harvests: Array<{ year: string; crops: string[] }>;
+    };
+    expect(farm.harvests).toHaveLength(1);
+    expect(farm.harvests[0]?.crops).toEqual([]);
+
+    const updated = await request(app.getHttpServer())
+      .put(`/api/v1/farms/${farm.id}`)
+      .send({
+        harvests: [{ year: '2026/2027', crops: [] }],
+      });
+    expect([200, 201]).toContain(updated.status);
+
+    const after = await request(app.getHttpServer())
+      .get(`/api/v1/producers/${producerId}`)
+      .expect(200);
+    const farmAfter = after.body.farms[0] as {
+      harvests: Array<{ year: string; crops: string[] }>;
+    };
+    expect(farmAfter.harvests[0]?.year).toBe('2026/2027');
+    expect(farmAfter.harvests[0]?.crops).toEqual([]);
+  });
+
   it('retorna 409 para documento duplicado', async () => {
     const payload = {
       name: 'Duplicado',
@@ -216,6 +264,45 @@ const offlineBrazil: BrazilDataServiceInterface = {
         item.document.includes('000.002'),
     );
     expect(matches).toHaveLength(1);
+  });
+
+  it('corrida concorrente no PUT da mesma fazenda → um 200 e um 409', async () => {
+    const producer = await request(app.getHttpServer())
+      .post('/api/v1/producers')
+      .send({
+        name: 'Farm Race Owner',
+        document: '248.438.034-80',
+      });
+    expect([200, 201]).toContain(producer.status);
+
+    const farm = await request(app.getHttpServer())
+      .post('/api/v1/farms')
+      .send({
+        producerId: producer.body.id,
+        name: 'Fazenda Race',
+        city: 'Campinas',
+        state: 'SP',
+        totalArea: 200,
+        arableArea: 100,
+        vegetationArea: 50,
+      });
+    expect([200, 201]).toContain(farm.status);
+    const farmId = farm.body.id as string;
+
+    const [a, b] = await Promise.all([
+      request(app.getHttpServer())
+        .put(`/api/v1/farms/${farmId}`)
+        .send({ name: 'Nome A' }),
+      request(app.getHttpServer())
+        .put(`/api/v1/farms/${farmId}`)
+        .send({ name: 'Nome B' }),
+    ]);
+    const statuses = [a.status, b.status].sort((x, y) => x - y);
+    expect(statuses).toEqual([200, 409]);
+
+    const finalName =
+      a.status === 200 ? (a.body.name as string) : (b.body.name as string);
+    expect(['Nome A', 'Nome B']).toContain(finalName);
   });
 
   it('soft-deleted não aparece na listagem', async () => {

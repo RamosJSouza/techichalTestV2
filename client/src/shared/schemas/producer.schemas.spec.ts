@@ -16,6 +16,32 @@ describe('farmAreasSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('aceita safra com zero culturas', () => {
+    const result = farmAreasSchema.safeParse({
+      name: 'Santa Maria',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: [] }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita cultura com nome vazio', () => {
+    const result = farmAreasSchema.safeParse({
+      name: 'Santa Maria',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: [''] }],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejeita quando agricultável + vegetação > total', () => {
     const result = farmAreasSchema.safeParse({
       name: 'Inválida',

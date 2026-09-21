@@ -8,7 +8,7 @@ const MAX_PAGE = 10_000;
 const harvestSchema = z
   .object({
     year: z.string().min(1).max(10),
-    crops: z.array(z.string().min(1).max(50)).min(1).max(MAX_CROPS),
+    crops: z.array(z.string().min(1).max(50)).max(MAX_CROPS),
   })
   .strict();
 

@@ -3,6 +3,7 @@ import { testCrypto, testLogger } from '../../testing/test-helpers.js';
 import {
   buildCreateProducer,
   noopAudit,
+  noopTx,
 } from '../../testing/use-case-factories.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import type { ExternalValidationAuditEntry } from '../services/external-validation-audit.port.js';
@@ -70,6 +71,7 @@ describe('RevalidateProducerDocumentUseCase', () => {
       activeBrazil,
       audit,
       testLogger(),
+      noopTx(),
     ).execute(producer.id, 'admin');
 
     expect(result.previousStatus).toBe('PENDING_EXTERNAL_VALIDATION');
@@ -131,6 +133,7 @@ describe('RevalidateProducerDocumentUseCase', () => {
       rejectedBrazil,
       audit,
       testLogger(),
+      noopTx(),
     ).execute(producer.id, 'job');
 
     expect(result.newStatus).toBe('REJECTED');

@@ -12,6 +12,10 @@ import { RevalidateFarmTerritorialUseCase } from '../../application/use-cases/re
 import { RevalidateProducerDocumentUseCase } from '../../application/use-cases/revalidate-producer-document.use-case.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
+import {
+  type PostgresSql,
+  withSessionAdvisoryLock,
+} from '../database/advisory-lock.js';
 
 @Injectable()
 export class PendingExternalValidationJob
@@ -29,6 +33,7 @@ export class PendingExternalValidationJob
     private readonly revalidateFarm: RevalidateFarmTerritorialUseCase,
     private readonly logger: LoggerPort,
     private readonly metrics: MetricsPort,
+    private readonly sql: PostgresSql,
   ) {}
 
   public onModuleInit(): void {
@@ -76,8 +81,18 @@ export class PendingExternalValidationJob
       const producerIds =
         await this.producers.findPendingDocumentIds(batchSize);
       for (const id of producerIds) {
+        const lockKey = `revalidate:producer:${id}`;
         try {
-          await this.revalidateProducer.execute(id, 'job');
+          const outcome = await withSessionAdvisoryLock(
+            this.sql,
+            lockKey,
+            async () => {
+              await this.revalidateProducer.execute(id, 'job');
+            },
+          );
+          if (!outcome.claimed) {
+            continue;
+          }
           producerOk += 1;
           this.metrics.recordPendingRevalidateItem('producer', 'ok');
         } catch (err) {
@@ -90,8 +105,18 @@ export class PendingExternalValidationJob
       }
       const farmIds = await this.farms.findPendingTerritorialIds(batchSize);
       for (const id of farmIds) {
+        const lockKey = `revalidate:farm:${id}`;
         try {
-          await this.revalidateFarm.execute(id, 'job');
+          const outcome = await withSessionAdvisoryLock(
+            this.sql,
+            lockKey,
+            async () => {
+              await this.revalidateFarm.execute(id, 'job');
+            },
+          );
+          if (!outcome.claimed) {
+            continue;
+          }
           farmOk += 1;
           this.metrics.recordPendingRevalidateItem('farm', 'ok');
         } catch (err) {

@@ -1,6 +1,8 @@
 import {
+  createFarmSchema,
   createProducerSchema,
   listProducersQuerySchema,
+  updateFarmSchema,
 } from './producer.schemas.js';
 
 describe('producer.schemas (OWASP caps)', () => {
@@ -38,6 +40,65 @@ describe('producer.schemas (OWASP caps)', () => {
           arableArea: 50,
           vegetationArea: 20,
           harvests,
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('aceita safra com zero culturas no create producer', () => {
+    const result = createProducerSchema.safeParse({
+      name: 'Produtor',
+      document: '52998224725',
+      farms: [
+        {
+          name: 'Fazenda',
+          city: 'Ribeirão Preto',
+          state: 'SP',
+          totalArea: 100,
+          arableArea: 50,
+          vegetationArea: 20,
+          harvests: [{ year: '2025/2026', crops: [] }],
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita safra com zero culturas no create farm', () => {
+    const result = createFarmSchema.safeParse({
+      producerId: '11111111-1111-4111-8111-111111111111',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: [] }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita safra com zero culturas no update farm', () => {
+    const result = updateFarmSchema.safeParse({
+      harvests: [{ year: '2025/2026', crops: [] }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejeita cultura com nome vazio', () => {
+    const result = createProducerSchema.safeParse({
+      name: 'Produtor',
+      document: '52998224725',
+      farms: [
+        {
+          name: 'Fazenda',
+          city: 'Ribeirão Preto',
+          state: 'SP',
+          totalArea: 100,
+          arableArea: 50,
+          vegetationArea: 20,
+          harvests: [{ year: '2025/2026', crops: [''] }],
         },
       ],
     });

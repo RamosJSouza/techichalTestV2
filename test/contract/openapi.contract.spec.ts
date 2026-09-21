@@ -69,8 +69,8 @@ describe('OpenAPI contract', () => {
       }
     )?.responses?.['200']?.description;
 
-    expect(summaryDesc?.toLowerCase()).toContain('first paint');
-    expect(analyticsDesc?.toLowerCase()).toMatch(/secondary|séries/);
+    expect(summaryDesc?.toLowerCase()).toMatch(/kpi/);
+    expect(analyticsDesc?.toLowerCase()).toMatch(/séries|series|topcities/);
     expect(statsDesc?.toLowerCase()).toMatch(/residual|legado|completo/);
   });
 
@@ -141,6 +141,25 @@ describe('OpenAPI contract', () => {
       properties?: Record<string, unknown>;
     };
     expect(detail?.properties).toHaveProperty('farms');
+  });
+
+  it('permite crops vazio em CreateFarmDto e UpdateFarmDto (sem minItems)', () => {
+    const schemas = doc.components?.schemas ?? {};
+    for (const name of ['CreateFarmDto', 'UpdateFarmDto'] as const) {
+      const schema = schemas[name] as {
+        properties?: {
+          harvests?: {
+            items?: {
+              properties?: { crops?: { minItems?: number; maxItems?: number } };
+            };
+          };
+        };
+      };
+      const crops = schema?.properties?.harvests?.items?.properties?.crops;
+      expect(crops).toBeDefined();
+      expect(crops?.minItems).toBeUndefined();
+      expect(crops?.maxItems).toBe(20);
+    }
   });
 
   it('declara schemas de componentes', () => {

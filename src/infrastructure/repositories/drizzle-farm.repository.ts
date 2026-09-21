@@ -5,6 +5,8 @@ import type {
   MetricsPort,
 } from '../../application/services/metrics.port.js';
 import { Farm } from '../../domain/entities/farm.js';
+import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
+import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import type {
   FarmUpdateOptions,
   IFarmRepository,
@@ -14,9 +16,14 @@ import { DRIZZLE } from '../database/database.tokens.js';
 import { FarmMapper } from '../database/mappers/producer.mapper.js';
 import { mapPgIntegrityError } from '../database/pg-error.js';
 import { farmCrops, farms, harvests } from '../database/schema/index.js';
+import {
+  getDbClient,
+  isInTransaction,
+} from '../database/transaction-context.js';
 import { MetricsService } from '../observability/metrics.service.js';
 
 type FarmRow = typeof farms.$inferSelect;
+type DbClient = ReturnType<typeof getDbClient>;
 type DbTransaction = Parameters<Parameters<DrizzleDb['transaction']>[0]>[0];
 
 @Injectable()
@@ -29,7 +36,7 @@ export class DrizzleFarmRepository implements IFarmRepository {
   public async save(farm: Farm): Promise<Farm> {
     return this.timed('farm_save', async () => {
       try {
-        await this.db.transaction(async (tx) => {
+        await this.withTx(async (tx) => {
           await tx.insert(farms).values(FarmMapper.toPersistence(farm));
           await this.insertHarvestsAndCrops(tx, farm);
         });
@@ -43,13 +50,20 @@ export class DrizzleFarmRepository implements IFarmRepository {
 
   public async update(
     farm: Farm,
-    opts: FarmUpdateOptions = { harvestsChanged: true },
+    opts: FarmUpdateOptions = {},
   ): Promise<Farm> {
     return this.timed('farm_update', async () => {
       const persistence = FarmMapper.toPersistence(farm);
+      const harvestsChanged = opts.harvestsChanged === true;
+      const optimistic = opts.expectedUpdatedAt !== undefined;
       try {
-        await this.db.transaction(async (tx) => {
-          await tx
+        await this.withTx(async (tx) => {
+          const conditions = [eq(farms.id, farm.id)];
+          if (optimistic) {
+            conditions.push(eq(farms.updatedAt, opts.expectedUpdatedAt!));
+          }
+
+          const updated = await tx
             .update(farms)
             .set({
               name: persistence.name,
@@ -70,9 +84,19 @@ export class DrizzleFarmRepository implements IFarmRepository {
               updatedAt: persistence.updatedAt,
               deletedAt: persistence.deletedAt,
             })
-            .where(eq(farms.id, farm.id));
+            .where(and(...conditions))
+            .returning({ id: farms.id });
 
-          if (opts.harvestsChanged === false) {
+          if (updated.length === 0) {
+            if (optimistic) {
+              throw new ConflictException(
+                'Fazenda foi alterada por outra requisição. Recarregue e tente novamente.',
+              );
+            }
+            throw new NotFoundException(`Fazenda ${farm.id} não encontrada.`);
+          }
+
+          if (!harvestsChanged) {
             return;
           }
 
@@ -92,6 +116,12 @@ export class DrizzleFarmRepository implements IFarmRepository {
           await this.insertHarvestsAndCrops(tx, farm);
         });
       } catch (error) {
+        if (
+          error instanceof ConflictException ||
+          error instanceof NotFoundException
+        ) {
+          throw error;
+        }
         mapPgIntegrityError(error, 'generic');
       }
       return farm;
@@ -100,7 +130,8 @@ export class DrizzleFarmRepository implements IFarmRepository {
 
   public async findById(id: string): Promise<Farm | null> {
     return this.timed('farm_find_by_id', async () => {
-      const [row] = await this.db
+      const client = getDbClient(this.db);
+      const [row] = await client
         .select()
         .from(farms)
         .where(and(eq(farms.id, id), isNull(farms.deletedAt)))
@@ -117,7 +148,8 @@ export class DrizzleFarmRepository implements IFarmRepository {
 
   public async softDelete(id: string, deletedAt: Date): Promise<void> {
     await this.timed('farm_soft_delete', async () => {
-      await this.db
+      const client = getDbClient(this.db);
+      await client
         .update(farms)
         .set({ deletedAt, updatedAt: deletedAt })
         .where(eq(farms.id, id));
@@ -125,7 +157,9 @@ export class DrizzleFarmRepository implements IFarmRepository {
   }
 
   public async findPendingTerritorialIds(limit: number): Promise<string[]> {
-    const rows = await this.db
+    const capped = Math.max(1, Math.min(limit, 500));
+    const client = getDbClient(this.db);
+    const rows = await client
       .select({ id: farms.id })
       .from(farms)
       .where(
@@ -141,8 +175,20 @@ export class DrizzleFarmRepository implements IFarmRepository {
         asc(farms.territorialValidationPendingAt),
         asc(farms.createdAt),
       )
-      .limit(Math.max(1, Math.min(limit, 500)));
+      .limit(capped);
     return rows.map((row) => row.id);
+  }
+
+  private async withTx(
+    fn: (tx: DbTransaction) => Promise<void>,
+  ): Promise<void> {
+    if (isInTransaction()) {
+      await fn(getDbClient(this.db) as DbTransaction);
+      return;
+    }
+    await this.db.transaction(async (tx) => {
+      await fn(tx);
+    });
   }
 
   private async timed<T>(
@@ -157,8 +203,9 @@ export class DrizzleFarmRepository implements IFarmRepository {
       return [];
     }
 
+    const client = getDbClient(this.db);
     const farmIds = rows.map((row) => row.id);
-    const harvestRows = await this.db
+    const harvestRows = await client
       .select()
       .from(harvests)
       .where(inArray(harvests.farmId, farmIds));
@@ -167,7 +214,7 @@ export class DrizzleFarmRepository implements IFarmRepository {
     const cropRows =
       harvestIds.length === 0
         ? []
-        : await this.db
+        : await client
             .select()
             .from(farmCrops)
             .where(inArray(farmCrops.harvestId, harvestIds));
@@ -178,7 +225,7 @@ export class DrizzleFarmRepository implements IFarmRepository {
   }
 
   private async insertHarvestsAndCrops(
-    tx: DbTransaction,
+    tx: DbClient,
     farm: Farm,
   ): Promise<void> {
     if (farm.harvests.length === 0) {

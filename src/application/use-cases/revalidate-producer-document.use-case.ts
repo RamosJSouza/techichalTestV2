@@ -8,6 +8,7 @@ import type {
 } from '../services/external-validation-audit.port.js';
 import type { LoggerPort } from '../services/logger.port.js';
 import { resolveCnpjDocumentValidation } from '../services/resolve-cnpj-document-validation.js';
+import type { TransactionPort } from '../services/transaction.port.js';
 
 export interface RevalidateResult {
   id: string;
@@ -22,6 +23,7 @@ export class RevalidateProducerDocumentUseCase {
     private readonly brazil: BrazilDataServiceInterface,
     private readonly audit: ExternalValidationAuditPort,
     private readonly logger: LoggerPort,
+    private readonly tx: TransactionPort,
   ) {}
 
   public async execute(
@@ -38,18 +40,20 @@ export class RevalidateProducerDocumentUseCase {
 
     if (!producer.document.isCnpj()) {
       producer.setDocumentValidationStatus('VALIDATED');
-      await this.producers.update(producer);
-      if (previousStatus !== 'VALIDATED') {
-        await this.audit.append({
-          resourceType: 'producer_document',
-          resourceId: producer.id,
-          previousStatus,
-          newStatus: 'VALIDATED',
-          reason: 'cpf_local',
-          trigger,
-          actor,
-        });
-      }
+      await this.tx.run(async () => {
+        await this.producers.update(producer);
+        if (previousStatus !== 'VALIDATED') {
+          await this.audit.append({
+            resourceType: 'producer_document',
+            resourceId: producer.id,
+            previousStatus,
+            newStatus: 'VALIDATED',
+            reason: 'cpf_local',
+            trigger,
+            actor,
+          });
+        }
+      });
       return {
         id: producer.id,
         previousStatus,
@@ -75,15 +79,17 @@ export class RevalidateProducerDocumentUseCase {
       producer.updateName(resolved.razaoSocial);
     }
 
-    await this.producers.update(producer);
-    await this.audit.append({
-      resourceType: 'producer_document',
-      resourceId: producer.id,
-      previousStatus,
-      newStatus,
-      reason,
-      trigger,
-      actor,
+    await this.tx.run(async () => {
+      await this.producers.update(producer);
+      await this.audit.append({
+        resourceType: 'producer_document',
+        resourceId: producer.id,
+        previousStatus,
+        newStatus,
+        reason,
+        trigger,
+        actor,
+      });
     });
 
     this.logger.log(

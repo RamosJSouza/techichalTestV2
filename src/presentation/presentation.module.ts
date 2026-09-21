@@ -12,6 +12,8 @@ import { EXTERNAL_VALIDATION_AUDIT_PORT } from '../application/services/external
 import type { ExternalValidationAuditPort } from '../application/services/external-validation-audit.port.js';
 import { LOGGER_PORT } from '../application/services/logger.port.js';
 import type { LoggerPort } from '../application/services/logger.port.js';
+import { TRANSACTION_PORT } from '../application/services/transaction.port.js';
+import type { TransactionPort } from '../application/services/transaction.port.js';
 import { CreateFarmUseCase } from '../application/use-cases/create-farm.use-case.js';
 import { CreateProducerUseCase } from '../application/use-cases/create-producer.use-case.js';
 import { DeleteFarmUseCase } from '../application/use-cases/delete-farm.use-case.js';
@@ -39,7 +41,12 @@ import { BrasilApiAdapter } from '../infrastructure/adapters/brasil-api/brasil-a
 import { NestAppConfigAdapter } from '../infrastructure/adapters/config/nest-app-config.adapter.js';
 import { NestLoggerAdapter } from '../infrastructure/adapters/logging/nest-logger.adapter.js';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
-import { CRYPTO_SERVICE } from '../infrastructure/database/database.tokens.js';
+import {
+  CRYPTO_SERVICE,
+  POSTGRES_SQL,
+} from '../infrastructure/database/database.tokens.js';
+import { DrizzleTransactionAdapter } from '../infrastructure/database/drizzle-transaction.adapter.js';
+import type { PostgresSql } from '../infrastructure/database/advisory-lock.js';
 import { PendingExternalValidationJob } from '../infrastructure/jobs/pending-external-validation.job.js';
 import { MetricsService } from '../infrastructure/observability/metrics.service.js';
 import { DrizzleDashboardRepository } from '../infrastructure/repositories/drizzle-dashboard.repository.js';
@@ -89,6 +96,10 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
       useClass: DrizzleExternalValidationAuditRepository,
     },
     {
+      provide: TRANSACTION_PORT,
+      useClass: DrizzleTransactionAdapter,
+    },
+    {
       provide: CreateProducerUseCase,
       useFactory: (
         producers: IProducerRepository,
@@ -97,6 +108,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         config: AppConfigPort,
         logger: LoggerPort,
         audit: ExternalValidationAuditPort,
+        tx: TransactionPort,
       ): CreateProducerUseCase =>
         new CreateProducerUseCase(
           producers,
@@ -105,6 +117,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
           config,
           logger,
           audit,
+          tx,
         ),
       inject: [
         PRODUCER_REPOSITORY,
@@ -113,6 +126,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         APP_CONFIG_PORT,
         LOGGER_PORT,
         EXTERNAL_VALIDATION_AUDIT_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -144,14 +158,23 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         brazil: BrazilDataServiceInterface,
         logger: LoggerPort,
         audit: ExternalValidationAuditPort,
+        tx: TransactionPort,
       ): UpdateProducerUseCase =>
-        new UpdateProducerUseCase(producers, crypto, brazil, logger, audit),
+        new UpdateProducerUseCase(
+          producers,
+          crypto,
+          brazil,
+          logger,
+          audit,
+          tx,
+        ),
       inject: [
         PRODUCER_REPOSITORY,
         CRYPTO_SERVICE_PORT,
         BRAZIL_DATA_SERVICE,
         LOGGER_PORT,
         EXTERNAL_VALIDATION_AUDIT_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -171,8 +194,17 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         config: AppConfigPort,
         logger: LoggerPort,
         audit: ExternalValidationAuditPort,
+        tx: TransactionPort,
       ): CreateFarmUseCase =>
-        new CreateFarmUseCase(farms, producers, brazil, config, logger, audit),
+        new CreateFarmUseCase(
+          farms,
+          producers,
+          brazil,
+          config,
+          logger,
+          audit,
+          tx,
+        ),
       inject: [
         FARM_REPOSITORY,
         PRODUCER_REPOSITORY,
@@ -180,6 +212,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         APP_CONFIG_PORT,
         LOGGER_PORT,
         EXTERNAL_VALIDATION_AUDIT_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -189,13 +222,15 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         brazil: BrazilDataServiceInterface,
         logger: LoggerPort,
         audit: ExternalValidationAuditPort,
+        tx: TransactionPort,
       ): UpdateFarmUseCase =>
-        new UpdateFarmUseCase(farms, brazil, logger, audit),
+        new UpdateFarmUseCase(farms, brazil, logger, audit, tx),
       inject: [
         FARM_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         LOGGER_PORT,
         EXTERNAL_VALIDATION_AUDIT_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -257,18 +292,21 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         brazil: BrazilDataServiceInterface,
         audit: ExternalValidationAuditPort,
         logger: LoggerPort,
+        tx: TransactionPort,
       ): RevalidateProducerDocumentUseCase =>
         new RevalidateProducerDocumentUseCase(
           producers,
           brazil,
           audit,
           logger,
+          tx,
         ),
       inject: [
         PRODUCER_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         EXTERNAL_VALIDATION_AUDIT_PORT,
         LOGGER_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -278,13 +316,21 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         brazil: BrazilDataServiceInterface,
         audit: ExternalValidationAuditPort,
         logger: LoggerPort,
+        tx: TransactionPort,
       ): RevalidateFarmTerritorialUseCase =>
-        new RevalidateFarmTerritorialUseCase(farms, brazil, audit, logger),
+        new RevalidateFarmTerritorialUseCase(
+          farms,
+          brazil,
+          audit,
+          logger,
+          tx,
+        ),
       inject: [
         FARM_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         EXTERNAL_VALIDATION_AUDIT_PORT,
         LOGGER_PORT,
+        TRANSACTION_PORT,
       ],
     },
     {
@@ -297,6 +343,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         revalidateFarm: RevalidateFarmTerritorialUseCase,
         logger: LoggerPort,
         metrics: MetricsService,
+        sql: PostgresSql,
       ): PendingExternalValidationJob =>
         new PendingExternalValidationJob(
           config,
@@ -306,6 +353,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
           revalidateFarm,
           logger,
           metrics,
+          sql,
         ),
       inject: [
         ConfigService,
@@ -315,6 +363,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         RevalidateFarmTerritorialUseCase,
         LOGGER_PORT,
         MetricsService,
+        POSTGRES_SQL,
       ],
     },
     {

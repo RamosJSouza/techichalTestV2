@@ -77,5 +77,6 @@ export const updateFarmSchema = z
     vegetationArea: z.number().nonnegative().optional(),
     carNumber: z.string().min(1).max(100).nullable().optional(),
     harvests: z.array(harvestSchema).max(MAX_HARVESTS).optional(),
+    removedYears: z.array(z.string().min(1).max(10)).max(MAX_HARVESTS).optional(),
   })
   .strict();

@@ -40,6 +40,7 @@ const Tr = styled.tr`
 interface ProducersDataTableProps {
   producers: ProducerListItem[];
   onDelete: (producer: Pick<ProducerListItem, 'id' | 'name'>) => void;
+  esgCarEnabled?: boolean;
 }
 
 function isCnpjMasked(document: string): boolean {
@@ -62,6 +63,7 @@ function toneForEsgStatus(
 export function ProducersDataTable({
   producers,
   onDelete,
+  esgCarEnabled = false,
 }: ProducersDataTableProps): React.JSX.Element {
   return (
     <Table>
@@ -70,7 +72,7 @@ export function ProducersDataTable({
           <Th>Produtor</Th>
           <Th>Documento (CPF/CNPJ)</Th>
           <Th>Fazendas vinculadas</Th>
-          <Th>ESG</Th>
+          {esgCarEnabled ? <Th>ESG</Th> : null}
           <Th>Ações</Th>
         </tr>
       </thead>
@@ -90,22 +92,26 @@ export function ProducersDataTable({
                 ? ` (${p.farmStates.join(' / ')})`
                 : ''}
             </Td>
-            <Td>
-              <Badge tone={toneForEsgStatus(p.esgStatus)}>
-                {p.esgStatus}
-              </Badge>
-            </Td>
+            {esgCarEnabled ? (
+              <Td>
+                <Badge tone={toneForEsgStatus(p.esgStatus)}>
+                  {p.esgStatus}
+                </Badge>
+              </Td>
+            ) : null}
             <Td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <Link to={`/producers/${p.id}/edit`} aria-label={`Editar ${p.name}`}>
                 <Icon name="edit" />
               </Link>
-              <Link
-                to={`/producers/${p.id}/esg`}
-                aria-label={`Parecer ESG de ${p.name}`}
-                title="Parecer ESG"
-              >
-                <Icon name="policy" />
-              </Link>
+              {esgCarEnabled ? (
+                <Link
+                  to={`/producers/${p.id}/esg`}
+                  aria-label={`Parecer ESG de ${p.name}`}
+                  title="Parecer ESG"
+                >
+                  <Icon name="policy" />
+                </Link>
+              ) : null}
               <Button
                 variant="danger"
                 onClick={() => onDelete({ id: p.id, name: p.name })}

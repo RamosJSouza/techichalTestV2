@@ -13,6 +13,7 @@ import {
   digitsOnly,
   filterProducersBySearch,
 } from '../shared/lib/match-producer-search';
+import { useEsgCarFeature } from '../shared/lib/use-esg-car-enabled';
 import { Button } from '../components/atoms/Button';
 import { Spinner } from '../components/atoms/Spinner';
 import { FilterChip } from '../components/molecules/FilterChip';
@@ -32,10 +33,29 @@ const PAGE_SIZE_DEFAULT = 20;
 const TitleRow = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 24px;
+`;
+
+const TitleBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const Title = styled.h1`
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+`;
+
+const Subtitle = styled.p`
+  margin: 0;
+  font-size: 0.875rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const Toolbar = styled.div`
@@ -112,6 +132,7 @@ function mergeById(
 }
 
 export function ProducersListPage(): React.JSX.Element {
+  const esgCar = useEsgCarFeature();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [query, setQuery] = useState('');
@@ -195,12 +216,10 @@ export function ProducersListPage(): React.JSX.Element {
   return (
     <div>
       <TitleRow>
-        <div>
-          <h1 style={{ margin: 0 }}>Produtores Rurais &amp; Propriedades</h1>
-          <p style={{ color: '#616161' }}>
-            Documentos exibidos mascarados conforme política de PII.
-          </p>
-        </div>
+        <TitleBlock>
+          <Title>Produtores</Title>
+          <Subtitle>O CPF e o CNPJ aparecem mascarados.</Subtitle>
+        </TitleBlock>
         <Link to="/producers/new">
           <Button>Novo produtor</Button>
         </Link>
@@ -211,18 +230,18 @@ export function ProducersListPage(): React.JSX.Element {
           label="Buscar produtores"
           value={query}
           onChange={setQuery}
-          placeholder="Nome, documento, UF, ESG, qtd. fazendas, área…"
+          placeholder="Nome do produtor"
         />
         <ExactBox>
           <TextInput
-            label="Busca exata por documento (blind index)"
-            placeholder="CPF/CNPJ completo — busca no servidor ao digitar 11+ dígitos"
+            label="Buscar por CPF ou CNPJ"
+            placeholder="Documento completo"
             value={exactDocument}
             onChange={(e) => setExactDocument(e.target.value)}
             autoComplete="off"
           />
           {searchingExact ? (
-            <ResultMeta>Consultando blind index…</ResultMeta>
+            <ResultMeta>Consultando documento…</ResultMeta>
           ) : null}
           {exactHit ? (
             <ResultMeta aria-live="polite">
@@ -272,6 +291,7 @@ export function ProducersListPage(): React.JSX.Element {
         <>
           <ProducersDataTable
             producers={filtered}
+            esgCarEnabled={esgCar.enabled}
             onDelete={(producer) => setPendingDelete(producer)}
           />
           <Pagination
@@ -292,7 +312,7 @@ export function ProducersListPage(): React.JSX.Element {
         title="Excluir produtor"
         message={
           pendingDelete
-            ? `Remover o produtor "${pendingDelete.name}"? Esta ação é um soft delete.`
+            ? `${pendingDelete.name} sai da lista, junto com as fazendas.`
             : ''
         }
         busy={deletingProducer}

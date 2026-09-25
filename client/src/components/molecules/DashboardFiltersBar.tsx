@@ -5,9 +5,9 @@ import { TextInput } from '../atoms/TextInput';
 import { Button } from '../atoms/Button';
 import { Icon } from '../atoms/Icon';
 import { BRAZILIAN_STATES } from '../../shared/lib/brazilian-states';
+import { CROP_NAMES } from '../../shared/lib/crop-names';
 import type { DashboardFilters } from '../../shared/types/api';
 
-const CROPS = ['Soja', 'Milho', 'Café', 'Algodão', 'Cana'] as const;
 const ESG_STATUSES = [
   { value: 'APPROVED', label: 'Aprovado' },
   { value: 'WARNING', label: 'Alerta' },
@@ -169,6 +169,7 @@ interface DashboardFiltersBarProps {
   onChange: (next: DashboardFilters) => void;
   harvestYears?: string[];
   isRefreshing?: boolean;
+  esgCarEnabled?: boolean;
 }
 
 function emptyToUndefined(value: string): string | undefined {
@@ -187,6 +188,7 @@ export function DashboardFiltersBar({
   onChange,
   harvestYears = [],
   isRefreshing = false,
+  esgCarEnabled = false,
 }: DashboardFiltersBarProps): React.JSX.Element {
   const patch = (partial: Partial<DashboardFilters>): void => {
     onChange({ ...value, ...partial });
@@ -224,7 +226,7 @@ export function DashboardFiltersBar({
         clear: { harvestYear: undefined },
       });
     }
-    if (value.esgStatus) {
+    if (esgCarEnabled && value.esgStatus) {
       const label =
         ESG_STATUSES.find((s) => s.value === value.esgStatus)?.label ??
         value.esgStatus;
@@ -259,7 +261,7 @@ export function DashboardFiltersBar({
       });
     }
     return chips;
-  }, [value]);
+  }, [esgCarEnabled, value]);
 
   return (
     <Shell aria-label="Filtros do dashboard">
@@ -305,7 +307,7 @@ export function DashboardFiltersBar({
             onChange={(e) => patch({ crop: emptyToUndefined(e.target.value) })}
           >
             <option value="">Todas</option>
-            {CROPS.map((crop) => (
+            {CROP_NAMES.map((crop) => (
               <option key={crop} value={crop}>
                 {crop}
               </option>
@@ -327,20 +329,22 @@ export function DashboardFiltersBar({
             ))}
           </Select>
 
-          <Select
-            label="ESG"
-            value={value.esgStatus ?? ''}
-            onChange={(e) =>
-              patch({ esgStatus: emptyToUndefined(e.target.value) })
-            }
-          >
-            <option value="">Todos</option>
-            {ESG_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </Select>
+          {esgCarEnabled ? (
+            <Select
+              label="ESG"
+              value={value.esgStatus ?? ''}
+              onChange={(e) =>
+                patch({ esgStatus: emptyToUndefined(e.target.value) })
+              }
+            >
+              <option value="">Todos</option>
+              {ESG_STATUSES.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
 
           <Select
             label="CAR"

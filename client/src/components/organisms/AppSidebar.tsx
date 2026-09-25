@@ -54,6 +54,15 @@ const Brand = styled.div`
   }
 `;
 
+const IconButton = styled.button`
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  color: inherit;
+  padding: 0;
+`;
+
 const LinkItem = styled(NavLink)<{ $collapsed: boolean }>`
   display: flex;
   align-items: center;
@@ -95,26 +104,29 @@ export function AppSidebar(): React.JSX.Element {
         ) : (
           'BA'
         )}
-        <button
+        <IconButton
           type="button"
-          aria-label="Recolher menu"
+          aria-label={collapsed ? 'Abrir menu' : 'Recolher menu'}
           onClick={() => dispatch(toggleSidebar())}
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
         >
           <Icon name={collapsed ? 'menu' : 'menu_open'} />
-        </button>
+        </IconButton>
       </Brand>
-      <LinkItem to="/" end $collapsed={collapsed}>
-        <Icon name="dashboard" />
-        <span className="label">Dashboard</span>
+      <LinkItem to="/" end $collapsed={collapsed} aria-label="Visão geral">
+        <Icon name="space_dashboard" />
+        <span className="label">Visão geral</span>
       </LinkItem>
-      <LinkItem to="/producers" $collapsed={collapsed}>
+      <LinkItem to="/producers" $collapsed={collapsed} aria-label="Produtores">
         <Icon name="agriculture" />
         <span className="label">Produtores</span>
       </LinkItem>
-      <LinkItem to="/producers/new" $collapsed={collapsed}>
+      <LinkItem
+        to="/producers/new"
+        $collapsed={collapsed}
+        aria-label="Novo produtor"
+      >
         <Icon name="person_add" />
-        <span className="label">Novo cadastro</span>
+        <span className="label">Novo produtor</span>
       </LinkItem>
     </Aside>
   );

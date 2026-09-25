@@ -55,20 +55,36 @@ export function farmFromResponse(farm: FarmResponse): FarmAreasFormValues {
 
 export function toFarmApiPayload(
   farm: FarmAreasFormValues,
-  crops: string[],
 ): FarmAreasFormValues {
-  const year = farm.harvests?.[0]?.year?.trim() || '2025/2026';
-  // Preserva safras extras além da primeira (o wizard edita apenas harvests[0]).
-  const tail = (farm.harvests ?? []).slice(1);
   return {
     ...farm,
     carNumber: normalizeCarNumber(farm.carNumber),
-    harvests: [
-      {
-        year,
-        crops,
-      },
-      ...tail,
-    ],
+    harvests: (farm.harvests ?? []).map((harvest) => ({
+      year: harvest.year.trim(),
+      crops: [...harvest.crops],
+    })),
   };
+}
+
+export function removedHarvestYears(
+  loadedYears: readonly string[],
+  harvests: ReadonlyArray<{ year: string }> | undefined,
+): string[] {
+  const visible = new Set(
+    (harvests ?? [])
+      .map((harvest) => harvest.year.trim())
+      .filter((year) => year.length > 0),
+  );
+  const removed: string[] = [];
+  for (const year of loadedYears) {
+    const trimmed = year.trim();
+    if (
+      trimmed.length > 0 &&
+      !visible.has(trimmed) &&
+      !removed.includes(trimmed)
+    ) {
+      removed.push(trimmed);
+    }
+  }
+  return removed;
 }

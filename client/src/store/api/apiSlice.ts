@@ -139,6 +139,9 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: ['Producers'],
     }),
+    getFeatures: builder.query<{ esgCarEnabled: boolean }, void>({
+      query: () => ({ url: '/features' }),
+    }),
     listCities: builder.query<string[], string>({
       query: (uf) => ({ url: `/ibge/states/${uf}/cities` }),
       transformResponse: (response: { cities: string[] }): string[] =>
@@ -161,5 +164,6 @@ export const {
   useUpdateFarmMutation,
   useDeleteFarmMutation,
   useValidateFarmCarMutation,
+  useGetFeaturesQuery,
   useLazyListCitiesQuery,
 } = apiSlice;

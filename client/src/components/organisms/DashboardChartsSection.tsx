@@ -89,6 +89,7 @@ interface DashboardChartsSectionProps {
     rows: StackedBarDatum[];
     series: Array<{ dataKey: string; color: string }>;
   };
+  esgCarEnabled?: boolean;
 }
 
 export function DashboardChartsSection({
@@ -98,13 +99,14 @@ export function DashboardChartsSection({
   isRefreshing,
   landUseSlices,
   stackedCrops,
+  esgCarEnabled = false,
 }: DashboardChartsSectionProps): React.JSX.Element {
   return (
     <>
       <Section>
         <SectionLabel>Distribuições</SectionLabel>
         <DonutGrid $refreshing={isRefreshing}>
-          <ChartCard title="Uso do Solo" filename="uso-do-solo.png" span="half">
+          <ChartCard title="Uso do solo" filename="uso-do-solo.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}
@@ -116,7 +118,7 @@ export function DashboardChartsSection({
             )}
           </ChartCard>
 
-          <ChartCard title="Culturas" filename="culturas.png" span="half">
+          <ChartCard title="Culturas plantadas" filename="culturas.png" span="half">
             {(ref) => (
               <DonutChartRecharts
                 ref={ref}
@@ -132,7 +134,7 @@ export function DashboardChartsSection({
           </ChartCard>
 
           <ChartCard
-            title="Fazendas por UF"
+            title="Fazendas por estado"
             filename="fazendas-por-uf.png"
             span="half"
           >
@@ -154,7 +156,12 @@ export function DashboardChartsSection({
               />
             )}
           </ChartCard>
+        </DonutGrid>
+      </Section>
 
+      <Section>
+        <SectionLabel>À parte do cadastro</SectionLabel>
+        <DonutGrid $refreshing={isRefreshing}>
           <ChartCard title="Status CAR" filename="status-car.png" span="half">
             {(ref) => (
               <DonutChartRecharts
@@ -171,26 +178,24 @@ export function DashboardChartsSection({
             )}
           </ChartCard>
 
-          <ChartCard title="Status ESG" filename="status-esg.png" span="half">
-            {(ref) => (
-              <DonutChartRecharts
-                ref={ref}
-                compact
-                centerLabel="Aprovados"
-                centerValue={`${formatNumber(summary.esgComplianceRate)}%`}
-                data={summary.byEsgStatus.map((e, i) => ({
-                  name: e.status,
-                  value: e.count,
-                  fill: paletteColor(i),
-                }))}
-              />
-            )}
-          </ChartCard>
+          {esgCarEnabled ? (
+            <ChartCard title="Status ESG" filename="status-esg.png" span="half">
+              {(ref) => (
+                <DonutChartRecharts
+                  ref={ref}
+                  compact
+                  centerLabel="Aprovados"
+                  centerValue={`${formatNumber(summary.esgComplianceRate)}%`}
+                  data={summary.byEsgStatus.map((e, i) => ({
+                    name: e.status,
+                    value: e.count,
+                    fill: paletteColor(i),
+                  }))}
+                />
+              )}
+            </ChartCard>
+          ) : null}
         </DonutGrid>
-      </Section>
-
-      <Section>
-        <SectionLabel>Risco climático</SectionLabel>
         {!analyticsReady || !analytics ? (
           <Spinner />
         ) : (

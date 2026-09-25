@@ -1,5 +1,6 @@
-import { Farm, Harvest } from './farm.js';
+import { InvalidDomainValueException } from '../exceptions/invalid-domain-value.exception.js';
 import { InvalidFarmAreaException } from '../exceptions/invalid-farm-area.exception.js';
+import { Farm, Harvest } from './farm.js';
 import { Producer } from './producer.js';
 
 describe('Producer and Farm entities', () => {
@@ -77,5 +78,101 @@ describe('Producer and Farm entities', () => {
     expect(farm.harvests).toHaveLength(1);
     expect(farm.harvests[0]?.year).toBe('2026/2027');
     expect(farm.harvests[0]?.crops.map((c) => c.name)).toEqual(['Milho']);
+  });
+
+  it('mergeHarvests atualiza o ano enviado, preserva o id e o ano omitido', () => {
+    const farm = Farm.create({
+      producerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [
+        { year: '2025/2026', crops: ['Soja'] },
+        { year: '2026/2027', crops: ['Café'] },
+      ],
+    });
+    const firstId = farm.harvests[0]?.id;
+    const secondId = farm.harvests[1]?.id;
+
+    farm.mergeHarvests([{ year: ' 2025/2026 ', crops: ['Soja', 'Milho'] }]);
+
+    expect(farm.harvests).toHaveLength(2);
+    expect(farm.harvests[0]?.id).toBe(firstId);
+    expect(farm.harvests[0]?.year).toBe('2025/2026');
+    expect(farm.harvests[0]?.crops.map((crop) => crop.name)).toEqual([
+      'Soja',
+      'Milho',
+    ]);
+    expect(farm.harvests[1]?.id).toBe(secondId);
+    expect(farm.harvests[1]?.crops.map((crop) => crop.name)).toEqual(['Café']);
+  });
+
+  it('mergeHarvests acrescenta ano novo e lista vazia não apaga safras', () => {
+    const farm = Farm.create({
+      producerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: ['Soja'] }],
+    });
+
+    farm.mergeHarvests([]);
+    expect(farm.harvests).toHaveLength(1);
+
+    farm.mergeHarvests([{ year: '2026/2027', crops: ['Café'] }]);
+    expect(farm.harvests.map((harvest) => harvest.year)).toEqual([
+      '2025/2026',
+      '2026/2027',
+    ]);
+  });
+
+  it('mergeHarvests rejeita ano duplicado no mesmo pedido', () => {
+    const farm = Farm.create({
+      producerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [{ year: '2025/2026', crops: ['Soja'] }],
+    });
+
+    expect(() =>
+      farm.mergeHarvests([
+        { year: '2026/2027', crops: ['Milho'] },
+        { year: '2026/2027', crops: ['Café'] },
+      ]),
+    ).toThrow(InvalidDomainValueException);
+    expect(farm.harvests).toHaveLength(1);
+  });
+
+  it('removeHarvestYears tira o ano citado e ignora ano ausente', () => {
+    const farm = Farm.create({
+      producerId: '00000000-0000-4000-8000-000000000001',
+      name: 'Fazenda',
+      city: 'Ribeirão Preto',
+      state: 'SP',
+      totalArea: 100,
+      arableArea: 50,
+      vegetationArea: 20,
+      harvests: [
+        { year: '2025/2026', crops: ['Soja'] },
+        { year: '2026/2027', crops: ['Café'] },
+      ],
+    });
+    const keptId = farm.harvests[0]?.id;
+
+    farm.removeHarvestYears([' 2026/2027 ', '1999']);
+
+    expect(farm.harvests).toHaveLength(1);
+    expect(farm.harvests[0]?.id).toBe(keptId);
+    expect(farm.harvests[0]?.year).toBe('2025/2026');
   });
 });

@@ -1,14 +1,9 @@
-/**
- * POC — H2 (frontend): toFarmApiPayload colapsa múltiplas safras em uma só.
- *
- * Cenário: fazenda criada via API/seed com 2 safras é editada pelo wizard.
- * farmFromResponse preserva as 2 safras, mas toFarmApiPayload só emite harvests[0].
- * O backend replaceHarvests substitui TODAS → 2ª safra perdida silenciosamente.
- *
- * Este POC falha com o código atual e passa após o fix (preservar harvests.slice(1)).
- */
-import { toFarmApiPayload, farmFromResponse } from './producer-form-helpers';
 import type { FarmResponse } from '../shared/types/api';
+import {
+  farmFromResponse,
+  removedHarvestYears,
+  toFarmApiPayload,
+} from './producer-form-helpers';
 
 const farmWithTwoHarvests: FarmResponse = {
   id: 'farm-x',
@@ -37,15 +32,30 @@ describe('POC H2 (frontend) — toFarmApiPayload preserva safras extras', () => 
     expect(formValues.harvests?.[1]?.year).toBe('2026/2027');
   });
 
-  it('toFarmApiPayload NÃO descarta safras além da primeira', () => {
+  it('toFarmApiPayload devolve as safras editadas, com ano sem espaços', () => {
     const formValues = farmFromResponse(farmWithTwoHarvests);
-    const payload = toFarmApiPayload(formValues, ['Soja', 'Milho']);
+    formValues.harvests = [
+      { year: ' 2021 ', crops: ['Soja', 'Milho'] },
+      { year: '2022', crops: ['Café'] },
+    ];
+    const payload = toFarmApiPayload(formValues);
 
-    // EXPECTADO (correto): preserva a 2ª safra
-    expect(payload.harvests).toHaveLength(2); // ← FAIL atual: 1
-    expect(payload.harvests?.[0]?.year).toBe('2025/2026');
+    expect(payload.harvests).toHaveLength(2);
+    expect(payload.harvests?.[0]?.year).toBe('2021');
     expect(payload.harvests?.[0]?.crops).toEqual(['Soja', 'Milho']);
-    expect(payload.harvests?.[1]?.year).toBe('2026/2027'); // ← FAIL atual: undefined
+    expect(payload.harvests?.[1]?.year).toBe('2022');
     expect(payload.harvests?.[1]?.crops).toEqual(['Café']);
+  });
+
+  it('removedHarvestYears lista o ano que saiu da tela e ignora o que voltou', () => {
+    expect(
+      removedHarvestYears(
+        ['2021', '2022'],
+        [{ year: '2021' }, { year: '2023' }],
+      ),
+    ).toEqual(['2022']);
+    expect(
+      removedHarvestYears(['2021', '2022'], [{ year: '2021' }, { year: '2022' }]),
+    ).toEqual([]);
   });
 });

@@ -1,6 +1,8 @@
 import { Farm } from '../../domain/entities/farm.js';
+import { InvalidDomainValueException } from '../../domain/exceptions/invalid-domain-value.exception.js';
 import { NotFoundException } from '../../domain/exceptions/not-found.exception.js';
 import type { IFarmRepository } from '../../domain/repositories/farm.repository.js';
+import type { AppConfigPort } from '../services/app-config.port.js';
 import { applyFarmCompliancePolicies } from '../services/apply-farm-compliance.js';
 import { assertCityBelongsToState } from '../services/assert-city-belongs-to-state.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
@@ -17,6 +19,7 @@ interface UpdateFarmInput {
   vegetationArea?: number;
   carNumber?: string | null;
   harvests?: Array<{ year: string; crops: string[] }>;
+  removedYears?: string[];
 }
 
 export class UpdateFarmUseCase {
@@ -26,6 +29,7 @@ export class UpdateFarmUseCase {
     private readonly logger: LoggerPort,
     private readonly audit: ExternalValidationAuditPort,
     private readonly tx: TransactionPort,
+    private readonly config: AppConfigPort,
   ) {}
 
   public async execute(id: string, input: UpdateFarmInput): Promise<Farm> {
@@ -56,15 +60,36 @@ export class UpdateFarmUseCase {
 
     farm.updateDetails(input);
 
-    if (input.harvests !== undefined) {
-      farm.replaceHarvests(input.harvests);
+    const removedYears = (input.removedYears ?? [])
+      .map((year) => year.trim())
+      .filter((year) => year.length > 0);
+
+    if (input.harvests !== undefined && removedYears.length > 0) {
+      const sentYears = new Set(
+        input.harvests.map((item) => item.year.trim()),
+      );
+      for (const year of removedYears) {
+        if (sentYears.has(year)) {
+          throw new InvalidDomainValueException(
+            `Safra ${year} não pode ser atualizada e removida no mesmo pedido.`,
+          );
+        }
+      }
     }
 
-    applyFarmCompliancePolicies(farm);
+    if (input.harvests !== undefined) {
+      farm.mergeHarvests(input.harvests);
+    }
+    if (removedYears.length > 0) {
+      farm.removeHarvestYears(removedYears);
+    }
+
+    applyFarmCompliancePolicies(farm, this.config.isEsgCarEnabled());
 
     await this.tx.run(async () => {
       await this.farmRepository.update(farm, {
-        harvestsChanged: input.harvests !== undefined,
+        harvestsChanged:
+          input.harvests !== undefined || removedYears.length > 0,
         expectedUpdatedAt,
       });
 

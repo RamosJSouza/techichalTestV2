@@ -66,6 +66,9 @@ export const mockBaseQuery: BaseQueryFn<
     const found = mockProducers.find((p) => p.id === id) ?? mockProducers[0];
     return { data: found };
   }
+  if (url === '/features' && method === 'GET') {
+    return { data: { esgCarEnabled: false } };
+  }
   if (url.startsWith('/ibge/states/') && method === 'GET') {
     return {
       data: {

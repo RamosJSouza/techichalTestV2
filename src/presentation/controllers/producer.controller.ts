@@ -9,6 +9,7 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
@@ -31,6 +32,7 @@ import {
   ProducerDetailResponseDto,
   ProducerListPageResponseDto,
 } from '../dtos/producer-response.dto.js';
+import { EsgCarFeatureGuard } from '../guards/esg-car-feature.guard.js';
 import { MaskPiiInterceptor } from '../interceptors/mask-pii.interceptor.js';
 import { toProducerListItem, toProducerResponse } from '../mappers/producer-response.mapper.js';
 
@@ -105,6 +107,7 @@ export class ProducerController {
   }
 
   @Get(':id/esg-compliance')
+  @UseGuards(EsgCarFeatureGuard)
   @ApiOkResponse({ description: 'Parecer socioambiental ESG' })
   public async esgCompliance(@Param() params: UuidParamDto) {
     return this.getProducerEsgCompliance.execute(params.id);

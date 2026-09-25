@@ -41,6 +41,7 @@ jest.mock('../store/api/apiSlice', () => ({
   useDeleteFarmMutation: jest.fn(),
   useValidateFarmCarMutation: jest.fn(),
   useLazyListCitiesQuery: jest.fn(),
+  useGetFeaturesQuery: jest.fn(),
 }));
 
 import {
@@ -50,12 +51,23 @@ import {
   useGetProducerQuery,
   useLazyListCitiesQuery,
   useUpdateFarmMutation,
+  useGetFeaturesQuery,
   useUpdateProducerMutation,
   useValidateFarmCarMutation,
 } from '../store/api/apiSlice';
 
 const mockGet = useGetProducerQuery as jest.Mock;
 const mockValidate = useValidateFarmCarMutation as jest.Mock;
+const mockFeatures = useGetFeaturesQuery as jest.Mock;
+
+function featuresState(enabled: boolean) {
+  return {
+    data: { esgCarEnabled: enabled },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  };
+}
 const mockCreate = useCreateProducerMutation as jest.Mock;
 const mockUpdateProducer = useUpdateProducerMutation as jest.Mock;
 const mockUpdateFarm = useUpdateFarmMutation as jest.Mock;
@@ -160,9 +172,27 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
       () => ({ unwrap: validateUnwrap }),
       { isLoading: false },
     ]);
+    mockFeatures.mockReturnValue(featuresState(false));
+  });
+
+  it('não exibe Validar CAR com a flag desligada', async () => {
+    mockGet.mockReturnValue({
+      data: sampleProducer,
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    renderAt('/producers/prod-1/edit');
+    fireEvent.click(await screen.findByRole('button', { name: /Continuar/i }));
+
+    expect(
+      screen.queryByRole('button', { name: /Validar CAR/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra título de edição e dispara Validar CAR', async () => {
+    mockFeatures.mockReturnValue(featuresState(true));
     mockGet.mockReturnValue({
       data: sampleProducer,
       isLoading: false,
@@ -187,6 +217,7 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
   });
 
   it('Validar CAR em erro não quebra a tela (unwrap rejeita)', async () => {
+    mockFeatures.mockReturnValue(featuresState(true));
     validateUnwrap.mockRejectedValueOnce({ status: 502 });
     mockGet.mockReturnValue({
       data: sampleProducer,
@@ -319,5 +350,126 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
       expect(deleteFarmTrigger).toHaveBeenCalledWith('farm-1');
     });
     expect(store.getState().ui.toast?.message).toMatch(/Fazenda removida/i);
+  });
+
+  it('criação envia Safra 2021 e Safra 2022', async () => {
+    mockGet.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    renderAt('/producers/new');
+    fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
+      target: { value: 'Produtor Novo' },
+    });
+    fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
+      target: { value: '529.982.247-25' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    await fillFarmStep();
+    fireEvent.change(screen.getByLabelText(/^Ano da safra$/i), {
+      target: { value: '2021' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Soja' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Milho' }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar safra/i }));
+    fireEvent.change(screen.getByLabelText(/Ano da safra 2/i), {
+      target: { value: '2022' },
+    });
+    const secondCafe = screen.getAllByRole('button', { name: 'Café' })[1];
+    if (!secondCafe) {
+      throw new Error('chip Café da segunda safra ausente');
+    }
+    fireEvent.click(secondCafe);
+    fireEvent.click(screen.getByRole('button', { name: /Salvar tudo/i }));
+
+    await waitFor(() => {
+      expect(createTrigger).toHaveBeenCalled();
+    });
+    const createCall = createTrigger.mock.calls[0];
+    if (!createCall) {
+      throw new Error('createProducer não foi chamado');
+    }
+    const body = createCall[0] as {
+      farms: Array<{ harvests: Array<{ year: string; crops: string[] }> }>;
+    };
+    expect(body.farms[0]?.harvests).toEqual([
+      { year: '2021', crops: ['Soja', 'Milho'] },
+      { year: '2022', crops: ['Café'] },
+    ]);
+  });
+
+  it('edição envia removedYears ao tirar a segunda safra', async () => {
+    mockGet.mockReturnValue({
+      data: {
+        ...sampleProducer,
+        farms: [
+          {
+            ...sampleProducer.farms[0],
+            harvests: [
+              { year: '2021', crops: ['Soja', 'Milho'] },
+              { year: '2022', crops: ['Café'] },
+            ],
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    renderAt('/producers/prod-1/edit');
+    fireEvent.click(await screen.findByRole('button', { name: /Continuar/i }));
+    const removeButtons = await screen.findAllByRole('button', {
+      name: /Remover safra/i,
+    });
+    const secondRemove = removeButtons[1];
+    if (!secondRemove) {
+      throw new Error('botão da segunda safra ausente');
+    }
+    fireEvent.click(secondRemove);
+    fireEvent.click(screen.getByRole('button', { name: /Salvar fazenda/i }));
+
+    await waitFor(() => {
+      expect(updateFarmTrigger).toHaveBeenCalled();
+    });
+    const updateCall = updateFarmTrigger.mock.calls[0];
+    if (!updateCall) {
+      throw new Error('updateFarm não foi chamado');
+    }
+    const body = updateCall[0] as {
+      body: {
+        harvests: Array<{ year: string; crops: string[] }>;
+        removedYears: string[];
+      };
+    };
+    expect(body.body.harvests).toEqual([
+      { year: '2021', crops: ['Soja', 'Milho'] },
+    ]);
+    expect(body.body.removedYears).toEqual(['2022']);
+  });
+
+  it('Continuar recusa CPF com dígito inválido', () => {
+    mockGet.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    renderAt('/producers/new');
+    fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
+      target: { value: 'Produtor Novo' },
+    });
+    fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
+      target: { value: '123.456.789-00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    expect(screen.getByText('CPF ou CNPJ inválido')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nome da fazenda/i)).not.toBeInTheDocument();
   });
 });

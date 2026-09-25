@@ -7,6 +7,7 @@ import { UpdateFarmUseCase } from '../application/use-cases/update-farm.use-case
 import type { IFarmRepository } from '../domain/repositories/farm.repository.js';
 import type { IProducerRepository } from '../domain/repositories/producer.repository.js';
 import type { CryptoService } from '../infrastructure/crypto/crypto.service.js';
+import type { AppConfigPort } from '../application/services/app-config.port.js';
 import { testConfig, testCrypto, testLogger } from './test-helpers.js';
 
 export const defaultBrazil: BrazilDataServiceInterface = {
@@ -41,12 +42,13 @@ export function buildCreateProducer(
   crypto: CryptoService = testCrypto(),
   audit: ExternalValidationAuditPort = noopAudit(),
   tx: TransactionPort = noopTx(),
+  config: AppConfigPort = testConfig(),
 ): CreateProducerUseCase {
   return new CreateProducerUseCase(
     repository,
     brazil,
     crypto,
-    testConfig(),
+    config,
     testLogger(),
     audit,
     tx,
@@ -59,12 +61,13 @@ export function buildCreateFarm(
   brazil: BrazilDataServiceInterface = defaultBrazil,
   audit: ExternalValidationAuditPort = noopAudit(),
   tx: TransactionPort = noopTx(),
+  config: AppConfigPort = testConfig(),
 ): CreateFarmUseCase {
   return new CreateFarmUseCase(
     farmRepo,
     producerRepo,
     brazil,
-    testConfig(),
+    config,
     testLogger(),
     audit,
     tx,
@@ -77,5 +80,12 @@ export function buildUpdateFarm(
   audit: ExternalValidationAuditPort = noopAudit(),
   tx: TransactionPort = noopTx(),
 ): UpdateFarmUseCase {
-  return new UpdateFarmUseCase(farmRepo, brazil, testLogger(), audit, tx);
+  return new UpdateFarmUseCase(
+    farmRepo,
+    brazil,
+    testLogger(),
+    audit,
+    tx,
+    testConfig(),
+  );
 }

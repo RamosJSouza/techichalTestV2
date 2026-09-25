@@ -9,6 +9,12 @@ const refetchAnalytics = jest.fn();
 jest.mock('../store/api/apiSlice', () => ({
   useGetDashboardSummaryQuery: jest.fn(),
   useGetDashboardAnalyticsQuery: jest.fn(),
+  useGetFeaturesQuery: jest.fn(() => ({
+    data: { esgCarEnabled: false },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  })),
 }));
 
 jest.mock('../shared/lib/export-csv', () => ({
@@ -25,12 +31,21 @@ jest.mock('../components/organisms/DashboardChartsSection', () => ({
 import {
   useGetDashboardAnalyticsQuery,
   useGetDashboardSummaryQuery,
+  useGetFeaturesQuery,
 } from '../store/api/apiSlice';
 import { exportToCsv } from '../shared/lib/export-csv';
 
 const mockSummary = useGetDashboardSummaryQuery as jest.Mock;
 const mockAnalytics = useGetDashboardAnalyticsQuery as jest.Mock;
+const mockFeatures = useGetFeaturesQuery as jest.Mock;
 const mockExport = exportToCsv as jest.Mock;
+
+const featuresOff = {
+  data: { esgCarEnabled: false },
+  isLoading: false,
+  isFetching: false,
+  isError: false,
+};
 
 const summaryData = {
   totalFarms: 10,
@@ -66,6 +81,7 @@ const analyticsData = {
 describe('DashboardPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFeatures.mockReturnValue(featuresOff);
   });
 
   it('exibe alerta com status HTTP e botão de retry', async () => {
@@ -124,9 +140,9 @@ describe('DashboardPage', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: /Dashboard Analítico/i }),
+      screen.getByRole('heading', { name: /Visão geral/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Total de Fazendas')).toBeInTheDocument();
+    expect(screen.getByText('Total de fazendas')).toBeInTheDocument();
     expect(await screen.findByTestId('dashboard-charts')).toBeInTheDocument();
   });
 
@@ -156,6 +172,43 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(mockExport).toHaveBeenCalled();
     });
+    const sheets = mockExport.mock.calls[0]?.[0] as Array<{ name: string }>;
     expect(mockExport.mock.calls[0]?.[1]).toBe('dashboard-analitico');
+    expect(sheets.map((sheet) => sheet.name)).toContain('CAR');
+    expect(sheets.map((sheet) => sheet.name)).not.toContain('ESG');
+  });
+
+  it('Exportar CSV inclui a aba ESG quando a flag está ligada', async () => {
+    mockFeatures.mockReturnValue({
+      ...featuresOff,
+      data: { esgCarEnabled: true },
+    });
+    mockSummary.mockReturnValue({
+      data: summaryData,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: refetchSummary,
+    });
+    mockAnalytics.mockReturnValue({
+      data: analyticsData,
+      isLoading: false,
+      isFetching: false,
+      refetch: refetchAnalytics,
+    });
+
+    render(
+      <ThemeProvider theme={theme}>
+        <DashboardPage />
+      </ThemeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/i }));
+
+    await waitFor(() => {
+      expect(mockExport).toHaveBeenCalled();
+    });
+    const sheets = mockExport.mock.calls[0]?.[0] as Array<{ name: string }>;
+    expect(sheets.map((sheet) => sheet.name)).toContain('ESG');
   });
 });

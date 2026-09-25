@@ -16,8 +16,8 @@ const PILL_BORDER: Record<HealthState, string> = {
 
 const LABELS: Record<HealthState, string> = {
   checking: 'Verificando…',
-  ok: 'Sistema operacional',
-  offline: 'API indisponível',
+  ok: 'Serviço no ar',
+  offline: 'Serviço fora do ar',
 };
 
 const Pill = styled.div<{ $state: HealthState }>`

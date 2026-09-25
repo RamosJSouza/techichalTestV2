@@ -79,6 +79,14 @@ describe('producer.schemas (OWASP caps)', () => {
     expect(result.success).toBe(true);
   });
 
+  it('aceita removedYears no update farm', () => {
+    const result = updateFarmSchema.safeParse({
+      harvests: [{ year: '2025/2026', crops: ['Soja'] }],
+      removedYears: ['2026/2027'],
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('aceita safra com zero culturas no update farm', () => {
     const result = updateFarmSchema.safeParse({
       harvests: [{ year: '2025/2026', crops: [] }],

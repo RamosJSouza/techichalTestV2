@@ -6,6 +6,7 @@ import { GlobalStyle } from '../../shared/theme/GlobalStyle';
 import { store } from '../../store/store';
 import { AppShellTemplate } from '../../components/templates/AppShellTemplate';
 import { Spinner } from '../../components/atoms/Spinner';
+import { useEsgCarFeature } from '../../shared/lib/use-esg-car-enabled';
 
 const DashboardPage = lazy(async () => {
   const mod = await import('../../pages/DashboardPage');
@@ -24,6 +25,17 @@ const ProducerEsgPage = lazy(async () => {
   return { default: mod.ProducerEsgPage };
 });
 
+function EsgFeatureRoute(): React.JSX.Element {
+  const feature = useEsgCarFeature();
+  if (!feature.ready) {
+    return <Spinner />;
+  }
+  if (!feature.enabled) {
+    return <Navigate to="/producers" replace />;
+  }
+  return <ProducerEsgPage />;
+}
+
 export function BrainAgApp(): React.JSX.Element {
   return (
     <Provider store={store}>
@@ -37,7 +49,7 @@ export function BrainAgApp(): React.JSX.Element {
                 <Route path="producers" element={<ProducersListPage />} />
                 <Route path="producers/new" element={<ProducerFormPage />} />
                 <Route path="producers/:id/edit" element={<ProducerFormPage />} />
-                <Route path="producers/:id/esg" element={<ProducerEsgPage />} />
+                <Route path="producers/:id/esg" element={<EsgFeatureRoute />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>
             </Routes>

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ExternalValidationStatus } from '../constants/external-validation-status.js';
+import { InvalidDomainValueException } from '../exceptions/invalid-domain-value.exception.js';
 import { CarNumber } from '../value-objects/car-number.js';
 import { FarmArea } from '../value-objects/farm-area.js';
 
@@ -49,6 +50,11 @@ export class Harvest {
 
   public get crops(): readonly Crop[] {
     return this._crops;
+  }
+
+  public replaceCrops(cropNames: string[]): void {
+    const next = cropNames.map((name) => Crop.create(name));
+    this._crops.splice(0, this._crops.length, ...next);
   }
 
   public archive(): void {
@@ -271,6 +277,53 @@ export class Farm {
       this._harvests.length,
       ...items.map((item) => Harvest.create(item.year, item.crops)),
     );
+    this.touch();
+  }
+
+  public mergeHarvests(
+    items: Array<{ year: string; crops: string[] }>,
+  ): void {
+    const normalized = items.map((item) => ({
+      year: item.year.trim(),
+      crops: item.crops,
+    }));
+    const seen = new Set<string>();
+    for (const item of normalized) {
+      if (seen.has(item.year)) {
+        throw new InvalidDomainValueException(
+          `Safra duplicada no mesmo pedido: ${item.year}.`,
+        );
+      }
+      seen.add(item.year);
+    }
+
+    for (const item of normalized) {
+      const existing = this._harvests.find(
+        (harvest) => harvest.year.trim() === item.year,
+      );
+      if (existing) {
+        existing.replaceCrops(item.crops);
+      } else {
+        this._harvests.push(Harvest.create(item.year, item.crops));
+      }
+    }
+    this.touch();
+  }
+
+  public removeHarvestYears(years: string[]): void {
+    const drop = new Set(
+      years.map((year) => year.trim()).filter((year) => year.length > 0),
+    );
+    if (drop.size === 0) {
+      return;
+    }
+    const next = this._harvests.filter(
+      (harvest) => !drop.has(harvest.year.trim()),
+    );
+    if (next.length === this._harvests.length) {
+      return;
+    }
+    this._harvests.splice(0, this._harvests.length, ...next);
     this.touch();
   }
 

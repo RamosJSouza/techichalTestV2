@@ -20,6 +20,12 @@ jest.mock('../store/api/apiSlice', () => ({
   useListProducersQuery: jest.fn(),
   useDeleteProducerMutation: jest.fn(),
   useLazySearchProducerQuery: jest.fn(),
+  useGetFeaturesQuery: jest.fn(() => ({
+    data: { esgCarEnabled: false },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  })),
 }));
 
 import {

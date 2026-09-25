@@ -1,10 +1,12 @@
 import { InMemoryFarmRepository } from '../../testing/in-memory-farm.repository.js';
 import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
-import { testCrypto } from '../../testing/test-helpers.js';
+import { testConfig, testCrypto } from '../../testing/test-helpers.js';
 import {
   buildCreateFarm,
   buildCreateProducer,
   defaultBrazil,
+  noopAudit,
+  noopTx,
 } from '../../testing/use-case-factories.js';
 
 describe('CreateFarmUseCase', () => {
@@ -27,6 +29,9 @@ describe('CreateFarmUseCase', () => {
       farmRepo,
       producerRepo,
       defaultBrazil,
+      noopAudit(),
+      noopTx(),
+      testConfig({ esgCarEnabled: true }),
     ).execute({
       producerId: producer.id,
       name: 'Santa Maria',

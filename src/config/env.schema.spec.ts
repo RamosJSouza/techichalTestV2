@@ -24,6 +24,7 @@ describe('parseEnv', () => {
     expect(env.NODE_ENV).toBe('development');
     expect(env.ENCRYPTION_KEY_ID).toBe('v1');
     expect(env.BODY_LIMIT).toBe('100kb');
+    expect(env.ESG_CAR_ENABLED).toBe('0');
   });
 
   it('rejeita ENCRYPTION_KEY de exemplo em production', () => {

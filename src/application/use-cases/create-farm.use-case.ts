@@ -42,11 +42,14 @@ export class CreateFarmUseCase {
       );
     }
 
-    await applyEsgCheck({
-      documentDigits: producer.document.value,
-      strictMode: this.config.isEsgStrictMode(),
-      logger: this.logger,
-    });
+    const esgCarEnabled = this.config.isEsgCarEnabled();
+    if (esgCarEnabled) {
+      await applyEsgCheck({
+        documentDigits: producer.document.value,
+        strictMode: this.config.isEsgStrictMode(),
+        logger: this.logger,
+      });
+    }
 
     if (producer.documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION') {
       this.logger.warn(
@@ -66,7 +69,7 @@ export class CreateFarmUseCase {
       territorialValidationStatus: territorial.status,
       territorialValidationPendingReason: territorial.pendingReason,
     });
-    applyFarmCompliancePolicies(farm);
+    applyFarmCompliancePolicies(farm, esgCarEnabled);
 
     await this.tx.run(async () => {
       await this.farmRepository.save(farm);

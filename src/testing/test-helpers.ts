@@ -19,9 +19,10 @@ export function testLogger(): LoggerPort {
 }
 
 export function testConfig(
-  overrides: { esgStrictMode?: boolean } = {},
+  overrides: { esgStrictMode?: boolean; esgCarEnabled?: boolean } = {},
 ): AppConfigPort {
   return {
     isEsgStrictMode: (): boolean => overrides.esgStrictMode ?? false,
+    isEsgCarEnabled: (): boolean => overrides.esgCarEnabled ?? false,
   };
 }

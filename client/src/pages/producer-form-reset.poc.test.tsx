@@ -1,28 +1,9 @@
-/**
- * POC — H1: reset do form descarta edições ao validar CAR / deletar fazenda.
- *
- * Cenário reproduzido (espelha a lógica de ProducerFormPage.tsx:213-227):
- *  1. Carrega produtor com 2 fazendas (farms[0]=A, farms[1]=B).
- *  2. Usuário clica em farms[1] (loadFarmIntoForm) → form mostra B.
- *  3. Usuário edita o nome de B (digita "B editado").
- *  4. Clica em "Validar CAR" → validateFarmCar invalida ['Producers']
- *     → getProducer refaz → `existing` recebe NOVA referência (mesmo id).
- *  5. useEffect([existing, reset]) dispara → reset() para farms[0]=A.
- *
- * Comportamento esperado (correto): form continua mostrando B editada.
- * Comportamento atual (bug): form volta para A, edições de B perdidas.
- *
- * Este POC falha com o código atual e passa após o fix (guardar loadedProducerId).
- */
-import { renderHook, act } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
 import { useEffect, useRef, useState } from 'react';
-import type { FarmResponse, ProducerResponse } from '../shared/types/api';
-import {
-  farmFromResponse,
-  defaultFarm,
-} from './producer-form-helpers';
+import { act, renderHook } from '@testing-library/react';
+import { useForm } from 'react-hook-form';
 import type { WizardFormValues } from '../shared/schemas/producer.schemas';
+import type { FarmResponse, ProducerResponse } from '../shared/types/api';
+import { defaultFarm, farmFromResponse } from './producer-form-helpers';
 
 const farmA: FarmResponse = {
   id: 'farm-a',
@@ -76,13 +57,8 @@ function makeProducer(farms: FarmResponse[]): ProducerResponse {
   };
 }
 
-/**
- * Harness que replica o useEffect de ProducerFormPage.tsx (com guard loadedProducerId).
- * `existingRef` é controlado externamente para simular o refetch do RTK Query.
- */
 function useWizardHarness(existing: ProducerResponse | null) {
   const [editingFarmId, setEditingFarmId] = useState<string | null>(null);
-  const [selectedCrops, setSelectedCrops] = useState<string[]>(['Soja']);
   const loadedProducerId = useRef<string | null>(null);
   const { reset, getValues, setValue } = useForm<WizardFormValues>({
     defaultValues: {
@@ -93,7 +69,6 @@ function useWizardHarness(existing: ProducerResponse | null) {
     mode: 'onSubmit',
   });
 
-  // === Espelho do useEffect corrigido (guard contra refetch do mesmo produtor) ===
   useEffect(() => {
     if (!existing) {
       loadedProducerId.current = null;
@@ -110,12 +85,8 @@ function useWizardHarness(existing: ProducerResponse | null) {
       document: '00000000000',
       farm: farm ? farmFromResponse(farm) : defaultFarm(),
     });
-    if (farm?.harvests[0]?.crops) {
-      setSelectedCrops([...farm.harvests[0].crops]);
-    }
   }, [existing, reset]);
 
-  // loadFarmIntoForm (ProducerFormPage.tsx:258-271)
   const loadFarmIntoForm = (farm: FarmResponse): void => {
     setEditingFarmId(farm.id);
     reset({
@@ -123,18 +94,14 @@ function useWizardHarness(existing: ProducerResponse | null) {
       document: getValues('document'),
       farm: farmFromResponse(farm),
     });
-    setSelectedCrops(
-      farm.harvests[0]?.crops?.length ? [...farm.harvests[0].crops] : ['Soja'],
-    );
   };
 
-  return { editingFarmId, selectedCrops, getValues, setValue, reset, loadFarmIntoForm };
+  return { editingFarmId, getValues, setValue, reset, loadFarmIntoForm };
 }
 
 describe('POC H1 — reset do form descarta edições ao refetch (validateCar/deleteFarm)', () => {
   it('preserva a fazenda em edição após refetch do mesmo produtor', () => {
     const producerV1 = makeProducer([farmA, farmB]);
-    // Simula refetch: mesmo id, nova referência (carStatus mudou)
     const producerV2 = makeProducer([
       { ...farmA, carStatus: 'ACTIVE' },
       farmB,
@@ -145,15 +112,12 @@ describe('POC H1 — reset do form descarta edições ao refetch (validateCar/de
       { initialProps: { existing: producerV1 as ProducerResponse | null } },
     );
 
-    // 1. Carga inicial → editingFarmId = farmA
     expect(result.current.editingFarmId).toBe('farm-a');
 
-    // 2. Usuário clica em farms[1]=B
     act(() => result.current.loadFarmIntoForm(farmB));
     expect(result.current.editingFarmId).toBe('farm-b');
     expect(result.current.getValues('farm').name).toBe('Fazenda B');
 
-    // 3. Usuário edita o nome de B
     act(() =>
       result.current.setValue('farm.name', 'Fazenda B editada', {
         shouldValidate: false,
@@ -161,11 +125,9 @@ describe('POC H1 — reset do form descarta edições ao refetch (validateCar/de
     );
     expect(result.current.getValues('farm').name).toBe('Fazenda B editada');
 
-    // 4. validateCar invalida ['Producers'] → getProducer refaz → nova ref
     rerender({ existing: producerV2 as ProducerResponse | null });
 
-    // 5. EXPECTADO (correto): form continua em B editada
-    expect(result.current.editingFarmId).toBe('farm-b'); // ← FAIL atual: 'farm-a'
-    expect(result.current.getValues('farm').name).toBe('Fazenda B editada'); // ← FAIL atual: 'Fazenda A'
+    expect(result.current.editingFarmId).toBe('farm-b');
+    expect(result.current.getValues('farm').name).toBe('Fazenda B editada');
   });
 });

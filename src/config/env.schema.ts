@@ -64,6 +64,10 @@ const envSchema = z
       .positive()
       .max(500)
       .default(50),
+    ESG_CAR_ENABLED: z
+      .enum(['0', '1', 'true', 'false'])
+      .optional()
+      .default('0'),
   })
   .superRefine((data, ctx) => {
     if (data.ENCRYPTION_KEY_PREVIOUS && !data.ENCRYPTION_KEY_PREVIOUS_ID) {
@@ -180,4 +184,8 @@ export function parseEnv(env: NodeJS.ProcessEnv = process.env): Env {
 
 export function isTrustProxyEnabled(env: Env): boolean {
   return env.TRUST_PROXY === 'true' || env.TRUST_PROXY === '1';
+}
+
+export function isEsgCarEnabled(env: Pick<Env, 'ESG_CAR_ENABLED'>): boolean {
+  return env.ESG_CAR_ENABLED === '1' || env.ESG_CAR_ENABLED === 'true';
 }

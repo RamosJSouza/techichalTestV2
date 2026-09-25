@@ -1,9 +1,10 @@
+import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import { Farm } from '../../domain/entities/farm.js';
 import { Producer } from '../../domain/entities/producer.js';
 import { ConflictException } from '../../domain/exceptions/conflict.exception.js';
+import type { EsgStatus } from '../../domain/policies/socio-environmental.policy.js';
 import type { IProducerRepository } from '../../domain/repositories/producer.repository.js';
 import { CpfCnpj } from '../../domain/value-objects/cpf-cnpj.js';
-import type { ExternalValidationStatus } from '../../domain/constants/external-validation-status.js';
 import type { AppConfigPort } from '../services/app-config.port.js';
 import { applyEsgCheck } from '../services/apply-esg-check.js';
 import { applyFarmCompliancePolicies } from '../services/apply-farm-compliance.js';
@@ -72,20 +73,24 @@ export class CreateProducerUseCase {
       }
     }
 
-    let esgStatus = await applyEsgCheck({
-      documentDigits: document.value,
-      strictMode: this.config.isEsgStrictMode(),
-      logger: this.logger,
-    });
+    const esgCarEnabled = this.config.isEsgCarEnabled();
+    let esgStatus: EsgStatus = 'APPROVED';
+    if (esgCarEnabled) {
+      esgStatus = await applyEsgCheck({
+        documentDigits: document.value,
+        strictMode: this.config.isEsgStrictMode(),
+        logger: this.logger,
+      });
 
-    if (
-      documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION' &&
-      esgStatus === 'APPROVED'
-    ) {
-      esgStatus = 'WARNING';
-      this.logger.warn(
-        `ESG downgraded to WARNING: document pending external validation (...${document.value.slice(-4)})`,
-      );
+      if (
+        documentValidationStatus === 'PENDING_EXTERNAL_VALIDATION' &&
+        esgStatus === 'APPROVED'
+      ) {
+        esgStatus = 'WARNING';
+        this.logger.warn(
+          `ESG downgraded to WARNING: document pending external validation (...${document.value.slice(-4)})`,
+        );
+      }
     }
 
     const producer = Producer.create({
@@ -109,7 +114,7 @@ export class CreateProducerUseCase {
         territorialValidationStatus: territorial.status,
         territorialValidationPendingReason: territorial.pendingReason,
       });
-      applyFarmCompliancePolicies(farm);
+      applyFarmCompliancePolicies(farm, esgCarEnabled);
       producer.addFarm(farm);
     }
 

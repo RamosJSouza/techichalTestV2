@@ -56,11 +56,13 @@ import { DrizzleProducerRepository } from '../infrastructure/repositories/drizzl
 import { AdminRevalidateController } from './controllers/admin-revalidate.controller.js';
 import { DashboardController } from './controllers/dashboard.controller.js';
 import { FarmController } from './controllers/farm.controller.js';
+import { FeaturesController } from './controllers/features.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { IbgeController } from './controllers/ibge.controller.js';
 import { ObservabilityController } from './controllers/observability.controller.js';
 import { ProducerController } from './controllers/producer.controller.js';
 import { AdminTokenGuard } from './guards/admin-token.guard.js';
+import { EsgCarFeatureGuard } from './guards/esg-car-feature.guard.js';
 
 @Module({
   imports: [
@@ -71,6 +73,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
   ],
   controllers: [
     HealthController,
+    FeaturesController,
     ObservabilityController,
     ProducerController,
     FarmController,
@@ -83,6 +86,7 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
     NestLoggerAdapter,
     NestAppConfigAdapter,
     AdminTokenGuard,
+    EsgCarFeatureGuard,
     {
       provide: LOGGER_PORT,
       useExisting: NestLoggerAdapter,
@@ -223,14 +227,16 @@ import { AdminTokenGuard } from './guards/admin-token.guard.js';
         logger: LoggerPort,
         audit: ExternalValidationAuditPort,
         tx: TransactionPort,
+        config: AppConfigPort,
       ): UpdateFarmUseCase =>
-        new UpdateFarmUseCase(farms, brazil, logger, audit, tx),
+        new UpdateFarmUseCase(farms, brazil, logger, audit, tx, config),
       inject: [
         FARM_REPOSITORY,
         BRAZIL_DATA_SERVICE,
         LOGGER_PORT,
         EXTERNAL_VALIDATION_AUDIT_PORT,
         TRANSACTION_PORT,
+        APP_CONFIG_PORT,
       ],
     },
     {

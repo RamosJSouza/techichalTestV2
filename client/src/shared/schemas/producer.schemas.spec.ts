@@ -102,6 +102,17 @@ describe('wizardStep0Schema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('rejeita CPF com dígito verificador inválido', () => {
+    const result = wizardStep0Schema.safeParse({
+      name: 'João',
+      document: '123.456.789-00',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe('CPF ou CNPJ inválido');
+    }
+  });
+
   it('rejeita nome vazio com mensagem em PT', () => {
     const result = wizardStep0Schema.safeParse({
       name: '',

@@ -1,8 +1,10 @@
 import { InMemoryProducerRepository } from '../../testing/in-memory-producer.repository.js';
-import { testCrypto, testLogger } from '../../testing/test-helpers.js';
+import { testConfig, testCrypto, testLogger } from '../../testing/test-helpers.js';
 import {
   buildCreateProducer,
   defaultBrazil,
+  noopAudit,
+  noopTx,
 } from '../../testing/use-case-factories.js';
 import type { BrazilDataServiceInterface } from '../services/brazil-data.service.interface.js';
 import { DeleteProducerUseCase } from './delete-producer.use-case.js';
@@ -138,6 +140,9 @@ describe('Producer use cases', () => {
       repository,
       offline,
       crypto,
+      noopAudit(),
+      noopTx(),
+      testConfig({ esgCarEnabled: true }),
     ).execute({
       name: 'Offline',
       document: '11.222.333/0001-81',

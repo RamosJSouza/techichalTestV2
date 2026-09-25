@@ -11,6 +11,7 @@ import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { DashboardFiltersBar } from '../components/molecules/DashboardFiltersBar';
 import type { StackedBarDatum } from '../components/organisms/charts/StackedBarChartCard';
 import { httpStatusDetail } from '../shared/lib/http-error-detail';
+import { useEsgCarFeature } from '../shared/lib/use-esg-car-enabled';
 import { theme } from '../shared/theme/theme';
 import type {
   DashboardAnalytics,
@@ -64,6 +65,15 @@ const Subtitle = styled.p`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
+const SectionLabel = styled.h2`
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
 const KpiGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -111,24 +121,38 @@ function paletteColor(index: number): string {
   return CHART_PALETTE[index % CHART_PALETTE.length]!;
 }
 
+function buildKpiRows(
+  summary: DashboardSummary,
+  esgCarEnabled: boolean,
+): Array<{ metrica: string; valor: number | null }> {
+  const rows: Array<{ metrica: string; valor: number | null }> = [
+    { metrica: 'Total de fazendas', valor: summary.totalFarms },
+    { metrica: 'Área total (ha)', valor: summary.totalHectares },
+    { metrica: 'Área média/fazenda (ha)', valor: summary.averageFarmSize },
+    { metrica: 'Conformidade CAR (%)', valor: summary.carComplianceRate },
+  ];
+  if (esgCarEnabled) {
+    rows.push({
+      metrica: 'Conformidade ESG (%)',
+      valor: summary.esgComplianceRate,
+    });
+  }
+  rows.push({
+    metrica: 'Risco climático médio',
+    valor: summary.regionalClimateRisk.averageScore,
+  });
+  return rows;
+}
+
 function buildExportSheets(
   summary: DashboardSummary,
   analytics: DashboardAnalytics,
+  esgCarEnabled: boolean,
 ) {
   return [
     {
       name: 'KPIs',
-      rows: [
-        { metrica: 'Total de fazendas', valor: summary.totalFarms },
-        { metrica: 'Área total (ha)', valor: summary.totalHectares },
-        { metrica: 'Área média/fazenda (ha)', valor: summary.averageFarmSize },
-        { metrica: 'Conformidade CAR (%)', valor: summary.carComplianceRate },
-        { metrica: 'Conformidade ESG (%)', valor: summary.esgComplianceRate },
-        {
-          metrica: 'Risco climático médio',
-          valor: summary.regionalClimateRisk.averageScore,
-        },
-      ],
+      rows: buildKpiRows(summary, esgCarEnabled),
     },
     {
       name: 'Por UF',
@@ -170,14 +194,18 @@ function buildExportSheets(
         percentual: c.percentage,
       })),
     },
-    {
-      name: 'ESG',
-      rows: summary.byEsgStatus.map((e) => ({
-        status: e.status,
-        quantidade: e.count,
-        percentual: e.percentage,
-      })),
-    },
+    ...(esgCarEnabled
+      ? [
+          {
+            name: 'ESG',
+            rows: summary.byEsgStatus.map((e) => ({
+              status: e.status,
+              quantidade: e.count,
+              percentual: e.percentage,
+            })),
+          },
+        ]
+      : []),
     {
       name: 'Risco por UF',
       rows: analytics.climateRiskByState.map((r) => ({
@@ -223,6 +251,7 @@ function buildExportSheets(
 }
 
 export function DashboardPage(): React.JSX.Element {
+  const esgCar = useEsgCarFeature();
   const [filters, setFilters] = useState<DashboardFilters>({});
   const [isPending, startTransition] = useTransition();
   const [exporting, setExporting] = useState(false);
@@ -311,7 +340,10 @@ export function DashboardPage(): React.JSX.Element {
     setExporting(true);
     try {
       const { exportToCsv } = await import('../shared/lib/export-csv');
-      exportToCsv(buildExportSheets(summary, analytics), 'dashboard-analitico');
+      exportToCsv(
+        buildExportSheets(summary, analytics, esgCar.enabled),
+        'dashboard-analitico',
+      );
     } finally {
       setExporting(false);
     }
@@ -338,10 +370,10 @@ export function DashboardPage(): React.JSX.Element {
     <Page>
       <TitleRow>
         <TitleBlock>
-          <Title>Dashboard Analítico</Title>
-          {/* Dados: GET /summary (first paint) + GET /analytics — nunca /stats. */}
+          <Title>Visão geral</Title>
           <Subtitle>
-            Visão consolidada de fazendas, conformidade e risco climático
+            Total de fazendas, hectares e a distribuição por estado, cultura e
+            uso do solo.
           </Subtitle>
         </TitleBlock>
         <Button
@@ -362,28 +394,33 @@ export function DashboardPage(): React.JSX.Element {
         onChange={handleFiltersChange}
         harvestYears={harvestYears}
         isRefreshing={isRefreshing}
+        esgCarEnabled={esgCar.enabled}
       />
 
       <KpiGrid>
         <KpiCard
-          label="Total de Fazendas"
+          label="Total de fazendas"
           value={formatNumber(summary.totalFarms)}
           icon="home_work"
         />
         <KpiCard
-          label="Área Total"
+          label="Área total"
           value={formatNumber(summary.totalHectares)}
           unit="ha"
           icon="landscape"
         />
+      </KpiGrid>
+
+      <SectionLabel>À parte do cadastro</SectionLabel>
+      <KpiGrid>
         <KpiCard
-          label="Área Agricultável"
+          label="Área agricultável"
           value={formatNumber(summary.byLandUse.arableHectares)}
           unit="ha"
           icon="agriculture"
         />
         <KpiCard
-          label="Risco Climático Médio"
+          label="Risco climático médio"
           value={
             summary.regionalClimateRisk.averageScore === null
               ? '—'
@@ -403,12 +440,14 @@ export function DashboardPage(): React.JSX.Element {
           unit="%"
           icon="verified"
         />
-        <KpiCard
-          label="Conformidade ESG"
-          value={formatNumber(summary.esgComplianceRate)}
-          unit="%"
-          icon="eco"
-        />
+        {esgCar.enabled ? (
+          <KpiCard
+            label="Conformidade ESG"
+            value={formatNumber(summary.esgComplianceRate)}
+            unit="%"
+            icon="eco"
+          />
+        ) : null}
       </KpiGrid>
 
       <Suspense fallback={<Spinner />}>
@@ -419,6 +458,7 @@ export function DashboardPage(): React.JSX.Element {
           isRefreshing={isRefreshing}
           landUseSlices={landUseSlices}
           stackedCrops={stackedCrops}
+          esgCarEnabled={esgCar.enabled}
         />
       </Suspense>
     </Page>

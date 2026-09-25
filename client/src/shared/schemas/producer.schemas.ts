@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidCpfCnpj } from '../lib/cpf-cnpj';
 
 const requiredString = (label = 'Obrigatório') =>
   z
@@ -48,13 +49,18 @@ export const farmAreasSchema = z
     },
   );
 
-export const wizardStep0Schema = z.object({
-  name: requiredString('Nome obrigatório').max(255),
-  document: z
-    .string({ error: () => ({ message: 'Documento obrigatório' }) })
-    .min(11, { message: 'Documento deve ter ao menos 11 caracteres' })
-    .max(18),
-});
+export const wizardStep0Schema = z
+  .object({
+    name: requiredString('Nome obrigatório').max(255),
+    document: z
+      .string({ error: () => ({ message: 'Documento obrigatório' }) })
+      .min(11, { message: 'Documento deve ter ao menos 11 caracteres' })
+      .max(18),
+  })
+  .refine((data) => isValidCpfCnpj(data.document), {
+    message: 'CPF ou CNPJ inválido',
+    path: ['document'],
+  });
 
 export const wizardStep0EditSchema = z.object({
   name: requiredString('Nome obrigatório').max(255),

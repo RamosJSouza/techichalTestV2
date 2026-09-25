@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
@@ -23,27 +23,35 @@ import {
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { setWizardStep, showToast } from '../store/slices/uiSlice';
 import { Button } from '../components/atoms/Button';
-import { TextInput } from '../components/atoms/TextInput';
 import { Select } from '../components/atoms/Select';
-import { CropChip } from '../components/molecules/CropChip';
-import { ValidationBanner } from '../components/molecules/ValidationBanner';
+import { Spinner } from '../components/atoms/Spinner';
+import { TextInput } from '../components/atoms/TextInput';
 import { CityAutocomplete } from '../components/molecules/CityAutocomplete';
 import { ConfirmDialog } from '../components/molecules/ConfirmDialog';
+import { CropChip } from '../components/molecules/CropChip';
 import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
-import { Spinner } from '../components/atoms/Spinner';
+import { ValidationBanner } from '../components/molecules/ValidationBanner';
 import { BRAZILIAN_STATES } from '../shared/lib/brazilian-states';
+import { CROP_NAMES } from '../shared/lib/crop-names';
 import { httpStatusDetail } from '../shared/lib/http-error-detail';
+import { useEsgCarFeature } from '../shared/lib/use-esg-car-enabled';
 import type { FarmResponse } from '../shared/types/api';
 import {
   defaultFarm,
   emptyToUndefined,
   farmFromResponse,
   normalizeCarNumber,
+  removedHarvestYears,
   toFarmApiPayload,
   toFiniteNumber,
 } from './producer-form-helpers';
 
-const CROPS = ['Soja', 'Milho', 'Café', 'Algodão', 'Cana'] as const;
+const MAX_HARVESTS = 10;
+
+const Lead = styled.p`
+  margin: 0;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
 
 const Card = styled.form`
   background: ${({ theme }) => theme.colors.surface};
@@ -65,10 +73,35 @@ const Steps = styled.div`
 
 const Step = styled.div<{ $active: boolean }>`
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  color: ${({ theme, $active }) =>
+    $active ? theme.colors.primary : theme.colors.textSecondary};
+`;
+
+const StepBar = styled.span<{ $active: boolean }>`
   height: 6px;
   border-radius: 999px;
   background: ${({ theme, $active }) =>
     $active ? theme.colors.primary : theme.colors.border};
+`;
+
+const Remainder = styled.p<{ $negative: boolean }>`
+  margin: 0;
+  font-size: 0.875rem;
+  color: ${({ theme, $negative }) =>
+    $negative ? theme.colors.danger : theme.colors.textSecondary};
+`;
+
+const HarvestBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const ChipRow = styled.div`
@@ -113,7 +146,6 @@ export function ProducerFormPage(): React.JSX.Element {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const step = useAppSelector((s) => s.ui.wizardStep);
-  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
   const [step0Error, setStep0Error] = useState<string | null>(null);
   const [draftFarms, setDraftFarms] = useState<FarmAreasFormValues[]>([]);
   const [editingFarmId, setEditingFarmId] = useState<string | null>(null);
@@ -123,6 +155,7 @@ export function ProducerFormPage(): React.JSX.Element {
     name: string;
   } | null>(null);
   const loadedProducerId = useRef<string | null>(null);
+  const loadedYears = useRef<string[]>([]);
 
   const {
     data: existing,
@@ -138,9 +171,11 @@ export function ProducerFormPage(): React.JSX.Element {
   const [deleteFarm, { isLoading: deletingFarm }] = useDeleteFarmMutation();
   const [validateCar, { isLoading: validatingCar }] =
     useValidateFarmCarMutation();
+  const esgCar = useEsgCarFeature();
 
   const {
     register,
+    control,
     handleSubmit,
     watch,
     setValue,
@@ -158,6 +193,11 @@ export function ProducerFormPage(): React.JSX.Element {
     },
     mode: 'onSubmit',
     reValidateMode: 'onChange',
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'farm.harvests',
   });
 
   useEffect(() => {
@@ -178,39 +218,46 @@ export function ProducerFormPage(): React.JSX.Element {
     const farm = existing.farms[0];
     setEditingFarmId(farm?.id ?? null);
     setIsAddingFarm(!farm);
+    loadedYears.current = farm
+      ? farm.harvests.map((harvest) => harvest.year.trim())
+      : [];
     reset({
       name: existing.name,
       document: '00000000000',
       farm: farm ? farmFromResponse(farm) : defaultFarm(),
     });
-    if (farm?.harvests[0]?.crops) {
-      setSelectedCrops([...farm.harvests[0].crops]);
-    }
   }, [existing, reset]);
 
   const totalArea = watch('farm.totalArea');
   const arableArea = watch('farm.arableArea');
   const vegetationArea = watch('farm.vegetationArea');
-  const harvestYear = watch('farm.harvests.0.year');
+  const harvests = watch('farm.harvests');
   const farmState = watch('farm.state');
   const farmCity = watch('farm.city');
 
-  const areaValid = useMemo(() => {
+  const areas = useMemo(() => {
     const total = toFiniteNumber(totalArea);
     const arable = toFiniteNumber(arableArea);
     const vegetation = toFiniteNumber(vegetationArea);
     if (total === null || arable === null || vegetation === null) {
-      return false;
+      return null;
     }
-    return farmAreasSchema.safeParse({
+    return { total, arable, vegetation };
+  }, [totalArea, arableArea, vegetationArea]);
+
+  const areaValid =
+    areas !== null &&
+    farmAreasSchema.safeParse({
       name: 'x',
       city: 'x',
       state: 'SP',
-      totalArea: total,
-      arableArea: arable,
-      vegetationArea: vegetation,
+      totalArea: areas.total,
+      arableArea: areas.arable,
+      vegetationArea: areas.vegetation,
     }).success;
-  }, [totalArea, arableArea, vegetationArea]);
+
+  const areaRemainder =
+    areas === null ? null : areas.total - areas.arable - areas.vegetation;
 
   const saving =
     creating || updating || updatingFarm || creatingFarm || deletingFarm;
@@ -234,19 +281,27 @@ export function ProducerFormPage(): React.JSX.Element {
   const loadFarmIntoForm = (farm: FarmResponse): void => {
     setIsAddingFarm(false);
     setEditingFarmId(farm.id);
+    loadedYears.current = farm.harvests.map((harvest) => harvest.year.trim());
     reset({
       name: getValues('name'),
       document: getValues('document'),
       farm: farmFromResponse(farm),
     });
-    setSelectedCrops([...(farm.harvests[0]?.crops ?? [])]);
   };
 
   const startNewFarm = (): void => {
     setIsAddingFarm(true);
     setEditingFarmId(null);
+    loadedYears.current = [];
     setValue('farm', defaultFarm());
-    setSelectedCrops([]);
+  };
+
+  const toggleCrop = (index: number, crop: string): void => {
+    const current = getValues(`farm.harvests.${index}.crops`) ?? [];
+    const next = current.includes(crop)
+      ? current.filter((item) => item !== crop)
+      : [...current, crop];
+    setValue(`farm.harvests.${index}.crops`, next, { shouldDirty: true });
   };
 
   const goToStep1 = (): void => {
@@ -284,7 +339,7 @@ export function ProducerFormPage(): React.JSX.Element {
 
   const queueCurrentFarm = (): boolean => {
     const values = getValues();
-    const payload = toFarmApiPayload(values.farm, selectedCrops);
+    const payload = toFarmApiPayload(values.farm);
     const parsed = farmAreasSchema.safeParse(payload);
     if (!parsed.success) {
       dispatch(
@@ -296,13 +351,13 @@ export function ProducerFormPage(): React.JSX.Element {
       return false;
     }
     setDraftFarms((prev) => [...prev, parsed.data]);
+    loadedYears.current = [];
     setValue('farm', defaultFarm());
-    setSelectedCrops([]);
     return true;
   };
 
   const onSubmit = handleSubmit(async (values) => {
-    const current = toFarmApiPayload(values.farm, selectedCrops);
+    const current = toFarmApiPayload(values.farm);
     const parsedCurrent = farmAreasSchema.safeParse(current);
     if (!parsedCurrent.success) {
       return;
@@ -336,6 +391,10 @@ export function ProducerFormPage(): React.JSX.Element {
                   ? parsedCurrent.data.carNumber
                   : null,
               harvests: parsedCurrent.data.harvests,
+              removedYears: removedHarvestYears(
+                loadedYears.current,
+                parsedCurrent.data.harvests,
+              ),
             },
           }).unwrap();
         }
@@ -395,13 +454,20 @@ export function ProducerFormPage(): React.JSX.Element {
   return (
     <>
     <Card onSubmit={onSubmit} noValidate>
-      <h1>{isEdit ? 'Editar produtor' : 'Novo produtor & fazenda'}</h1>
-      <p style={{ color: '#616161', marginTop: 0 }}>
-        Preencha o produtor e uma ou mais fazendas (áreas, safra, CAR).
-      </p>
+      <h1>{isEdit ? 'Editar produtor' : 'Novo produtor'}</h1>
+      <Lead>
+        Informe o produtor e as fazendas. Cada fazenda pode ter várias safras, e
+        cada safra várias culturas.
+      </Lead>
       <Steps>
-        <Step $active={step === 0} />
-        <Step $active={step === 1} />
+        <Step $active={step === 0}>
+          1. Produtor
+          <StepBar $active={step === 0} />
+        </Step>
+        <Step $active={step === 1}>
+          2. Fazenda
+          <StepBar $active={step === 1} />
+        </Step>
       </Steps>
 
       {step === 0 ? (
@@ -444,7 +510,9 @@ export function ProducerFormPage(): React.JSX.Element {
                   >
                     <span>
                       {farm.name} — {farm.city}/{farm.state}
-                      {farm.carStatus ? ` · CAR ${farm.carStatus}` : ''}
+                      {esgCar.enabled && farm.carStatus
+                        ? ` · CAR ${farm.carStatus}`
+                        : ''}
                     </span>
                     <Button
                       type="button"
@@ -547,11 +615,16 @@ export function ProducerFormPage(): React.JSX.Element {
               setValueAs: emptyToUndefined,
             })}
           />
+          {areaRemainder !== null ? (
+            <Remainder $negative={areaRemainder < 0}>
+              Restam {areaRemainder} ha
+            </Remainder>
+          ) : null}
           <ValidationBanner
             valid={areaValid}
             message={
               areaValid
-                ? 'Invariante de área satisfeita (agricultável + vegetação ≤ total).'
+                ? 'A soma cabe na área total.'
                 : 'Área agricultável + vegetação deve ser ≤ área total.'
             }
           />
@@ -567,7 +640,7 @@ export function ProducerFormPage(): React.JSX.Element {
                   : String(v).trim(),
             })}
           />
-          {isEdit && editingFarmId ? (
+          {esgCar.enabled && isEdit && editingFarmId ? (
             <Button
               type="button"
               variant="secondary"
@@ -579,52 +652,49 @@ export function ProducerFormPage(): React.JSX.Element {
             </Button>
           ) : null}
 
-          <TextInput
-            label="Ano da safra"
-            placeholder="2025/2026"
-            value={harvestYear ?? ''}
-            onChange={(e) => {
-              setValue(
-                'farm.harvests',
-                [
-                  {
-                    year: e.target.value,
-                    crops: selectedCrops,
-                  },
-                ],
-                { shouldValidate: true },
-              );
-            }}
-          />
-
-          <div>
-            <strong>Culturas da safra</strong>
-            <ChipRow>
-              {CROPS.map((crop) => (
-                <CropChip
-                  key={crop}
-                  label={crop}
-                  selected={selectedCrops.includes(crop)}
-                  onToggle={() => {
-                    setSelectedCrops((prev) => {
-                      const next = prev.includes(crop)
-                        ? prev.filter((c) => c !== crop)
-                        : [...prev, crop];
-                      const year =
-                        getValues('farm.harvests.0.year') || '2025/2026';
-                      setValue('farm.harvests', [
-                        {
-                          year,
-                          crops: next,
-                        },
-                      ]);
-                      return next;
-                    });
-                  }}
+          {fields.map((field, index) => {
+            const crops = harvests?.[index]?.crops ?? [];
+            return (
+              <HarvestBlock key={field.id}>
+                <TextInput
+                  label={
+                    index === 0 ? 'Ano da safra' : `Ano da safra ${index + 1}`
+                  }
+                  placeholder="2025/2026"
+                  maxLength={10}
+                  {...register(`farm.harvests.${index}.year`)}
                 />
-              ))}
-            </ChipRow>
-          </div>
+                <div>
+                  <strong>Culturas da safra</strong>
+                  <ChipRow>
+                    {CROP_NAMES.map((crop) => (
+                      <CropChip
+                        key={crop}
+                        label={crop}
+                        selected={crops.includes(crop)}
+                        onToggle={() => toggleCrop(index, crop)}
+                      />
+                    ))}
+                  </ChipRow>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => remove(index)}
+                >
+                  Remover safra
+                </Button>
+              </HarvestBlock>
+            );
+          })}
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={fields.length >= MAX_HARVESTS}
+            onClick={() => append({ year: '', crops: [] })}
+          >
+            Adicionar safra
+          </Button>
 
           <Row>
             <Button
@@ -665,7 +735,7 @@ export function ProducerFormPage(): React.JSX.Element {
       title="Excluir fazenda"
       message={
         pendingFarmDelete
-          ? `Remover a fazenda "${pendingFarmDelete.name}"? Esta ação é um soft delete.`
+          ? `A fazenda ${pendingFarmDelete.name} sai da lista.`
           : ''
       }
       busy={deletingFarm}

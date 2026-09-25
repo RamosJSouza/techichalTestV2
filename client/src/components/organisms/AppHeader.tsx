@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { Breadcrumbs } from '../molecules/Breadcrumbs';
 import { SystemStatusPill } from '../molecules/SystemStatusPill';
 import { Icon } from '../atoms/Icon';
 import { useAppDispatch } from '../../store/store';
@@ -39,6 +40,7 @@ export function AppHeader(): React.JSX.Element {
       >
         <Icon name="menu" />
       </MobileToggle>
+      <Breadcrumbs />
       <SystemStatusPill />
     </Header>
   );

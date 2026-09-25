@@ -59,6 +59,33 @@
         ]
       }
     },
+    "/api/v1/features": {
+      "get": {
+        "operationId": "FeaturesController_getFeatures",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "esgCarEnabled": {
+                      "type": "boolean",
+                      "example": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "features"
+        ]
+      }
+    },
     "/api/v1/metrics": {
       "get": {
         "operationId": "HealthController_metricsEndpoint",
@@ -1475,6 +1502,15 @@
                 "crops"
               ],
               "additionalProperties": false
+            }
+          },
+          "removedYears": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10
             }
           }
         },

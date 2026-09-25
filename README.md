@@ -10,6 +10,24 @@ Validação limpa executada em **2026-09-21** — ver [`docs/release-checklist.m
 
 ---
 
+## O que o desafio pede
+
+O [teste técnico v2](https://github.com/brain-ag/trabalhe-conosco) pede o cadastro de produtores rurais. Cada item aparece na tela:
+
+1. Cadastrar, editar e excluir produtores — lista **Produtores** e o formulário **Novo produtor**.
+2. Validar CPF ou CNPJ — o botão **Continuar** recusa dígito verificador inválido; a API repete a mesma regra.
+3. Área agricultável + vegetação não ultrapassa a área total — o formulário mostra **Restam N ha** e a API rejeita o excesso.
+4. Várias culturas na mesma fazenda — chips em cada safra (Soja e Milho juntas, por exemplo).
+5. Um produtor com 0, 1 ou mais fazendas — a criação tem a fila **Adicionar fazenda à fila**; a edição tem **+ Nova fazenda**.
+6. Cada safra com 0, 1 ou mais culturas, e mais de um ano — **Adicionar safra** no passo **2. Fazenda** (Safra 2021 e Safra 2022).
+7. Visão geral com total de fazendas, hectares e três gráficos: **Uso do solo**, **Culturas plantadas** e **Fazendas por estado**.
+
+## Fora do enunciado
+
+Cifragem do documento, BrasilAPI, risco climático e a flag ESG/CAR continuam no código e aparecem abaixo da primeira dobra, na seção **À parte do cadastro**. A tabela do que é requisito e do que é extensão está em [Escopo do desafio vs extensões](#escopo-do-desafio-vs-extensões).
+
+---
+
 ## Quickstart verificado (do zero)
 
 ### Pré-requisito único (recomendado)

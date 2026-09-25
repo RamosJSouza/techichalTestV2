@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -23,6 +24,7 @@ import {
   UpdateFarmDto,
   UuidParamDto,
 } from '../dtos/producer.dto.js';
+import { EsgCarFeatureGuard } from '../guards/esg-car-feature.guard.js';
 import { toFarmResponse } from '../mappers/producer-response.mapper.js';
 
 @ApiTags('farms')
@@ -53,6 +55,7 @@ export class FarmController {
   }
 
   @Post(':id/car/validate')
+  @UseGuards(EsgCarFeatureGuard)
   @ApiOkResponse({ description: 'Auditoria CAR (validação local)' })
   public async validateCar(@Param() params: UuidParamDto) {
     return this.validateFarmCar.execute(params.id);

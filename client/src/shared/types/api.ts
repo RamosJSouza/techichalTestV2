@@ -198,6 +198,7 @@ export type UpdateFarmInput = {
   arableArea?: number;
   vegetationArea?: number;
   harvests?: Array<{ year: string; crops: string[] }>;
+  removedYears?: string[];
   carNumber?: string | null;
 };
 

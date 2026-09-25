@@ -41,6 +41,7 @@ jest.mock('../store/api/apiSlice', () => ({
   useDeleteFarmMutation: jest.fn(),
   useValidateFarmCarMutation: jest.fn(),
   useLazyListCitiesQuery: jest.fn(),
+  useLazySearchProducerQuery: jest.fn(),
   useGetFeaturesQuery: jest.fn(),
 }));
 
@@ -50,6 +51,7 @@ import {
   useDeleteFarmMutation,
   useGetProducerQuery,
   useLazyListCitiesQuery,
+  useLazySearchProducerQuery,
   useUpdateFarmMutation,
   useGetFeaturesQuery,
   useUpdateProducerMutation,
@@ -68,6 +70,9 @@ function featuresState(enabled: boolean) {
     isError: false,
   };
 }
+const searchUnwrap = jest.fn();
+const searchTrigger = jest.fn(() => ({ unwrap: searchUnwrap }));
+const mockSearch = useLazySearchProducerQuery as jest.Mock;
 const mockCreate = useCreateProducerMutation as jest.Mock;
 const mockUpdateProducer = useUpdateProducerMutation as jest.Mock;
 const mockUpdateFarm = useUpdateFarmMutation as jest.Mock;
@@ -102,6 +107,25 @@ function renderAt(route: string) {
   return store;
 }
 
+function renderNewProducer() {
+  mockGet.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  });
+  return renderAt('/producers/new');
+}
+
+function fillProducerDocument(name: string, document: string): void {
+  fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
+    target: { value: name },
+  });
+  fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
+    target: { value: document },
+  });
+}
+
 const sampleProducer = {
   id: 'prod-1',
   name: 'Fazenda Teste Ltda',
@@ -124,7 +148,7 @@ const sampleProducer = {
 };
 
 async function fillFarmStep(): Promise<void> {
-  fireEvent.change(screen.getByLabelText(/Nome da fazenda/i), {
+  fireEvent.change(await screen.findByLabelText(/Nome da fazenda/i), {
     target: { value: 'Fazenda Alfa' },
   });
   fireEvent.change(screen.getByLabelText(/^UF$/i), {
@@ -173,6 +197,8 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
       { isLoading: false },
     ]);
     mockFeatures.mockReturnValue(featuresState(false));
+    searchUnwrap.mockRejectedValue({ status: 404 });
+    mockSearch.mockReturnValue([searchTrigger]);
   });
 
   it('não exibe Validar CAR com a flag desligada', async () => {
@@ -239,14 +265,7 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
   });
 
   it('modo criação não exibe Validar CAR sem fazenda salva', () => {
-    mockGet.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-    });
-
-    renderAt('/producers/new');
+    renderNewProducer();
 
     expect(
       screen.getByRole('heading', { name: /Novo produtor/i }),
@@ -277,21 +296,9 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
   });
 
   it('create producer chama mutation e navega', async () => {
-    mockGet.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-    });
+    const store = renderNewProducer();
 
-    const store = renderAt('/producers/new');
-
-    fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
-      target: { value: 'Produtor Novo' },
-    });
-    fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
-      target: { value: '11222333000181' },
-    });
+    fillProducerDocument('Produtor Novo', '11222333000181');
     fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
 
     await fillFarmStep();
@@ -353,20 +360,8 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
   });
 
   it('criação envia Safra 2021 e Safra 2022', async () => {
-    mockGet.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-    });
-
-    renderAt('/producers/new');
-    fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
-      target: { value: 'Produtor Novo' },
-    });
-    fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
-      target: { value: '529.982.247-25' },
-    });
+    renderNewProducer();
+    fillProducerDocument('Produtor Novo', '529.982.247-25');
     fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
 
     await fillFarmStep();
@@ -453,23 +448,74 @@ describe('ProducerFormPage — CRUD, CAR e erro HTTP', () => {
   });
 
   it('Continuar recusa CPF com dígito inválido', () => {
+    renderNewProducer();
+    fillProducerDocument('Produtor Novo', '123.456.789-00');
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    expect(screen.getByText('CPF ou CNPJ inválido')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nome da fazenda/i)).not.toBeInTheDocument();
+    expect(searchTrigger).not.toHaveBeenCalled();
+  });
+
+  it('Continuar avança quando o documento ainda não está cadastrado', async () => {
+    renderNewProducer();
+    fillProducerDocument('Produtor Novo', '529.982.247-25');
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    expect(await screen.findByLabelText(/Nome da fazenda/i)).toBeInTheDocument();
+    expect(searchTrigger).toHaveBeenCalledWith('529.982.247-25');
+  });
+
+  it('Continuar explica quando o CPF já está cadastrado', async () => {
+    searchUnwrap.mockResolvedValue({
+      id: 'prod-existente',
+      name: 'Ana Souza',
+    });
+    renderNewProducer();
+    fillProducerDocument('Produtor Novo', '529.982.247-25');
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+
+    expect(
+      await screen.findByText('Este CPF já está cadastrado.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/O cadastro de Ana Souza já usa este documento/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrir cadastro' })).toHaveAttribute(
+      'href',
+      '/producers/prod-existente/edit?passo=fazenda',
+    );
+    expect(screen.queryByLabelText(/Nome da fazenda/i)).not.toBeInTheDocument();
+  });
+
+  it('Abrir cadastro abre a fazenda sem Continuar', async () => {
     mockGet.mockReturnValue({
-      data: undefined,
+      data: sampleProducer,
       isLoading: false,
       isError: false,
       refetch: jest.fn(),
     });
 
-    renderAt('/producers/new');
-    fireEvent.change(screen.getByLabelText(/Nome do produtor/i), {
-      target: { value: 'Produtor Novo' },
-    });
-    fireEvent.change(screen.getByLabelText(/CPF ou CNPJ/i), {
-      target: { value: '123.456.789-00' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
+    renderAt('/producers/prod-1/edit?passo=fazenda');
 
-    expect(screen.getByText('CPF ou CNPJ inválido')).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Nome da fazenda/i)).not.toBeInTheDocument();
+    expect(await screen.findByLabelText(/Nome da fazenda/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Continuar/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('edição não busca documento', async () => {
+    mockGet.mockReturnValue({
+      data: sampleProducer,
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    renderAt('/producers/prod-1/edit');
+    fireEvent.click(await screen.findByRole('button', { name: /Continuar/i }));
+
+    expect(await screen.findByLabelText(/Nome da fazenda/i)).toBeInTheDocument();
+    expect(searchTrigger).not.toHaveBeenCalled();
   });
 });

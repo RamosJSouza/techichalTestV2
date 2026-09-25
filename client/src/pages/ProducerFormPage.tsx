@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   farmAreasSchema,
@@ -16,6 +16,7 @@ import {
   useCreateProducerMutation,
   useDeleteFarmMutation,
   useGetProducerQuery,
+  useLazySearchProducerQuery,
   useUpdateFarmMutation,
   useUpdateProducerMutation,
   useValidateFarmCarMutation,
@@ -32,6 +33,7 @@ import { CropChip } from '../components/molecules/CropChip';
 import { ErrorRetryPanel } from '../components/molecules/ErrorRetryPanel';
 import { ValidationBanner } from '../components/molecules/ValidationBanner';
 import { BRAZILIAN_STATES } from '../shared/lib/brazilian-states';
+import { digitsOnly } from '../shared/lib/match-producer-search';
 import { CROP_NAMES } from '../shared/lib/crop-names';
 import { httpStatusDetail } from '../shared/lib/http-error-detail';
 import { useEsgCarFeature } from '../shared/lib/use-esg-car-enabled';
@@ -140,13 +142,116 @@ const Row = styled.div`
   gap: 12px;
 `;
 
+const DuplicateGuide = styled.p`
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: ${({ theme }) => theme.radii.sm};
+  border: 1px solid #e57373;
+  background: ${({ theme }) => theme.colors.dangerBg};
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 0.875rem;
+`;
+
+const GuideLink = styled(Link)`
+  color: inherit;
+  font-weight: 700;
+`;
+
+type Step0Field = 'name' | 'document';
+
+type FoundProducer = {
+  id: string;
+  name: string;
+};
+
+type ContinueProducerStepInput = {
+  isEdit: boolean;
+  name: string;
+  document: string;
+  search: (document: string) => Promise<FoundProducer>;
+  resetStepFeedback: () => void;
+  setChecking: (checking: boolean) => void;
+  setFieldError: (field: Step0Field, message: string) => void;
+  setStepError: (message: string) => void;
+  setDuplicate: (producer: FoundProducer) => void;
+  advance: () => void;
+};
+
+function duplicateDocumentMessage(document: string): string {
+  if (digitsOnly(document).length === 14) {
+    return 'Este CNPJ já está cadastrado.';
+  }
+  return 'Este CPF já está cadastrado.';
+}
+
+function isNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    error.status === 404
+  );
+}
+
+async function continueProducerStep(
+  input: ContinueProducerStepInput,
+): Promise<void> {
+  const parsed = input.isEdit
+    ? wizardStep0EditSchema.safeParse({ name: input.name })
+    : wizardStep0Schema.safeParse({
+        name: input.name,
+        document: input.document,
+      });
+
+  input.resetStepFeedback();
+
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0];
+      if (key === 'name' || key === 'document') {
+        input.setFieldError(key, issue.message);
+      }
+    }
+    input.setStepError('Corrija os campos do produtor antes de continuar.');
+    return;
+  }
+
+  if (input.isEdit) {
+    input.advance();
+    return;
+  }
+
+  input.setChecking(true);
+  try {
+    const found = await input.search(input.document);
+    input.setFieldError('document', duplicateDocumentMessage(input.document));
+    input.setDuplicate({ id: found.id, name: found.name });
+  } catch (error: unknown) {
+    if (isNotFound(error)) {
+      input.advance();
+    } else {
+      input.setStepError(
+        'Não foi possível conferir o documento. Tente continuar de novo.',
+      );
+    }
+  } finally {
+    input.setChecking(false);
+  }
+}
+
 export function ProducerFormPage(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const isEdit = Boolean(id);
+  const openOnFarm = searchParams.get('passo') === 'fazenda';
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const step = useAppSelector((s) => s.ui.wizardStep);
   const [step0Error, setStep0Error] = useState<string | null>(null);
+  const [checkingDocument, setCheckingDocument] = useState(false);
+  const [existingDocument, setExistingDocument] = useState<FoundProducer | null>(
+    null,
+  );
   const [draftFarms, setDraftFarms] = useState<FarmAreasFormValues[]>([]);
   const [editingFarmId, setEditingFarmId] = useState<string | null>(null);
   const [isAddingFarm, setIsAddingFarm] = useState(false);
@@ -171,6 +276,7 @@ export function ProducerFormPage(): React.JSX.Element {
   const [deleteFarm, { isLoading: deletingFarm }] = useDeleteFarmMutation();
   const [validateCar, { isLoading: validatingCar }] =
     useValidateFarmCarMutation();
+  const [searchProducer] = useLazySearchProducerQuery();
   const esgCar = useEsgCarFeature();
 
   const {
@@ -200,17 +306,15 @@ export function ProducerFormPage(): React.JSX.Element {
     name: 'farm.harvests',
   });
 
-  useEffect(() => {
-    dispatch(setWizardStep(0));
-  }, [dispatch]);
+  useLayoutEffect(() => {
+    dispatch(setWizardStep(openOnFarm ? 1 : 0));
+  }, [dispatch, openOnFarm]);
 
   useEffect(() => {
     if (!existing) {
       loadedProducerId.current = null;
       return;
     }
-    // Ignora refetch de cache do mesmo produtor (ex.: após validateCar/deleteFarm)
-    // para não descartar edições em andamento nem trocar de fazenda ativa.
     if (loadedProducerId.current === existing.id) {
       return;
     }
@@ -304,30 +408,28 @@ export function ProducerFormPage(): React.JSX.Element {
     setValue(`farm.harvests.${index}.crops`, next, { shouldDirty: true });
   };
 
-  const goToStep1 = (): void => {
+  const goToStep1 = (): Promise<void> => {
     const values = getValues();
-    const parsed = isEdit
-      ? wizardStep0EditSchema.safeParse({ name: values.name })
-      : wizardStep0Schema.safeParse({
-          name: values.name,
-          document: values.document,
-        });
-
-    clearErrors(['name', 'document']);
-    setStep0Error(null);
-
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        const key = issue.path[0];
-        if (key === 'name' || key === 'document') {
-          setError(key, { type: 'manual', message: issue.message });
-        }
-      }
-      setStep0Error('Corrija os campos do produtor antes de continuar.');
-      return;
-    }
-
-    dispatch(setWizardStep(1));
+    return continueProducerStep({
+      isEdit,
+      name: values.name,
+      document: values.document,
+      search: (document) => searchProducer(document).unwrap(),
+      resetStepFeedback: () => {
+        clearErrors(['name', 'document']);
+        setStep0Error(null);
+        setExistingDocument(null);
+      },
+      setChecking: setCheckingDocument,
+      setFieldError: (field, message) => {
+        setError(field, { type: 'manual', message });
+      },
+      setStepError: setStep0Error,
+      setDuplicate: setExistingDocument,
+      advance: () => {
+        dispatch(setWizardStep(1));
+      },
+    });
   };
 
   const onInvalid = (formErrors: typeof errors): void => {
@@ -489,11 +591,29 @@ export function ProducerFormPage(): React.JSX.Element {
               message="Documento permanece mascarado nas leituras; neste fluxo editamos o nome e as fazendas."
             />
           )}
+          {existingDocument ? (
+            <DuplicateGuide role="status">
+              O cadastro de {existingDocument.name} já usa este documento. Abra
+              esse cadastro para incluir uma fazenda, ou informe outro
+              documento.{' '}
+              <GuideLink
+                to={`/producers/${existingDocument.id}/edit?passo=fazenda`}
+              >
+                Abrir cadastro
+              </GuideLink>
+            </DuplicateGuide>
+          ) : null}
           {step0Error ? (
             <ValidationBanner valid={false} message={step0Error} />
           ) : null}
-          <Button type="button" onClick={goToStep1}>
-            Continuar
+          <Button
+            type="button"
+            onClick={() => {
+              void goToStep1();
+            }}
+            disabled={checkingDocument}
+          >
+            {checkingDocument ? 'Conferindo documento…' : 'Continuar'}
           </Button>
         </>
       ) : (
